@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "nameless-music-player",
+        "title": "Nameless Music Player",
         "width": 800,
         "height": 600
       }
