@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 import "./App.css";
 import reactLogo from "./assets/react.svg";
@@ -12,8 +13,20 @@ function App() {
     setGreetMsg(await invoke("greet", { name }));
   }
 
+  const handleDirectorySelection = async () => {
+    const directory = await open({
+      multiple: false,
+      directory: true,
+      title: "Select a directory",
+    });
+    if (directory) {
+      console.log(directory);
+    }
+  };
+
   return (
     <main className="container">
+      <button onClick={handleDirectorySelection}>Select a directory</button>
       <h1>Welcome to Tauri + React</h1>
 
       <div className="row">
