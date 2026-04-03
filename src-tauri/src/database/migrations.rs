@@ -1,10 +1,10 @@
-use tauri_plugin_sql::Migration;
+use std::{error::Error, str::FromStr};
 
-pub fn get_migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "create_initial_schema.sql",
-        sql: include_str!("../../migrations/0001_create_initial_schema.sql"),
-        kind: tauri_plugin_sql::MigrationKind::Up,
-    }]
+use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
+
+pub async fn run_migrations() -> Result<(), Box<dyn Error>> {
+    let options = SqliteConnectOptions::from_str("sqlite:data.db")?.create_if_missing(true);
+    let pool = SqlitePool::connect_with(options).await?;
+
+    Ok(sqlx::migrate!().run(&pool).await?)
 }

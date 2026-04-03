@@ -2225,11 +2225,12 @@ dependencies = [
  "sea-query",
  "serde",
  "serde_json",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
- "tauri-plugin-sql",
+ "tokio",
 ]
 
 [[package]]
@@ -3690,12 +3691,10 @@ dependencies = [
  "sha2",
  "smallvec",
  "thiserror 2.0.18",
- "time",
  "tokio",
  "tokio-stream",
  "tracing",
  "url",
- "uuid",
 ]
 
 [[package]]
@@ -3774,9 +3773,7 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.18",
- "time",
  "tracing",
- "uuid",
  "whoami",
 ]
 
@@ -3813,9 +3810,7 @@ dependencies = [
  "sqlx-core",
  "stringprep",
  "thiserror 2.0.18",
- "time",
  "tracing",
- "uuid",
  "whoami",
 ]
 
@@ -3839,10 +3834,8 @@ dependencies = [
  "serde_urlencoded",
  "sqlx-core",
  "thiserror 2.0.18",
- "time",
  "tracing",
  "url",
- "uuid",
 ]
 
 [[package]]
@@ -4216,26 +4209,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-sql"
-version = "2.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27454a5476feb6ea78d74d0f07085fc8a5e97565d7ae825373011fd27ec30303"
-dependencies = [
- "futures-core",
- "indexmap 2.13.0",
- "log",
- "serde",
- "serde_json",
- "sqlx",
- "tauri",
- "tauri-plugin",
- "thiserror 2.0.18",
- "time",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "tauri-runtime"
 version = "2.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4464,9 +4437,23 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
+ "tokio-macros",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af407857209536a95c8e56f8231ef2c2e2aff839b22e07a1ffcbc617e9db9fa5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
