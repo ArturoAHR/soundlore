@@ -6,6 +6,9 @@ mod file;
 mod scanner;
 mod tracks;
 
+use tauri::Manager;
+
+use crate::core::database::{check_schema_version, create_pool};
 use crate::core::migrations::run_migrations;
 use crate::scanner::commands::scan_files_in_directory;
 
@@ -44,7 +47,18 @@ pub fn run() {
                 ))
                 .build(),
         )
-        .setup(|app| tauri::async_runtime::block_on(run_migrations(&app.handle())))
+        .setup(|app| {
+            tauri::async_runtime::block_on(async {
+                let pool = create_pool(&app.handle()).await?;
+
+                check_schema_version(&pool).await?;
+                run_migrations(&pool).await?;
+
+                app.manage(pool);
+
+                Ok(())
+            })
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![greet, scan_files_in_directory])

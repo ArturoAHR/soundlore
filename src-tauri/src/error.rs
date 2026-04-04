@@ -9,6 +9,9 @@ pub enum AppError {
     #[error("database error: {0}")]
     Db(#[from] sqlx::Error),
 
+    #[error("app was downgraded but database is already at version {current} (app expects {expected}), please update the app.")]
+    DbDowngradeDetected { current: i64, expected: i64 },
+
     #[error("track not found: {path}")]
     TrackNotFound { path: PathBuf },
 
@@ -36,6 +39,7 @@ impl Serialize for AppError {
         ErrorPayload {
             code: match self {
                 AppError::Db(_) => "DB_ERROR",
+                AppError::DbDowngradeDetected { .. } => "DB_VERSION_MISMATCH_ERROR",
                 AppError::TrackNotFound { .. } => "TRACK_NOT_FOUND",
                 AppError::PlaylistNotFound { .. } => "PLAYLIST_NOT_FOUND",
                 AppError::Io(_) => "IO_ERROR",
