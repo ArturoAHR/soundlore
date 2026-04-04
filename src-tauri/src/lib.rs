@@ -2,6 +2,7 @@ mod config;
 mod error;
 
 mod core;
+mod file;
 mod scanner;
 
 use crate::core::migrations::run_migrations;
@@ -16,9 +17,23 @@ fn greet(name: &str) -> String {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_cli::init())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(tauri_plugin_log::log::LevelFilter::Info)
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("logs".to_string()),
+                    },
+                ))
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Webview,
+                ))
+                .build(),
+        )
         .setup(|app| tauri::async_runtime::block_on(run_migrations(&app.handle())))
-        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![greet, scan_files_in_directory])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

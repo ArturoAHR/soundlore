@@ -14,13 +14,16 @@ function App() {
   }
 
   const handleDirectorySelection = async () => {
-    const directory = await open({
-      multiple: false,
+    const directories = await open({
+      multiple: true,
       directory: true,
       title: "Select a directory",
     });
-    if (directory) {
-      console.log(directory);
+
+    if (directories) {
+      await invoke("scan_files_in_directory", {
+        directories,
+      });
     }
   };
 
