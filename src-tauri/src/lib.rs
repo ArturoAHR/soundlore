@@ -16,11 +16,23 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let verbose = std::env::args().any(|a| a == "--verbose" || a == "-v");
+    let very_verbose = std::env::args().any(|a| a == "--very-verbose" || a == "-vv");
+
+    let mut log_level = tauri_plugin_log::log::LevelFilter::Info;
+
+    if verbose {
+        log_level = tauri_plugin_log::log::LevelFilter::Debug;
+    }
+
+    if very_verbose {
+        log_level = tauri_plugin_log::log::LevelFilter::Trace;
+    }
+
     tauri::Builder::default()
-        .plugin(tauri_plugin_cli::init())
         .plugin(
             tauri_plugin_log::Builder::new()
-                .level(tauri_plugin_log::log::LevelFilter::Info)
+                .level(log_level)
                 .target(tauri_plugin_log::Target::new(
                     tauri_plugin_log::TargetKind::LogDir {
                         file_name: Some("logs".to_string()),
