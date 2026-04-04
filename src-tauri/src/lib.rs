@@ -4,6 +4,7 @@ mod error;
 mod core;
 mod file;
 mod scanner;
+mod tracks;
 
 use crate::core::migrations::run_migrations;
 use crate::scanner::commands::scan_files_in_directory;
