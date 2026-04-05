@@ -2468,6 +2468,7 @@ name = "nameless-music-player"
 version = "0.1.0"
 dependencies = [
  "sea-query",
+ "sea-query-sqlx",
  "serde",
  "serde_json",
  "sqlx",
@@ -2480,6 +2481,7 @@ dependencies = [
  "tauri-plugin-opener",
  "thiserror 2.0.18",
  "tokio",
+ "uuid",
  "walkdir",
 ]
 
@@ -3638,6 +3640,16 @@ dependencies = [
  "quote",
  "syn 2.0.114",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "sea-query-sqlx"
+version = "0.8.0-rc.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4377164b09a11bb692dec6966eb0e6908d63d768defef0be689b39e02cf8544"
+dependencies = [
+ "sea-query",
+ "sqlx",
 ]
 
 [[package]]

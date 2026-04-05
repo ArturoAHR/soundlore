@@ -4,7 +4,7 @@ use tauri_plugin_log::log::{info, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
-use crate::tracks::service::upsert_track;
+use crate::tracks::service::read_track_metadata;
 
 pub fn scan_files_in_directory(directories: Vec<String>) -> Result<(), AppError> {
     info!("Scanning files in directories: {:?}", directories);
@@ -29,17 +29,19 @@ pub fn scan_files_in_directory(directories: Vec<String>) -> Result<(), AppError>
     let mut processed_tracks = vec![];
 
     for track_file_path in track_file_paths {
-        match upsert_track(&track_file_path) {
+        match read_track_metadata(&track_file_path) {
             Ok(track) => processed_tracks.push(track),
             Err(e) => {
                 warn!(
-                    "Could not add or update track {:?}: {}",
+                    "Could not read track metadata for file {:?}: {}",
                     &track_file_path,
                     &e.to_string()
                 )
             }
         };
     }
+
+    println!("{:#?}", processed_tracks);
 
     Ok(())
 }
