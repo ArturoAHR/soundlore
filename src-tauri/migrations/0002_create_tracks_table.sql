@@ -70,5 +70,3 @@ WHERE
 CREATE INDEX IF NOT EXISTS idx_tracks_updated_at ON tracks (updated_at)
 WHERE
   deleted_at IS NULL;
-
-PRAGMA user_version = 2;

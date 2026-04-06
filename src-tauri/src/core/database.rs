@@ -4,7 +4,9 @@ use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use tauri::Manager;
 use tauri_plugin_log::log::debug;
 
-use crate::{config::DATABASE_FILE_NAME, error::AppError};
+use crate::{
+    config::DATABASE_FILE_NAME, core::migrations::get_applied_migrations_count, error::AppError,
+};
 
 pub fn get_database_path(app: &tauri::AppHandle) -> String {
     let data_dir = app
@@ -28,22 +30,22 @@ pub async fn create_pool(app: &tauri::AppHandle) -> Result<SqlitePool, AppError>
     Ok(pool)
 }
 
-/// Verifies the current schema version and determines if migrations are needed
+/// Verifies the current schema version to prevent accidental downgrades.
 ///
 /// # Errors
 /// Returns an error if the current schema version is invalid (the expected version is less than current).
-pub async fn check_schema_version(pool: &SqlitePool) -> Result<bool, AppError> {
+pub async fn check_schema_version(pool: &SqlitePool) -> Result<(), AppError> {
     let expected_schema_version = get_expected_schema_version();
-    let current_schema_version = get_current_schema_version(&pool).await?;
+    let current_schema_version = get_applied_migrations_count(&pool).await?;
 
     if expected_schema_version < current_schema_version {
-        return Err(AppError::DbDowngradeDetected {
+        return Err(AppError::DatabaseDowngradeDetected {
             current: current_schema_version,
             expected: expected_schema_version,
         });
     }
 
-    Ok(current_schema_version < expected_schema_version)
+    Ok(())
 }
 
 pub fn get_expected_schema_version() -> i64 {
@@ -54,14 +56,4 @@ pub fn get_expected_schema_version() -> i64 {
     debug!("Expected Schema Version: {}", version);
 
     version
-}
-
-pub async fn get_current_schema_version(pool: &SqlitePool) -> Result<i64, AppError> {
-    let version = sqlx::query_scalar::<_, i64>("PRAGMA user_version")
-        .fetch_one(pool)
-        .await?;
-
-    debug!("Current Schema Version: {}", version);
-
-    Ok(version)
 }
