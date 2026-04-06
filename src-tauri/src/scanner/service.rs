@@ -1,12 +1,17 @@
 use std::path::PathBuf;
 
+use sqlx::SqlitePool;
 use tauri_plugin_log::log::{info, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
+use crate::tracks::repository::upsert_track;
 use crate::tracks::service::read_track_metadata;
 
-pub fn scan_files_in_directory(directories: Vec<String>) -> Result<(), AppError> {
+pub async fn scan_files_in_directory(
+    pool: &SqlitePool,
+    directories: Vec<String>,
+) -> Result<(), AppError> {
     info!("Scanning files in directories: {:?}", directories);
 
     let valid_directories = directories.into_iter().filter_map(|e| {
@@ -42,6 +47,19 @@ pub fn scan_files_in_directory(directories: Vec<String>) -> Result<(), AppError>
     }
 
     println!("{:#?}", processed_tracks);
+
+    for track in processed_tracks {
+        match upsert_track(pool, &track).await {
+            Ok(_) => {}
+            Err(e) => {
+                warn!(
+                    "Could not insert or update track {:?}: {}",
+                    &track.file_path,
+                    &e.to_string()
+                )
+            }
+        }
+    }
 
     Ok(())
 }

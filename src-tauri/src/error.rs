@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use sea_query::error::Error as SeaQueryError;
 use serde::Serialize;
 use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
@@ -11,6 +12,9 @@ pub enum AppError {
 
     #[error("app was downgraded but database is already at version {current} (app expects {expected}), please update the app.")]
     DbDowngradeDetected { current: i64, expected: i64 },
+
+    #[error("database query generation error: {0}")]
+    DatabaseQueryGeneration(#[from] SeaQueryError),
 
     #[error("track not found: {path}")]
     TrackNotFound { path: PathBuf },
@@ -40,6 +44,7 @@ impl Serialize for AppError {
             code: match self {
                 AppError::Db(_) => "DB_ERROR",
                 AppError::DbDowngradeDetected { .. } => "DB_VERSION_MISMATCH_ERROR",
+                AppError::DatabaseQueryGeneration(_) => "DATABASE_QUERY_GENERATION_ERROR",
                 AppError::TrackNotFound { .. } => "TRACK_NOT_FOUND",
                 AppError::PlaylistNotFound { .. } => "PLAYLIST_NOT_FOUND",
                 AppError::Io(_) => "IO_ERROR",
