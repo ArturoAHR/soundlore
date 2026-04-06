@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::tracks::models::{TrackIden, TrackMetadata};
+use crate::track::models::{TrackIden, TrackMetadata};
 
 pub async fn upsert_track(pool: &SqlitePool, track: &TrackMetadata) -> Result<(), AppError> {
     let id = Uuid::new_v4();

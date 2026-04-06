@@ -5,8 +5,8 @@ use tauri_plugin_log::log::{info, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
-use crate::tracks::repository::upsert_track;
-use crate::tracks::service::read_track_metadata;
+use crate::track::repository::upsert_track;
+use crate::track::service::read_track_metadata;
 
 pub async fn scan_files_in_directory(
     pool: &SqlitePool,

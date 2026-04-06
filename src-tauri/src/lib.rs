@@ -4,7 +4,7 @@ mod error;
 mod core;
 mod file;
 mod scanner;
-mod tracks;
+mod track;
 
 use tauri::Manager;
 

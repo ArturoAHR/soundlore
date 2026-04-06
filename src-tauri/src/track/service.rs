@@ -8,7 +8,7 @@ use symphonia::core::meta::{MetadataOptions, StandardTagKey};
 use symphonia::core::probe::Hint;
 
 use crate::error::AppError;
-use crate::tracks::models::TrackMetadata;
+use crate::track::models::TrackMetadata;
 
 pub fn read_track_metadata(path: &Path) -> Result<TrackMetadata, AppError> {
     let track_file = File::open(path)?;
