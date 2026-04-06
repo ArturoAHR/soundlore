@@ -15,12 +15,6 @@ use crate::core::database::{check_schema_version, create_pool};
 use crate::core::migrations::run_migrations;
 use crate::scanner::commands::scan_files_in_directory;
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let verbose = std::env::args().any(|a| a == "--verbose" || a == "-v");
@@ -70,7 +64,7 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![greet, scan_files_in_directory])
+        .invoke_handler(tauri::generate_handler![scan_files_in_directory])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
