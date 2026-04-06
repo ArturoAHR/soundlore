@@ -35,11 +35,6 @@ pub fn run() {
             tauri_plugin_log::Builder::new()
                 .level(log_level)
                 .target(tauri_plugin_log::Target::new(
-                    tauri_plugin_log::TargetKind::LogDir {
-                        file_name: Some("logs".to_string()),
-                    },
-                ))
-                .target(tauri_plugin_log::Target::new(
                     tauri_plugin_log::TargetKind::Webview,
                 ))
                 .build(),
