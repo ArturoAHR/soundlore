@@ -1,4 +1,5 @@
 mod config;
+mod context;
 mod error;
 
 mod core;
@@ -8,6 +9,7 @@ mod track;
 
 use tauri::Manager;
 
+use crate::context::Context;
 use crate::core::database::{check_schema_version, create_pool};
 use crate::core::migrations::run_migrations;
 use crate::scanner::commands::scan_files_in_directory;
@@ -54,7 +56,9 @@ pub fn run() {
                 check_schema_version(&pool).await?;
                 run_migrations(&pool).await?;
 
-                app.manage(pool);
+                let context = Context::init(pool);
+
+                app.manage(context);
 
                 Ok(())
             })

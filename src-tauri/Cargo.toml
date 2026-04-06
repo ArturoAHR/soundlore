@@ -32,6 +32,7 @@ symphonia = { version = "0.5.5", features = ["all"] }
 tauri-plugin-log = "2"
 uuid = { version = "1.14", features = ["v4"] }
 sea-query-sqlx = { version = "0.8.0-rc.14", features = ["sqlx-sqlite"] }
+async-trait = "0.1.89"
 
 
 [profile.dev]

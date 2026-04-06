@@ -2467,6 +2467,7 @@ dependencies = [
 name = "nameless-music-player"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "sea-query",
  "sea-query-sqlx",
  "serde",
