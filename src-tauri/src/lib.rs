@@ -12,7 +12,7 @@ use tauri_plugin_log::log::debug;
 
 use crate::context::Context;
 use crate::core::database::{check_schema_version, create_pool};
-use crate::core::migrations::run_migrations;
+use crate::core::migrations::run_pending_migrations;
 use crate::scanner::commands::scan_files_in_directory;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -44,7 +44,7 @@ pub fn run() {
                 let pool = create_pool(&app.handle()).await?;
 
                 check_schema_version(&pool).await?;
-                run_migrations(&pool).await?;
+                run_pending_migrations(&pool).await?;
 
                 debug!("Initializing app context");
 

@@ -3,7 +3,11 @@ use tauri_plugin_log::log::info;
 
 use crate::error::AppError;
 
-pub async fn run_migrations(pool: &SqlitePool) -> Result<(), AppError> {
+/// Performs a sanity check on already applied migrations and runs any pending migrations.
+///
+/// # Errors
+/// Returns an error if any of the previously applied migrations is altered.
+pub async fn run_pending_migrations(pool: &SqlitePool) -> Result<(), AppError> {
     info!("Running database migrations.");
 
     sqlx::migrate!().run(pool).await?;
