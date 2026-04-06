@@ -8,6 +8,7 @@ mod scanner;
 mod track;
 
 use tauri::Manager;
+use tauri_plugin_log::log::debug;
 
 use crate::context::Context;
 use crate::core::database::{check_schema_version, create_pool};
@@ -56,9 +57,13 @@ pub fn run() {
                 check_schema_version(&pool).await?;
                 run_migrations(&pool).await?;
 
-                let context = Context::init(pool);
+                debug!("Initializing app context");
+
+                let context = Context::init(pool).await?;
 
                 app.manage(context);
+
+                debug!("App context was successfully initialized");
 
                 Ok(())
             })

@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use sqlx::SqlitePool;
 use tauri_plugin_log::log::{info, warn};
 
 use crate::error::AppError;
@@ -68,8 +67,6 @@ impl ScannerService for ScannerServiceImpl {
                 }
             };
         }
-
-        println!("{:#?}", processed_tracks);
 
         for track in processed_tracks {
             match self.track_repository.upsert_track(&track).await {
