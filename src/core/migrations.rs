@@ -1,5 +1,5 @@
+use log::info;
 use sqlx::SqlitePool;
-use tauri_plugin_log::log::info;
 
 use crate::error::AppError;
 

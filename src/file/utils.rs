@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use tauri_plugin_log::log::{debug, trace};
+use log::{debug, trace};
 use walkdir::WalkDir;
 
 pub fn find_track_files(root: &Path) -> Vec<PathBuf> {

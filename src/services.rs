@@ -11,12 +11,12 @@ use crate::{
     },
 };
 
-pub struct Context {
+pub struct Services {
     pub track_service: Arc<dyn TrackService>,
     pub scanner_service: Arc<dyn ScannerService>,
 }
 
-impl Context {
+impl Services {
     pub async fn init(pool: SqlitePool) -> Result<Self, AppError> {
         let pool = Arc::new(pool);
         let track_repository: Arc<dyn TrackRepository> =

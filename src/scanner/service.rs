@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tauri_plugin_log::log::{info, warn};
+use log::{info, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;

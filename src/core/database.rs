@@ -1,24 +1,24 @@
 use std::str::FromStr;
 
+use log::debug;
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
-use tauri::Manager;
-use tauri_plugin_log::log::debug;
 
 use crate::{
     config::DATABASE_FILE_NAME, core::migrations::get_applied_migrations_count, error::AppError,
 };
 
-pub fn get_database_path(app: &tauri::AppHandle) -> String {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .expect("failed to get app data dir");
+pub fn get_database_path() -> String {
+    let data_dir = dirs::data_dir()
+        .expect("failed to get data dir")
+        .join("nameless-music-player");
+
+    std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
 
     format!("sqlite:{}", data_dir.join(DATABASE_FILE_NAME).display())
 }
 
-pub async fn create_pool(app: &tauri::AppHandle) -> Result<SqlitePool, AppError> {
-    let database_path = get_database_path(app);
+pub async fn create_pool() -> Result<SqlitePool, AppError> {
+    let database_path = get_database_path();
 
     debug!("Connecting to database in location: {}", database_path);
 

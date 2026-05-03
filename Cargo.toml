@@ -1,0 +1,36 @@
+[package]
+name = "nameless-music-player"
+version = "0.1.0"
+description = "A Music Player App"
+authors = ["ArturoAHR"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "nameless_music_player_lib"
+
+[dependencies]
+sea-query = { version = "1.0.0-rc.32", features = ["derive", "backend-sqlite"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", features = [
+  "runtime-tokio",
+  "sqlite",
+  "macros",
+  "migrate",
+] }
+tokio = { version = "1", features = ["full"] }
+thiserror = "2"
+walkdir = "2"
+symphonia = { version = "0.5.5", features = ["all"] }
+uuid = { version = "1.14", features = ["v4"] }
+sea-query-sqlx = { version = "0.8.0-rc.14", features = ["sqlx-sqlite"] }
+async-trait = "0.1.89"
+iced = "0.14.0"
+log = "0.4.29"
+pretty_env_logger = "0.5.0"
+dirs = "6.0.0"
