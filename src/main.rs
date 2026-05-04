@@ -1,7 +1,7 @@
 use nameless_music_player_lib::app::App;
 
 fn main() -> iced::Result {
-    pretty_env_logger::init();
+    env_logger::init();
 
     iced::application(App::new, App::update, App::view)
         .title(App::title)

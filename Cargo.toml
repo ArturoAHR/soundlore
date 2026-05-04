@@ -30,7 +30,7 @@ symphonia = { version = "0.5.5", features = ["all"] }
 uuid = { version = "1.14", features = ["v4"] }
 sea-query-sqlx = { version = "0.8.0-rc.14", features = ["sqlx-sqlite"] }
 async-trait = "0.1.89"
-iced = "0.14.0"
+iced = { version = "0.14.0", features = ["tokio"] }
 log = "0.4.29"
-pretty_env_logger = "0.5.0"
 dirs = "6.0.0"
+env_logger = "0.11.10"

@@ -4,8 +4,19 @@ use log::debug;
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 
 use crate::{
-    config::DATABASE_FILE_NAME, core::migrations::get_applied_migrations_count, error::AppError,
+    config::DATABASE_FILE_NAME,
+    core::migrations::{get_applied_migrations_count, run_pending_migrations},
+    error::AppError,
 };
+
+pub async fn initialize_database() -> Result<SqlitePool, AppError> {
+    let pool = create_pool().await?;
+
+    check_schema_version(&pool).await?;
+    run_pending_migrations(&pool).await?;
+
+    Ok(pool)
+}
 
 pub fn get_database_path() -> String {
     let data_dir = dirs::data_dir()

@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+#[derive(Clone, Debug)]
 pub struct Services {
     pub track_service: Arc<dyn TrackService>,
     pub scanner_service: Arc<dyn ScannerService>,

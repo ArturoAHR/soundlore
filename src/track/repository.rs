@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,10 +12,11 @@ use crate::error::AppError;
 use crate::track::models::{TrackIden, TrackMetadata};
 
 #[async_trait]
-pub trait TrackRepository: Send + Sync {
+pub trait TrackRepository: Send + Sync + Debug {
     async fn upsert_track(&self, track: &TrackMetadata) -> Result<(), AppError>;
 }
 
+#[derive(Debug)]
 pub struct TrackRepositoryImpl {
     pool: Arc<SqlitePool>,
 }

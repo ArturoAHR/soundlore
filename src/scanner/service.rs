@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -10,10 +11,11 @@ use crate::track::repository::TrackRepository;
 use crate::track::service::TrackService;
 
 #[async_trait]
-pub trait ScannerService: Send + Sync {
+pub trait ScannerService: Send + Sync + Debug {
     async fn scan_files_in_directory(&self, directories: Vec<String>) -> Result<(), AppError>;
 }
 
+#[derive(Debug)]
 pub struct ScannerServiceImpl {
     track_service: Arc<dyn TrackService>,
     track_repository: Arc<dyn TrackRepository>,

@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::path::Path;
 
 use std::fs::File;
@@ -12,10 +13,11 @@ use crate::error::AppError;
 use crate::track::models::TrackMetadata;
 
 #[async_trait]
-pub trait TrackService: Send + Sync {
+pub trait TrackService: Send + Sync + Debug {
     fn read_track_metadata(&self, path: &Path) -> Result<TrackMetadata, AppError>;
 }
 
+#[derive(Debug)]
 pub struct TrackServiceImpl {}
 
 impl TrackServiceImpl {
