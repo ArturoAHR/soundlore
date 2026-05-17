@@ -6,7 +6,7 @@ use iced::{
     Element, Task,
 };
 
-use crate::database::database::initialize_database;
+use crate::database::initialize_database;
 
 #[derive(Debug)]
 pub enum App {

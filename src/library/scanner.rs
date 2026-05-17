@@ -14,13 +14,11 @@ pub async fn scan_files_in_directory(
 ) -> Result<(), AppError> {
     info!("Scanning files in directories: {:?}", directories);
 
-    let valid_directories = directories.into_iter().filter_map(|e| {
-        let path = PathBuf::from(&e);
-
+    let valid_directories = directories.into_iter().filter_map(|path| {
         if path.is_dir() {
             Some(path)
         } else {
-            warn!("Invalid directory {:?}, skipping", &e);
+            warn!("Invalid directory {:?}, skipping", &path);
             None
         }
     });

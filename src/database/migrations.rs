@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use sqlx::SqlitePool;
 
 use crate::error::AppError;
@@ -32,4 +32,32 @@ pub async fn get_applied_migrations_count(pool: &SqlitePool) -> Result<i64, AppE
         .await?;
 
     Ok(applied_migrations_count)
+}
+
+/// Verifies the current schema version to prevent accidental downgrades.
+///
+/// # Errors
+/// Returns an error if the current schema version is invalid (the expected version is less than current).
+pub async fn check_schema_version(pool: &SqlitePool) -> Result<(), AppError> {
+    let expected_schema_version = get_expected_schema_version();
+    let current_schema_version = get_applied_migrations_count(pool).await?;
+
+    if expected_schema_version < current_schema_version {
+        return Err(AppError::DatabaseDowngradeDetected {
+            current: current_schema_version,
+            expected: expected_schema_version,
+        });
+    }
+
+    Ok(())
+}
+
+pub fn get_expected_schema_version() -> i64 {
+    let migrator = sqlx::migrate!();
+
+    let version = migrator.migrations.len() as i64;
+
+    debug!("Expected Schema Version: {}", version);
+
+    version
 }
