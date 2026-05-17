@@ -15,7 +15,7 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackMetadata, AppError> {
     let mss = MediaSourceStream::new(Box::new(track_file), Default::default());
 
     let mut hint = Hint::new();
-    if let Some(ext) = Path::new(path).extension().and_then(|e| e.to_str()) {
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
         hint.with_extension(ext);
     }
 

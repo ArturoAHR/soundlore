@@ -10,7 +10,7 @@ use crate::track::repository::upsert_track;
 
 pub async fn scan_files_in_directory(
     pool: &SqlitePool,
-    directories: Vec<String>,
+    directories: Vec<PathBuf>,
 ) -> Result<(), AppError> {
     info!("Scanning files in directories: {:?}", directories);
 
@@ -47,7 +47,7 @@ pub async fn scan_files_in_directory(
     }
 
     for track in processed_tracks {
-        match upsert_track(&pool, &track).await {
+        match upsert_track(pool, &track).await {
             Ok(_) => {}
             Err(e) => {
                 warn!(

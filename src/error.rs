@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use sea_query::error::Error as SeaQueryError;
-use serde::Serialize;
 use sqlx::migrate::MigrateError;
 use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
@@ -31,32 +30,4 @@ pub enum AppError {
 
     #[error("playback error: {0}")]
     Playback(#[from] SymphoniaError),
-}
-
-impl Serialize for AppError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct ErrorPayload {
-            code: &'static str,
-            message: String,
-        }
-
-        ErrorPayload {
-            code: match self {
-                AppError::Database(_) => "DATABASE_ERROR",
-                AppError::DatabaseMigration(_) => "DATABASE_MIGRATION_ERROR",
-                AppError::DatabaseDowngradeDetected { .. } => "DATABASE_VERSION_MISMATCH_ERROR",
-                AppError::DatabaseQueryGeneration(_) => "DATABASE_QUERY_GENERATION_ERROR",
-                AppError::TrackNotFound { .. } => "TRACK_NOT_FOUND",
-                AppError::PlaylistNotFound { .. } => "PLAYLIST_NOT_FOUND",
-                AppError::Io(_) => "IO_ERROR",
-                AppError::Playback(_) => "PLAYBACK_ERROR",
-            },
-            message: self.to_string(),
-        }
-        .serialize(serializer)
-    }
 }

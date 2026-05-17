@@ -5,7 +5,7 @@ use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 
 use crate::{
     config::DATABASE_FILE_NAME,
-    core::migrations::{get_applied_migrations_count, run_pending_migrations},
+    database::migrations::{get_applied_migrations_count, run_pending_migrations},
     error::AppError,
 };
 

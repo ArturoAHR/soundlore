@@ -1,13 +1,12 @@
 use log::error;
 use sqlx::SqlitePool;
-use std::fmt;
 
 use iced::{
     widget::{center, text},
     Element, Task,
 };
 
-use crate::core::database::initialize_database;
+use crate::database::database::initialize_database;
 
 #[derive(Debug)]
 pub enum App {
@@ -15,14 +14,9 @@ pub enum App {
     Ready(State),
 }
 
+#[derive(Debug)]
 pub struct State {
     pool: SqlitePool,
-}
-
-impl fmt::Debug for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MyStruct").finish()
-    }
 }
 
 #[derive(Debug, Clone)]
