@@ -1,4 +1,5 @@
 use log::error;
+use sqlx::SqlitePool;
 use std::fmt;
 
 use iced::{
@@ -6,7 +7,7 @@ use iced::{
     Element, Task,
 };
 
-use crate::{core::database::initialize_database, services::Services};
+use crate::core::database::initialize_database;
 
 #[derive(Debug)]
 pub enum App {
@@ -15,13 +16,7 @@ pub enum App {
 }
 
 pub struct State {
-    services: Services,
-}
-
-impl State {
-    pub fn new(services: Services) -> Self {
-        State { services }
-    }
+    pool: SqlitePool,
 }
 
 impl fmt::Debug for State {
@@ -32,7 +27,7 @@ impl fmt::Debug for State {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Ready(Result<Services, String>),
+    Ready(Result<SqlitePool, String>),
     // ScanLibrary,
     // ScanComplete(Result<(), String>),
 }
@@ -41,13 +36,9 @@ impl App {
     pub fn new() -> (Self, Task<Message>) {
         (
             App::Loading,
-            Task::perform(
-                async {
-                    let pool = initialize_database().await?;
-                    Services::init(pool).await
-                },
-                |result| Message::Ready(result.map_err(|e| e.to_string())),
-            ),
+            Task::perform(async { initialize_database().await }, |result| {
+                Message::Ready(result.map_err(|e| e.to_string()))
+            }),
         )
     }
     pub fn title(&self) -> String {
@@ -55,12 +46,12 @@ impl App {
     }
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Ready(Ok(services)) => {
-                *self = App::Ready(State { services });
+            Message::Ready(Ok(pool)) => {
+                *self = App::Ready(State { pool });
                 Task::none()
             }
             Message::Ready(Err(error)) => {
-                error!("Failed to initialize app services: {:?}", error);
+                error!("Failed to connect with database: {:?}", error);
                 Task::none()
             }
         }
