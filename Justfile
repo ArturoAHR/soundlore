@@ -1,3 +1,5 @@
+set dotenv-load
+
 # Hot Reload
 watch:
     cargo watch -x check -x run
@@ -26,3 +28,6 @@ check:
 # Checking deps for vulnerabilities
 audit:
     cargo audit
+
+migrate name:
+  sqlx migrate add {{name}}

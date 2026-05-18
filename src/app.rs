@@ -22,8 +22,6 @@ pub struct State {
 #[derive(Debug, Clone)]
 pub enum Message {
     Ready(Result<SqlitePool, String>),
-    // ScanLibrary,
-    // ScanComplete(Result<(), String>),
 }
 
 impl App {
