@@ -1,0 +1,10 @@
+[
+  {
+    "label": "run",
+    "command": "just",
+    "reveal": "never",
+    "hide": "on_success",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+  },
+]

@@ -1,4 +1,7 @@
 set dotenv-load
+# Run
+run:
+    cargo run
 
 # Hot Reload
 watch:
