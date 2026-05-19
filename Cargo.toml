@@ -12,6 +12,8 @@ edition = "2021"
 name = "nameless_music_player_lib"
 
 [dependencies]
+iced = { version = "0.14.0", features = ["tokio"] }
+iced_aw = { version = "0.13.0", default-features = false, features = ["menu", "context_menu", "quad"] }
 sea-query = { version = "1.0.0-rc.32", features = ["derive", "backend-sqlite"] }
 serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.8", features = [
@@ -26,7 +28,6 @@ walkdir = "2"
 symphonia = { version = "0.5.5", features = ["all"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 sea-query-sqlx = { version = "0.8.0-rc.14", features = ["sqlx-sqlite"] }
-iced = { version = "0.14.0", features = ["tokio"] }
 log = "0.4.29"
 dirs = "6.0.0"
 env_logger = "0.11.10"
