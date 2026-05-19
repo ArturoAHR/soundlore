@@ -1,4 +1,3 @@
-use log::error;
 use sqlx::SqlitePool;
 
 use iced::{
@@ -8,39 +7,30 @@ use iced::{
 
 use iced_aw::menu::{Item, Menu, MenuBar};
 
-use crate::{
-    database::initialize_database,
-    ui::{
-        icons::{self, icon},
-        theme::{catalog::container::header, Theme},
-    },
+use crate::ui::{
+    icons::{self, icon},
+    theme::{catalog::container::header, Theme},
 };
 
 #[derive(Debug)]
-pub enum App {
-    Loading,
-    Ready(State),
-}
-
-#[derive(Debug)]
-pub struct State {
+pub struct App {
     pub pool: SqlitePool,
     pub ui_scale: f32,
     pub theme: Theme,
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {
-    Ready(Result<SqlitePool, String>),
-}
+pub enum Message {}
 
 impl App {
-    pub fn new() -> (Self, Task<Message>) {
+    pub fn new(pool: SqlitePool, theme: Theme, ui_scale: f32) -> (Self, Task<Message>) {
         (
-            App::Loading,
-            Task::perform(async { initialize_database().await }, |result| {
-                Message::Ready(result.map_err(|e| e.to_string()))
-            }),
+            App {
+                pool,
+                theme,
+                ui_scale,
+            },
+            Task::none(),
         )
     }
 
@@ -49,20 +39,7 @@ impl App {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
-        match message {
-            Message::Ready(Ok(pool)) => {
-                *self = App::Ready(State {
-                    pool,
-                    ui_scale: 1.0,
-                    theme: Theme::DARK,
-                });
-                Task::none()
-            }
-            Message::Ready(Err(error)) => {
-                error!("Failed to connect with database: {:?}", error);
-                Task::none()
-            }
-        }
+        match message {}
     }
 
     pub fn view(&self) -> Element<'_, Message, Theme> {
@@ -77,7 +54,7 @@ impl App {
             .offset(8.0)
             .spacing(2.0),
         )])
-        .safe_bounds_margin(0.0);
+        .safe_bounds_margin(self.theme.sizes.space.md);
 
         let nav_bar = container(row![dropdown, horizontal()]);
 
@@ -90,16 +67,10 @@ impl App {
     }
 
     pub fn scale_factor(&self) -> f32 {
-        match self {
-            App::Loading => 1.0,
-            App::Ready(state) => state.ui_scale,
-        }
+        self.ui_scale
     }
 
     pub fn theme(&self) -> Theme {
-        match self {
-            App::Loading => Theme::default(),
-            App::Ready(state) => state.theme.clone(),
-        }
+        self.theme.to_owned()
     }
 }
