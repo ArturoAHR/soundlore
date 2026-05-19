@@ -2,11 +2,16 @@ use log::error;
 use sqlx::SqlitePool;
 
 use iced::{
-    widget::{center, text},
+    widget::{button, center, column, container, row, space::horizontal, text},
     Element, Task,
 };
 
-use crate::database::initialize_database;
+use iced_aw::menu::{Item, Menu, MenuBar};
+
+use crate::{
+    database::initialize_database,
+    ui::icons::{self, icon},
+};
 
 #[derive(Debug)]
 pub enum App {
@@ -16,7 +21,8 @@ pub enum App {
 
 #[derive(Debug)]
 pub struct State {
-    pool: SqlitePool,
+    pub pool: SqlitePool,
+    pub ui_scale: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -39,7 +45,10 @@ impl App {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Ready(Ok(pool)) => {
-                *self = App::Ready(State { pool });
+                *self = App::Ready(State {
+                    pool,
+                    ui_scale: 1.0,
+                });
                 Task::none()
             }
             Message::Ready(Err(error)) => {
@@ -49,6 +58,28 @@ impl App {
         }
     }
     pub fn view(&self) -> Element<'_, Message> {
-        center(text("Nameless Music Player").size(28)).into()
+        let dropdown = MenuBar::new(vec![Item::with_menu(
+            button(icon(icons::MENU)),
+            Menu::new(vec![
+                Item::new(button("New")),
+                Item::new(button("Open")),
+                Item::new(button("Settings")),
+            ])
+            .max_width(220.0)
+            .offset(8.0) // <- gap between the button and the menu
+            .spacing(2.0), // optional: gap between items
+        )])
+        .safe_bounds_margin(0.0);
+
+        let nav_bar = container(row![dropdown, horizontal()]);
+
+        column![nav_bar, center(text("Nameless Music Player").size(28))].into()
+    }
+
+    pub fn scale_factor(&self) -> f32 {
+        match self {
+            App::Loading => 1.0,
+            App::Ready(state) => state.ui_scale,
+        }
     }
 }

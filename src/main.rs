@@ -1,5 +1,5 @@
 use iced_aw::ICED_AW_FONT_BYTES;
-use nameless_music_player_lib::app::App;
+use nameless_music_player_lib::app::{App, State};
 
 fn main() -> iced::Result {
     env_logger::init();
@@ -9,5 +9,6 @@ fn main() -> iced::Result {
         .window_size((1024.0, 768.0))
         .font(ICED_AW_FONT_BYTES)
         .font(include_bytes!("../fonts/music-player-icons.ttf"))
+        .scale_factor(|app: &App| app.scale_factor())
         .run()
 }
