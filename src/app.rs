@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use sqlx::SqlitePool;
 
 use iced::{
@@ -7,9 +9,12 @@ use iced::{
 
 use iced_aw::menu::{Item, Menu, MenuBar};
 
-use crate::ui::{
-    icons::{self, icon},
-    theme::{catalog::container::header, Theme},
+use crate::{
+    error::AppError,
+    ui::{
+        icons::{self, icon},
+        theme::{catalog::container::header, Theme},
+    },
 };
 
 #[derive(Debug)]
@@ -20,7 +25,10 @@ pub struct App {
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {}
+pub enum Message {
+    OpenDirectoryScanDialog,
+    ScanDirectory(Result<PathBuf, AppError>),
+}
 
 impl App {
     pub fn new(pool: SqlitePool, theme: Theme, ui_scale: f32) -> (Self, Task<Message>) {
@@ -39,7 +47,10 @@ impl App {
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
-        match message {}
+        match message {
+            Message::OpenDirectoryScanDialog => Task::none(),
+            Message::ScanDirectory(_) => Task::none(),
+        }
     }
 
     pub fn view(&self) -> Element<'_, Message, Theme> {
