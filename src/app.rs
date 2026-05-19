@@ -10,7 +10,10 @@ use iced_aw::menu::{Item, Menu, MenuBar};
 
 use crate::{
     database::initialize_database,
-    ui::icons::{self, icon},
+    ui::{
+        icons::{self, icon},
+        theme::{catalog::container::header, Theme},
+    },
 };
 
 #[derive(Debug)]
@@ -23,6 +26,7 @@ pub enum App {
 pub struct State {
     pub pool: SqlitePool,
     pub ui_scale: f32,
+    pub theme: Theme,
 }
 
 #[derive(Debug, Clone)]
@@ -39,15 +43,18 @@ impl App {
             }),
         )
     }
+
     pub fn title(&self) -> String {
         String::from("Nameless Music Player")
     }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Ready(Ok(pool)) => {
                 *self = App::Ready(State {
                     pool,
                     ui_scale: 1.0,
+                    theme: Theme::DARK,
                 });
                 Task::none()
             }
@@ -57,7 +64,8 @@ impl App {
             }
         }
     }
-    pub fn view(&self) -> Element<'_, Message> {
+
+    pub fn view(&self) -> Element<'_, Message, Theme> {
         let dropdown = MenuBar::new(vec![Item::with_menu(
             button(icon(icons::MENU)),
             Menu::new(vec![
@@ -66,20 +74,32 @@ impl App {
                 Item::new(button("Settings")),
             ])
             .max_width(220.0)
-            .offset(8.0) // <- gap between the button and the menu
-            .spacing(2.0), // optional: gap between items
+            .offset(8.0)
+            .spacing(2.0),
         )])
         .safe_bounds_margin(0.0);
 
         let nav_bar = container(row![dropdown, horizontal()]);
 
-        column![nav_bar, center(text("Nameless Music Player").size(28))].into()
+        container(column![
+            nav_bar,
+            center(text("Nameless Music Player").size(28))
+        ])
+        .style(header())
+        .into()
     }
 
     pub fn scale_factor(&self) -> f32 {
         match self {
             App::Loading => 1.0,
             App::Ready(state) => state.ui_scale,
+        }
+    }
+
+    pub fn theme(&self) -> Theme {
+        match self {
+            App::Loading => Theme::default(),
+            App::Ready(state) => state.theme.clone(),
         }
     }
 }

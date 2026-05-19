@@ -1,4 +1,7 @@
-use iced::{widget::text, Element, Font};
+use iced::{
+    widget::{text, text::Catalog},
+    Element, Font,
+};
 
 use crate::app::Message;
 
@@ -14,7 +17,10 @@ pub const NO_SHUFFLE: char = '\u{E801}';
 pub const EQUALIZER: char = '\u{E800}';
 pub const MENU: char = '\u{E806}';
 
-pub fn icon<'a>(codepoint: char) -> Element<'a, Message> {
+pub fn icon<'a, T>(codepoint: char) -> Element<'a, Message, T>
+where
+    T: Catalog + 'a,
+{
     const ICON_FONT: Font = Font::with_name("music-player-icons");
 
     text(codepoint).font(ICON_FONT).into()
