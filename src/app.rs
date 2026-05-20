@@ -30,7 +30,7 @@ pub struct App {
 #[derive(Debug, Clone)]
 pub enum Message {
     OpenDirectoryScanDialog,
-    ScanDirectory(Result<Vec<PathBuf>, AppError>),
+    ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
 }
 
@@ -58,11 +58,10 @@ impl App {
                         .pick_folders()
                         .await
                         .map(|handles| handles.iter().map(|handle| handle.path().into()).collect())
-                        .ok_or(AppError::DialogCancelled)
                 },
                 Message::ScanDirectory,
             ),
-            Message::ScanDirectory(Ok(directories)) => {
+            Message::ScanDirectory(Some(directories)) => {
                 let pool = self.pool.clone();
 
                 Task::perform(
@@ -70,7 +69,7 @@ impl App {
                     Message::ScannedDirectory,
                 )
             }
-            Message::ScanDirectory(Err(_)) => Task::none(),
+            Message::ScanDirectory(None) => Task::none(),
             Message::ScannedDirectory(_) => Task::none(),
         }
     }
