@@ -104,17 +104,6 @@ impl App {
             ),
         );
 
-        //     Menu::new(vec![
-        //         Item::new(button("New")),
-        //         Item::new(button("Open")),
-        //         Item::new(button("Settings")),
-        //     ])
-        //     .max_width(220.0)
-        //     .offset(8.0)
-        //     .spacing(2.0),
-        // )])
-        // .safe_bounds_margin(self.theme.sizes.space.md);
-
         let nav_bar = container(row![dropdown, horizontal()]);
 
         container(column![
