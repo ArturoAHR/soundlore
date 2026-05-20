@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
 use sqlx::SqlitePool;
-use tracing::{info, warn};
+use tracing::{info, instrument, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
 use crate::track::metadata::read_track_metadata;
 use crate::track::repository::upsert_track;
 
+#[instrument(skip_all)]
 pub async fn scan_files_in_directory(
     pool: &SqlitePool,
     directories: Vec<PathBuf>,

@@ -30,6 +30,9 @@ pub enum AppError {
 
     #[error("audio decode error: {0}")]
     Decode(Arc<SymphoniaError>),
+
+    #[error("system dialog was cancelled")]
+    DialogCancelled,
 }
 
 impl From<sqlx::Error> for AppError {
