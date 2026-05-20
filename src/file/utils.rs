@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use log::{debug, trace};
+use tracing::{debug, trace};
 use walkdir::WalkDir;
 
 pub fn find_track_files(root: &Path) -> Vec<PathBuf> {

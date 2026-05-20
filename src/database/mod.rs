@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use log::debug;
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
+use tracing::debug;
 
 use crate::{
     config::DATABASE_FILE_NAME,

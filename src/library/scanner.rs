@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use log::{info, warn};
 use sqlx::SqlitePool;
+use tracing::{info, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;

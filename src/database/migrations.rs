@@ -1,5 +1,5 @@
-use log::{debug, info};
 use sqlx::SqlitePool;
+use tracing::{debug, info};
 
 use crate::error::AppError;
 

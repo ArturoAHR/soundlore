@@ -1,12 +1,17 @@
 use std::process::exit;
 
 use iced_aw::ICED_AW_FONT_BYTES;
-use log::error;
-use nameless_music_player_lib::{app::App, database::initialize_database, ui::theme::Theme};
+use nameless_music_player_lib::{
+    app::App, database::initialize_database, log::initialize_logging, ui::theme::Theme,
+};
 use rfd::{MessageDialog, MessageLevel};
+use tracing::error;
 
 fn main() -> iced::Result {
-    env_logger::init();
+    #[cfg(debug_assertions)]
+    let _ = dotenvy::dotenv();
+
+    let _worker_guard = initialize_logging();
 
     let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
 
