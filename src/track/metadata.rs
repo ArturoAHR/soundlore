@@ -5,10 +5,12 @@ use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::{MetadataOptions, StandardTagKey};
 use symphonia::core::probe::Hint;
+use tracing::instrument;
 
 use crate::error::AppError;
 use crate::track::models::TrackMetadata;
 
+#[instrument]
 pub fn read_track_metadata(path: &Path) -> Result<TrackMetadata, AppError> {
     let track_file = File::open(path)?;
     let track_file_size = track_file.metadata()?.len() as i64;

@@ -2,11 +2,13 @@ use sea_query::{OnConflict, Query, SqliteQueryBuilder};
 use sea_query_sqlx::SqlxBinder;
 
 use sqlx::SqlitePool;
+use tracing::instrument;
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::track::models::{TrackIden, TrackMetadata};
 
+#[instrument(skip(pool))]
 pub async fn upsert_track(pool: &SqlitePool, track: &TrackMetadata) -> Result<(), AppError> {
     let id = Uuid::new_v4();
 

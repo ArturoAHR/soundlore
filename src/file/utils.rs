@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use tracing::{debug, trace};
+use tracing::{debug, instrument, trace};
 use walkdir::WalkDir;
 
+#[instrument(level = "debug")]
 pub fn find_track_files(root: &Path) -> Vec<PathBuf> {
     debug!("Finding music files in {:?}", root);
 
@@ -16,6 +17,7 @@ pub fn find_track_files(root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+#[instrument(level = "trace")]
 pub fn is_supported_track_file(path: &Path) -> bool {
     trace!("Checking if {:?} is a music file", path);
 
