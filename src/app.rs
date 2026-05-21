@@ -4,7 +4,7 @@ use rfd::AsyncFileDialog;
 use sqlx::SqlitePool;
 
 use iced::{
-    widget::{button, center, column, container, row, space::horizontal, text},
+    widget::{column, row},
     Element, Task,
 };
 
@@ -12,11 +12,16 @@ use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
     ui::{
-        icons::{self, icon},
-        theme::{catalog::container::header, Theme},
-        widgets::menu::{
-            dropdown_menu, dropdown_menu_grouping_option, dropdown_menu_option, dropdown_toggle,
+        components::{
+            explorer_pane::{self, ExplorerPane},
+            main_pane::{self, MainPane},
+            navigation_bar::{self, NavigationBar},
+            playback_bar::{self, PlaybackBar},
+            queue_pane::{self, QueuePane},
+            status_bar::{self, StatusBar},
+            track_information_pane::{self, TrackInformationPane},
         },
+        theme::Theme,
     },
 };
 
@@ -25,13 +30,28 @@ pub struct App {
     pub pool: SqlitePool,
     pub ui_scale: f32,
     pub theme: Theme,
+
+    pub navigation_bar: NavigationBar,
+    pub explorer_pane: ExplorerPane,
+    pub main_pane: MainPane,
+    pub queue_pane: QueuePane,
+    pub track_information_pane: TrackInformationPane,
+    pub status_bar: StatusBar,
+    pub playback_bar: PlaybackBar,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    OpenDirectoryScanDialog,
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
+
+    NavigationBar(navigation_bar::Event),
+    ExplorerPane(explorer_pane::Event),
+    MainPane(main_pane::Event),
+    QueuePane(queue_pane::Event),
+    TrackInformationPane(track_information_pane::Event),
+    StatusBar(status_bar::Event),
+    PlaybackBar(playback_bar::Event),
 }
 
 impl App {
@@ -41,6 +61,13 @@ impl App {
                 pool,
                 theme,
                 ui_scale,
+                navigation_bar: NavigationBar {},
+                explorer_pane: ExplorerPane {},
+                main_pane: MainPane {},
+                queue_pane: QueuePane {},
+                track_information_pane: TrackInformationPane {},
+                status_bar: StatusBar {},
+                playback_bar: PlaybackBar {},
             },
             Task::none(),
         )
@@ -52,15 +79,6 @@ impl App {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::OpenDirectoryScanDialog => Task::perform(
-                async {
-                    AsyncFileDialog::new()
-                        .pick_folders()
-                        .await
-                        .map(|handles| handles.iter().map(|handle| handle.path().into()).collect())
-                },
-                Message::ScanDirectory,
-            ),
             Message::ScanDirectory(Some(directories)) => {
                 let pool = self.pool.clone();
 
@@ -71,46 +89,156 @@ impl App {
             }
             Message::ScanDirectory(None) => Task::none(),
             Message::ScannedDirectory(_) => Task::none(),
+            Message::NavigationBar(event) => self.handle_navigation_bar(event),
+            Message::ExplorerPane(event) => self.handle_explorer_pane(event),
+            Message::MainPane(event) => self.handle_main_pane(event),
+            Message::QueuePane(event) => self.handle_queue_pane(event),
+            Message::TrackInformationPane(event) => self.handle_track_information_pane(event),
+            Message::StatusBar(event) => self.handle_status_bar(event),
+            Message::PlaybackBar(event) => self.handle_playback_bar(event),
         }
     }
 
-    pub fn view(&self) -> Element<'_, Message, Theme> {
-        let dropdown = dropdown_toggle(
-            &self.theme,
-            button(icon(icons::MENU)),
-            dropdown_menu(
-                &self.theme,
-                vec![
-                    dropdown_menu_grouping_option(
-                        &self.theme,
-                        "File",
-                        dropdown_menu(
-                            &self.theme,
-                            vec![
-                                dropdown_menu_option(&self.theme, "Add new files to library", None),
-                                dropdown_menu_option(
-                                    &self.theme,
-                                    "Scan folder for new files",
-                                    Some(Message::OpenDirectoryScanDialog),
-                                ),
-                            ],
-                        ),
-                    ),
-                    dropdown_menu_option(&self.theme, "Edit", None),
-                    dropdown_menu_option(&self.theme, "View", None),
-                    dropdown_menu_option(&self.theme, "Controls", None),
-                    dropdown_menu_option(&self.theme, "Help", None),
-                ],
+    fn handle_navigation_bar(&mut self, event: navigation_bar::Event) -> Task<Message> {
+        let (task, outcome) = self.navigation_bar.update(event);
+        let component_task = task.map(Message::NavigationBar);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+        let outcome_task = match outcome {
+            navigation_bar::Outcome::OpenSelectDirectoryDialog => Task::perform(
+                async {
+                    AsyncFileDialog::new()
+                        .pick_folders()
+                        .await
+                        .map(|handles| handles.iter().map(|handle| handle.path().into()).collect())
+                },
+                Message::ScanDirectory,
             ),
-        );
+        };
 
-        let nav_bar = container(row![dropdown, horizontal()]);
+        Task::batch([outcome_task, component_task])
+    }
 
-        container(column![
-            nav_bar,
-            center(text("Nameless Music Player").size(28))
-        ])
-        .style(header())
+    fn handle_explorer_pane(&mut self, event: explorer_pane::Event) -> Task<Message> {
+        let (task, outcome) = self.explorer_pane.update(event);
+        let component_task = task.map(Message::ExplorerPane);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+
+        let outcome_task = match outcome {};
+
+        Task::batch([outcome_task, component_task])
+    }
+
+    fn handle_main_pane(&mut self, event: main_pane::Event) -> Task<Message> {
+        let (task, outcome) = self.main_pane.update(event);
+        let component_task = task.map(Message::MainPane);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+
+        let outcome_task = match outcome {};
+
+        Task::batch([outcome_task, component_task])
+    }
+
+    fn handle_queue_pane(&mut self, event: queue_pane::Event) -> Task<Message> {
+        let (task, outcome) = self.queue_pane.update(event);
+        let component_task = task.map(Message::QueuePane);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+
+        let outcome_task = match outcome {};
+
+        Task::batch([outcome_task, component_task])
+    }
+
+    fn handle_track_information_pane(
+        &mut self,
+        event: track_information_pane::Event,
+    ) -> Task<Message> {
+        let (task, outcome) = self.track_information_pane.update(event);
+        let component_task = task.map(Message::TrackInformationPane);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+
+        let outcome_task = match outcome {};
+
+        Task::batch([outcome_task, component_task])
+    }
+
+    fn handle_status_bar(&mut self, event: status_bar::Event) -> Task<Message> {
+        let (task, outcome) = self.status_bar.update(event);
+        let component_task = task.map(Message::StatusBar);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+
+        let outcome_task = match outcome {};
+
+        Task::batch([outcome_task, component_task])
+    }
+
+    fn handle_playback_bar(&mut self, event: playback_bar::Event) -> Task<Message> {
+        let (task, outcome) = self.playback_bar.update(event);
+        let component_task = task.map(Message::PlaybackBar);
+
+        let Some(outcome) = outcome else {
+            return component_task;
+        };
+
+        let outcome_task = match outcome {};
+
+        Task::batch([outcome_task, component_task])
+    }
+
+    pub fn view(&self) -> Element<'_, Message, Theme> {
+        let navigation_bar = self
+            .navigation_bar
+            .view(&self.theme)
+            .map(Message::NavigationBar);
+
+        let explorer_pane = self
+            .explorer_pane
+            .view(&self.theme)
+            .map(Message::ExplorerPane);
+
+        let main_pane = self.main_pane.view(&self.theme).map(Message::MainPane);
+
+        let queue_pane = self.queue_pane.view(&self.theme).map(Message::QueuePane);
+
+        let track_information_pane = self
+            .track_information_pane
+            .view(&self.theme)
+            .map(Message::TrackInformationPane);
+
+        let status_bar = self.status_bar.view(&self.theme).map(Message::StatusBar);
+
+        let playback_bar = self
+            .playback_bar
+            .view(&self.theme)
+            .map(Message::PlaybackBar);
+
+        column![
+            navigation_bar,
+            row![
+                explorer_pane,
+                main_pane,
+                column![queue_pane, track_information_pane]
+            ],
+            status_bar,
+            playback_bar
+        ]
         .into()
     }
 

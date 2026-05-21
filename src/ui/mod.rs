@@ -1,3 +1,3 @@
-pub mod icons;
+pub mod components;
 pub mod theme;
 pub mod widgets;

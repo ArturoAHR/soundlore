@@ -3,8 +3,6 @@ use iced::{
     Element, Font,
 };
 
-use crate::app::Message;
-
 // music-player-icons.ttf
 pub const LOADING: char = '\u{E830}';
 pub const PLAY: char = '\u{E805}';
@@ -17,7 +15,7 @@ pub const NO_SHUFFLE: char = '\u{E801}';
 pub const EQUALIZER: char = '\u{E800}';
 pub const MENU: char = '\u{E806}';
 
-pub fn icon<'a, T>(codepoint: char) -> Element<'a, Message, T>
+pub fn icon<'a, M, T>(codepoint: char) -> Element<'a, M, T>
 where
     T: Catalog + 'a,
 {
