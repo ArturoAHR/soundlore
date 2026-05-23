@@ -155,13 +155,13 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, AppError> {
     });
 
     for (_, tags) in revision_tags {
-        extract_revision_metadata(&tags, &mut track_properties);
+        extract_revision_tags(&tags, &mut track_properties);
     }
 
     Ok(track_properties)
 }
 
-fn extract_revision_metadata(tags: &Vec<Tag>, track_properties: &mut TrackProperties) {
+fn extract_revision_tags(tags: &Vec<Tag>, track_properties: &mut TrackProperties) {
     for tag in tags {
         if let Some(standard_tag) = &tag.std {
             match standard_tag {
