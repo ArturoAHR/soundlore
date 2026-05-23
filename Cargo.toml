@@ -34,3 +34,7 @@ tracing = { version = "0.1.44", features = ["max_level_trace", "release_max_leve
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 tracing-appender = "0.2.5"
 dotenvy = "0.15.7"
+
+[dev-dependencies]
+ffmpeg-sidecar = "2.5.1"
+pretty_assertions = "1.4.1"
