@@ -6,6 +6,8 @@ use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
+use crate::track::metadata::TrackPropertiesReadError;
+
 #[derive(Debug, Error, Clone)]
 pub enum AppError {
     #[error("database error: {0}")]
@@ -28,6 +30,9 @@ pub enum AppError {
 
     #[error("io error: {0}")]
     Io(Arc<std::io::Error>),
+
+    #[error("track read error: {0}")]
+    TrackPropertiesRead(#[from] TrackPropertiesReadError),
 
     #[error("audio decode error: {0}")]
     Decode(Arc<SymphoniaError>),

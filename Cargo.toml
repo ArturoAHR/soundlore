@@ -25,7 +25,7 @@ sqlx = { version = "0.8", features = [
 tokio = { version = "1.52.3" }
 thiserror = "2"
 walkdir = "2"
-symphonia = { version = "0.5.5", features = ["all"] }
+symphonia = { version = "0.6.0", features = ["all"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 sea-query-sqlx = { version = "0.8.0-rc.14", features = ["sqlx-sqlite"] }
 dirs = "6.0.0"
