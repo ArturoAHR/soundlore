@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use sqlx::SqlitePool;
-use tracing::{info, instrument, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
@@ -33,10 +33,24 @@ pub async fn scan_files_in_directory(
     let mut processed_tracks = vec![];
 
     for track_file_path in track_file_paths {
-        let track_metadata =
-            tokio::task::spawn_blocking(move || read_track_metadata(&track_file_path)).await??;
+        let track_metadata_thread_result = tokio::task::spawn_blocking(move || {
+            (read_track_metadata(&track_file_path), track_file_path)
+        })
+        .await;
 
-        processed_tracks.push(track_metadata);
+        match track_metadata_thread_result {
+            Ok((Ok(track_metadata), _)) => processed_tracks.push(track_metadata),
+            Ok((Err(error), track_file_path)) => {
+                error!(
+                    "Could not read track metadata for file {:?}: {}",
+                    &track_file_path,
+                    &error.to_string()
+                )
+            }
+            Err(error) => {
+                error!("Metadata read panicked: {}", &error.to_string())
+            }
+        };
     }
 
     upsert_tracks_batch(pool, processed_tracks.as_slice()).await
