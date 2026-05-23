@@ -92,6 +92,7 @@ impl App {
         match message {
             Message::ScanDirectory(Some(directories)) => {
                 let pool = self.pool.clone();
+                self.status = AppStatus::AddingTracks;
 
                 Task::perform(
                     async move { scan_files_in_directory(&pool, directories).await },
@@ -99,7 +100,11 @@ impl App {
                 )
             }
             Message::ScanDirectory(None) => Task::none(),
-            Message::ScannedDirectory(_) => Task::none(),
+            Message::ScannedDirectory(_) => {
+                self.status = AppStatus::FinishedAddingTracks;
+
+                Task::none()
+            }
             Message::NavigationBar(event) => self.handle_navigation_bar(event),
             Message::ExplorerPane(event) => self.handle_explorer_pane(event),
             Message::MainPane(event) => self.handle_main_pane(event),
@@ -233,7 +238,10 @@ impl App {
             .view(&self.theme)
             .map(Message::TrackInformationPane);
 
-        let status_bar = self.status_bar.view(&self.theme).map(Message::StatusBar);
+        let status_bar = self
+            .status_bar
+            .view(&self.theme, &self.status)
+            .map(Message::StatusBar);
 
         let playback_bar = self
             .playback_bar

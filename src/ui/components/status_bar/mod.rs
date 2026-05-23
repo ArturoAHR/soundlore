@@ -1,6 +1,6 @@
 use iced::{widget::text, Element, Renderer, Task};
 
-use crate::ui::theme::Theme;
+use crate::{app::AppStatus, ui::theme::Theme};
 
 #[derive(Debug)]
 pub struct StatusBar {}
@@ -16,7 +16,17 @@ impl StatusBar {
         (Task::none(), None)
     }
 
-    pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Event, Theme, Renderer> {
-        text("Status Bar").into()
+    pub fn view<'a>(
+        &'a self,
+        theme: &Theme,
+        status: &AppStatus,
+    ) -> Element<'a, Event, Theme, Renderer> {
+        let status_label = match status {
+            AppStatus::Idle => "",
+            AppStatus::AddingTracks => "Adding tracks",
+            AppStatus::FinishedAddingTracks => "Finished adding tracks",
+        };
+
+        text(status_label).into()
     }
 }
