@@ -120,6 +120,7 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, AppError> {
 
     let mut revision_tags: Vec<(MetadataId, Vec<Tag>)> = Vec::new();
 
+    // Extract Revision Tags here since cloning the whole Metadata Revision is expensive (it may have images)
     {
         let mut metadata = format.metadata();
         loop {
