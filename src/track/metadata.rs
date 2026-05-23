@@ -3,11 +3,15 @@ use std::path::Path;
 
 use crate::error::AppError;
 use crate::track::models::TrackProperties;
+use crate::track::utils::fix_latin1_utf8_mojibake;
 use symphonia::core::codecs::CodecParameters;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, TrackType};
 use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::{MetadataOptions, StandardTag};
+use symphonia::core::meta::well_known::{
+    METADATA_ID_APEV1, METADATA_ID_APEV2, METADATA_ID_ID3V1, METADATA_ID_ID3V2,
+};
+use symphonia::core::meta::{MetadataId, MetadataOptions, StandardTag, Tag};
 use symphonia::default::get_codecs;
 use thiserror::Error;
 use tracing::instrument;
@@ -34,6 +38,9 @@ pub enum TrackPropertiesReadError {
 
     #[error("missing duration")]
     MissingDuration,
+
+    #[error("unexpected error")]
+    UnexpectedError,
 }
 
 #[instrument]
@@ -111,68 +118,113 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, AppError> {
         ..TrackProperties::default()
     };
 
-    if let Some(revision) = format.metadata().current() {
-        for tag in &revision.media.tags {
-            if let Some(standard_tag) = &tag.std {
-                match standard_tag {
-                    StandardTag::TrackTitle(value) => {
-                        track_properties.title = Some(value.to_string())
-                    }
-                    StandardTag::Artist(value) => track_properties.artist = Some(value.to_string()),
-                    StandardTag::Album(value) => track_properties.album = Some(value.to_string()),
-                    StandardTag::AlbumArtist(value) => {
-                        track_properties.album_artist = Some(value.to_string());
-                    }
-                    StandardTag::TrackNumber(value) => {
-                        track_properties.track_number = Some(*value as i64);
-                    }
-                    StandardTag::TrackTotal(value) => {
-                        track_properties.track_total = Some(*value as i64);
-                    }
-                    StandardTag::DiscNumber(value) => {
-                        track_properties.disc_number = Some(*value as i64);
-                    }
-                    StandardTag::DiscTotal(value) => {
-                        track_properties.disc_total = Some(*value as i64);
-                    }
-                    StandardTag::RecordingYear(value) => {
-                        track_properties.year = Some(*value as i64);
-                    }
-                    StandardTag::Genre(value) => track_properties.genre = Some(value.to_string()),
-                    _ => {}
-                }
-            }
+    let mut revision_tags: Vec<(MetadataId, Vec<Tag>)> = Vec::new();
 
-            let key = tag.raw.key.to_uppercase();
-            match key.as_str() {
-                "REPLAYGAIN_TRACK_GAIN" => {
-                    track_properties.replaygain_track_gain_db = tag
-                        .raw
-                        .value
-                        .to_string()
-                        .trim_end_matches(" dB")
-                        .parse()
-                        .ok()
-                }
-                "REPLAYGAIN_TRACK_PEAK" => {
-                    track_properties.replaygain_track_peak = tag.raw.value.to_string().parse().ok()
-                }
-                "REPLAYGAIN_ALBUM_GAIN" => {
-                    track_properties.replaygain_album_gain_db = tag
-                        .raw
-                        .value
-                        .to_string()
-                        .trim_end_matches(" dB")
-                        .parse()
-                        .ok()
-                }
-                "REPLAYGAIN_ALBUM_PEAK" => {
-                    track_properties.replaygain_album_peak = tag.raw.value.to_string().parse().ok()
-                }
-                _ => {}
+    {
+        let mut metadata = format.metadata();
+        loop {
+            let Some(_) = metadata.current().map(|revision| revision.info.metadata) else {
+                break;
+            };
+
+            if let Some(old_revision) = metadata.pop() {
+                revision_tags.push((old_revision.info.metadata, old_revision.media.tags))
+            } else {
+                let latest_revision = metadata
+                    .current()
+                    .ok_or_else(|| TrackPropertiesReadError::UnexpectedError)?;
+
+                revision_tags.push((
+                    latest_revision.info.metadata,
+                    latest_revision.media.tags.clone(),
+                ));
+
+                break;
             }
         }
     }
 
+    // Sort the revision tags so that newer ones are applied last.
+    revision_tags.sort_by_key(|(id, _)| match *id {
+        METADATA_ID_ID3V1 => 0,
+        METADATA_ID_APEV1 => 1,
+        METADATA_ID_APEV2 => 2,
+        METADATA_ID_ID3V2 => 3,
+        _ => 1,
+    });
+
+    for (_, tags) in revision_tags {
+        extract_revision_metadata(&tags, &mut track_properties);
+    }
+
     Ok(track_properties)
+}
+
+fn extract_revision_metadata(tags: &Vec<Tag>, track_properties: &mut TrackProperties) {
+    for tag in tags {
+        if let Some(standard_tag) = &tag.std {
+            match standard_tag {
+                StandardTag::TrackTitle(value) => {
+                    track_properties.title = Some(fix_latin1_utf8_mojibake(value));
+                }
+                StandardTag::Artist(value) => {
+                    track_properties.artist = Some(fix_latin1_utf8_mojibake(value));
+                }
+                StandardTag::Album(value) => {
+                    track_properties.album = Some(fix_latin1_utf8_mojibake(value));
+                }
+                StandardTag::AlbumArtist(value) => {
+                    track_properties.album_artist = Some(fix_latin1_utf8_mojibake(value));
+                }
+                StandardTag::TrackNumber(value) => {
+                    track_properties.track_number = Some(*value as i64);
+                }
+                StandardTag::TrackTotal(value) => {
+                    track_properties.track_total = Some(*value as i64);
+                }
+                StandardTag::DiscNumber(value) => {
+                    track_properties.disc_number = Some(*value as i64);
+                }
+                StandardTag::DiscTotal(value) => {
+                    track_properties.disc_total = Some(*value as i64);
+                }
+                StandardTag::RecordingYear(value) => {
+                    track_properties.year = Some(*value as i64);
+                }
+                StandardTag::Genre(value) => {
+                    track_properties.genre = Some(fix_latin1_utf8_mojibake(value));
+                }
+                _ => {}
+            }
+        }
+
+        let key = tag.raw.key.to_uppercase();
+        match key.as_str() {
+            "REPLAYGAIN_TRACK_GAIN" => {
+                track_properties.replaygain_track_gain_db = tag
+                    .raw
+                    .value
+                    .to_string()
+                    .trim_end_matches(" dB")
+                    .parse()
+                    .ok();
+            }
+            "REPLAYGAIN_TRACK_PEAK" => {
+                track_properties.replaygain_track_peak = tag.raw.value.to_string().parse().ok();
+            }
+            "REPLAYGAIN_ALBUM_GAIN" => {
+                track_properties.replaygain_album_gain_db = tag
+                    .raw
+                    .value
+                    .to_string()
+                    .trim_end_matches(" dB")
+                    .parse()
+                    .ok();
+            }
+            "REPLAYGAIN_ALBUM_PEAK" => {
+                track_properties.replaygain_album_peak = tag.raw.value.to_string().parse().ok();
+            }
+            _ => {}
+        }
+    }
 }
