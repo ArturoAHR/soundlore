@@ -4,6 +4,7 @@ use sea_query::error::Error as SeaQueryError;
 use sqlx::migrate::MigrateError;
 use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
+use tokio::task::JoinError;
 
 #[derive(Debug, Error, Clone)]
 pub enum AppError {
@@ -30,6 +31,9 @@ pub enum AppError {
 
     #[error("audio decode error: {0}")]
     Decode(Arc<SymphoniaError>),
+
+    #[error("thread join error: {0}")]
+    ThreadJoinFailed(Arc<JoinError>),
 }
 
 impl From<sqlx::Error> for AppError {
@@ -59,5 +63,11 @@ impl From<std::io::Error> for AppError {
 impl From<SymphoniaError> for AppError {
     fn from(error: SymphoniaError) -> Self {
         Self::Decode(Arc::new(error))
+    }
+}
+
+impl From<JoinError> for AppError {
+    fn from(error: JoinError) -> Self {
+        Self::ThreadJoinFailed(Arc::new(error))
     }
 }

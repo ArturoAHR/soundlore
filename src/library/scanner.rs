@@ -33,16 +33,10 @@ pub async fn scan_files_in_directory(
     let mut processed_tracks = vec![];
 
     for track_file_path in track_file_paths {
-        match read_track_metadata(&track_file_path) {
-            Ok(track) => processed_tracks.push(track),
-            Err(e) => {
-                warn!(
-                    "Could not read track metadata for file {:?}: {}",
-                    &track_file_path,
-                    &e.to_string()
-                )
-            }
-        };
+        let track_metadata =
+            tokio::task::spawn_blocking(move || read_track_metadata(&track_file_path)).await??;
+
+        processed_tracks.push(track_metadata);
     }
 
     upsert_tracks_batch(pool, processed_tracks.as_slice()).await
