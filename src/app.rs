@@ -30,6 +30,7 @@ pub struct App {
     pub pool: SqlitePool,
     pub ui_scale: f32,
     pub theme: Theme,
+    pub status: AppStatus,
 
     pub navigation_bar: NavigationBar,
     pub explorer_pane: ExplorerPane,
@@ -38,6 +39,15 @@ pub struct App {
     pub track_information_pane: TrackInformationPane,
     pub status_bar: StatusBar,
     pub playback_bar: PlaybackBar,
+}
+
+#[derive(Debug)]
+pub enum AppStatus {
+    Idle,
+    // TODO: Add progress with count
+    AddingTracks,
+    // TODO: Add optional error data
+    FinishedAddingTracks,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +71,7 @@ impl App {
                 pool,
                 theme,
                 ui_scale,
+                status: AppStatus::Idle,
                 navigation_bar: NavigationBar {},
                 explorer_pane: ExplorerPane {},
                 main_pane: MainPane {},
