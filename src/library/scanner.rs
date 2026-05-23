@@ -6,7 +6,7 @@ use tracing::{info, instrument, warn};
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
 use crate::track::metadata::read_track_metadata;
-use crate::track::repository::upsert_track;
+use crate::track::repository::upsert_tracks_batch;
 
 #[instrument(skip_all)]
 pub async fn scan_files_in_directory(
@@ -45,18 +45,5 @@ pub async fn scan_files_in_directory(
         };
     }
 
-    for track in processed_tracks {
-        match upsert_track(pool, &track).await {
-            Ok(_) => {}
-            Err(e) => {
-                warn!(
-                    "Could not insert or update track {:?}: {}",
-                    &track.file_path,
-                    &e.to_string()
-                )
-            }
-        }
-    }
-
-    Ok(())
+    upsert_tracks_batch(pool, processed_tracks.as_slice()).await
 }

@@ -76,3 +76,83 @@ pub async fn upsert_track(pool: &SqlitePool, track: &TrackMetadata) -> Result<()
 
     Ok(())
 }
+
+#[instrument(skip(pool))]
+pub async fn upsert_tracks_batch(
+    pool: &SqlitePool,
+    tracks: &[TrackMetadata],
+) -> Result<(), AppError> {
+    let mut transaction = pool.begin().await?;
+
+    for track in tracks {
+        let id = Uuid::new_v4();
+
+        let (sql, values) = Query::insert()
+            .into_table(TrackIden::Table)
+            .columns([
+                TrackIden::Id,
+                TrackIden::FilePath,
+                TrackIden::Title,
+                TrackIden::Artist,
+                TrackIden::Album,
+                TrackIden::AlbumArtist,
+                TrackIden::TrackNumber,
+                TrackIden::DiscNumber,
+                TrackIden::Year,
+                TrackIden::Genre,
+                TrackIden::DurationSecs,
+                TrackIden::Bitrate,
+                TrackIden::SampleRate,
+                TrackIden::Channels,
+                TrackIden::FileSize,
+                TrackIden::Format,
+            ])
+            .values([
+                id.to_string().into(),
+                track.file_path.clone().into(),
+                track.title.clone().into(),
+                track.artist.clone().into(),
+                track.album.clone().into(),
+                track.album_artist.clone().into(),
+                track.track_number.into(),
+                track.disc_number.into(),
+                track.year.into(),
+                track.genre.clone().into(),
+                track.duration_secs.into(),
+                track.bitrate.into(),
+                track.sample_rate.into(),
+                track.channels.into(),
+                track.file_size.into(),
+                track.format.clone().into(),
+            ])?
+            .on_conflict(
+                OnConflict::column(TrackIden::FilePath)
+                    .update_columns([
+                        TrackIden::Title,
+                        TrackIden::Artist,
+                        TrackIden::Album,
+                        TrackIden::AlbumArtist,
+                        TrackIden::TrackNumber,
+                        TrackIden::DiscNumber,
+                        TrackIden::Year,
+                        TrackIden::Genre,
+                        TrackIden::DurationSecs,
+                        TrackIden::Bitrate,
+                        TrackIden::SampleRate,
+                        TrackIden::Channels,
+                        TrackIden::FileSize,
+                        TrackIden::Format,
+                    ])
+                    .to_owned(),
+            )
+            .build_sqlx(SqliteQueryBuilder);
+
+        sqlx::query_with(&sql, values)
+            .execute(&mut *transaction)
+            .await?;
+    }
+
+    transaction.commit().await?;
+
+    Ok(())
+}
