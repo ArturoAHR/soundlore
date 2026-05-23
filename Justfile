@@ -34,3 +34,9 @@ audit:
 
 migrate name:
   sqlx migrate add {{name}}
+
+reset-db:
+  sqlx database reset -y
+
+drop-db:
+  sqlx database drop -y
