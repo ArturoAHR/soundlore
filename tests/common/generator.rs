@@ -292,6 +292,7 @@ where
     S: AsRef<OsStr>,
 {
     let mut command = FfmpegCommand::new();
+    command.arg("-y");
 
     for argument in arguments {
         command.arg(argument);
