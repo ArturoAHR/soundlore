@@ -2,7 +2,7 @@ use std::process::exit;
 
 use iced_aw::ICED_AW_FONT_BYTES;
 use nameless_music_player_lib::{
-    app::App, database::initialize_database, log::initialize_logging, ui::theme::Theme,
+    app::app, database::initialize_database, log::initialize_logging, ui::theme::Theme,
 };
 use rfd::{MessageDialog, MessageLevel};
 use tracing::error;
@@ -30,16 +30,9 @@ fn main() -> iced::Result {
         }
     };
 
-    iced::application(
-        move || App::new(pool.clone(), Theme::default(), 1.0),
-        App::update,
-        App::view,
-    )
-    .title(App::title)
-    .theme(App::theme)
-    .window_size((1024.0, 768.0))
-    .font(ICED_AW_FONT_BYTES)
-    .font(include_bytes!("../fonts/music-player-icons.ttf"))
-    .scale_factor(|app: &App| app.scale_factor())
-    .run()
+    app(pool.clone(), Theme::default(), 1.0)
+        .window_size((1024.0, 768.0))
+        .font(ICED_AW_FONT_BYTES)
+        .font(include_bytes!("../fonts/music-player-icons.ttf"))
+        .run()
 }

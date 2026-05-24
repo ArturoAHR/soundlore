@@ -5,7 +5,7 @@ use sqlx::SqlitePool;
 
 use iced::{
     widget::{column, row},
-    Element, Task,
+    Application, Element, Program, Task,
 };
 
 use crate::{
@@ -268,4 +268,19 @@ impl App {
     pub fn theme(&self) -> Theme {
         self.theme.to_owned()
     }
+}
+
+pub fn app(
+    pool: SqlitePool,
+    theme: Theme,
+    ui_scale: f32,
+) -> Application<impl Program<State = App, Message = Message, Theme = Theme>> {
+    iced::application(
+        move || App::new(pool.clone(), theme.clone(), ui_scale),
+        App::update,
+        App::view,
+    )
+    .title(App::title)
+    .theme(App::theme)
+    .scale_factor(|app: &App| app.scale_factor())
 }
