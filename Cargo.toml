@@ -38,3 +38,4 @@ dotenvy = "0.15.7"
 [dev-dependencies]
 ffmpeg-sidecar = "2.5.1"
 pretty_assertions = "1.4.1"
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }

@@ -25,7 +25,12 @@ pub static AUDIO_FILE_FIXTURES_PATH: LazyLock<AudioFileFixturesPath> = LazyLock:
         generate_audio_file_fixtures(&fixture_root);
     }
 
-    todo!()
+    AudioFileFixturesPath {
+        all_formats: fixture_root.join("all_formats"),
+        metadata_variants: fixture_root.join("metadata_variants"),
+        corrupt: fixture_root.join("corrupt"),
+        partially_corrupt: fixture_root.join("partially_corrupt"),
+    }
 });
 
 /// Hash based off the generator file source code, to ensure that no stale fixtures are used

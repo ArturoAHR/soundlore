@@ -1,5 +1,306 @@
 /* WARNING: Changes to this file will result in the regeneration of the fixtures on the next test run */
 
-use std::path::PathBuf;
+use std::{
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+};
 
-pub fn generate_audio_file_fixtures(path: &PathBuf) {}
+use ffmpeg_sidecar::{command::FfmpegCommand, download::auto_download};
+use std::fs::create_dir_all;
+
+pub fn generate_audio_file_fixtures(path: &PathBuf) {
+    auto_download().expect("Could not download ffmpeg to generate audio file fixtures.");
+
+    let all_formats_files_path = path.join("all_formats");
+    let metadata_variants_files_path = path.join("metadata_variants");
+    let corrupt_files_path = path.join("corrupt");
+    let partially_corrupt_files_path = path.join("partially corrupt");
+
+    generate_all_formats_files(&all_formats_files_path);
+    generate_metadata_variants_files(&metadata_variants_files_path);
+    generate_corrupt_files(&corrupt_files_path);
+    generate_partially_corrupt_files(&partially_corrupt_files_path);
+}
+
+fn generate_all_formats_files(output_path: &PathBuf) {
+    create_dir_all(&output_path)
+        .expect("Could not create all formats audio file fixtures directory.");
+
+    // WAV audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "pcm_s16le"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.wav"));
+
+    // MP3 audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(
+        &mut arguments,
+        vec!["-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3"],
+    );
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.mp3"));
+
+    // OGG Vorbis audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.ogg"));
+
+    // Opus audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libopus"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.opus"));
+
+    // FLAC audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "flac"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.flac"));
+
+    // M4A audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "aac", "-b:a", "128k"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.m4a"));
+
+    // AAC audio file (Should drop all tags)
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "aac", "-b:a", "128k"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.aac"));
+
+    // AIFF
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(
+        &mut arguments,
+        vec!["-c:a", "pcm_s16be", "-write_id3v2", "1"],
+    );
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.aiff"));
+}
+
+fn generate_metadata_variants_files(output_path: &PathBuf) {
+    create_dir_all(&output_path)
+        .expect("Could not create metadata variants audio file fixtures directory.");
+
+    // No tags
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    run_ffmpeg(arguments, &output_path.join("no_tags.ogg"));
+
+    // Only title tag
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    extend_arguments(&mut arguments, vec!["-metadata", "title=Only Title"]);
+    run_ffmpeg(arguments, &output_path.join("only_title.ogg"));
+
+    // Artist and album tags
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    extend_arguments(
+        &mut arguments,
+        vec![
+            "-metadata",
+            "artist=Solo Artist",
+            "-metadata",
+            "album=Solo Album",
+        ],
+    );
+    run_ffmpeg(arguments, &output_path.join("artist_album.ogg"));
+
+    // Slash form tags
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "flac"]);
+    extend_arguments(
+        &mut arguments,
+        vec![
+            "-metadata",
+            "title=Slash Numerics",
+            "-metadata",
+            "track=3/12",
+            "-metadata",
+            "disc=1/2",
+            "-metadata",
+            "date=2020-05-13",
+        ],
+    );
+    run_ffmpeg(arguments, &output_path.join("slash_numerics.flac"));
+
+    // Unicode title with long untrimmed artist
+    let long_artist = format!("   {}", "x".repeat(2048));
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "flac"]);
+    extend_arguments(
+        &mut arguments,
+        vec![
+            "-metadata",
+            "title=日本語タイトル ⟨long⟩",
+            "-metadata",
+            &format!("artist={long_artist}"),
+        ],
+    );
+    run_ffmpeg(arguments, &output_path.join("unicode_title.flac"));
+
+    // Unicode title MP3
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(
+        &mut arguments,
+        vec!["-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3"],
+    );
+    extend_arguments(
+        &mut arguments,
+        vec!["-metadata", "title=日本語タイトル ⟨long⟩"],
+    );
+    run_ffmpeg(arguments, &output_path.join("unicode_mp3.mp3"));
+}
+
+fn generate_corrupt_files(output_path: &PathBuf) {
+    create_dir_all(&output_path).expect("Could not create corrupt audio file fixtures directory.");
+
+    // Not an audio file
+    fs::write(output_path.join("not_audio.mp3"), b"plain text")
+        .expect("Could not create invalid audio file");
+
+    // Empty audio file
+    fs::write(output_path.join("empty.flac"), b"").expect("Could not create empty audio file");
+
+    // Truncated audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    let full_file_path = output_path.join("_full.ogg");
+    run_ffmpeg(arguments, &full_file_path);
+
+    let bytes = fs::read(&full_file_path).expect("Could not read full audio file to truncate");
+    fs::write(output_path.join("truncated.ogg"), &bytes[..bytes.len() / 4])
+        .expect("Could not create truncated audio file");
+
+    // Mislabeled
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    let real_file_path = output_path.join("_read.ogg");
+    run_ffmpeg(arguments, &real_file_path);
+    fs::rename(real_file_path, output_path.join("mislabeled.mp3"))
+        .expect("Could not rename audio file to mislabel it");
+
+    // Unsupported formats
+    fs::write(output_path.join("text.txt"), b"plain text").expect("Could not create text file");
+    fs::write(output_path.join("cover.jpg"), &[0xff, 0xd8, 0xff, 0xe0])
+        .expect("Could not create image");
+
+    // Hidden metadata / garbage
+    fs::write(output_path.join(".DS_Store"), b"\x00\x00")
+        .expect("Could not create hidden metadata file");
+    fs::write(output_path.join("._01.flac"), b"garbage file")
+        .expect("Could not create hidden garbage file");
+}
+
+fn generate_partially_corrupt_files(output_path: &PathBuf) {
+    // WAV audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "pcm_s16le"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.wav"));
+
+    // MP3 audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(
+        &mut arguments,
+        vec!["-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3"],
+    );
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.mp3"));
+
+    // OGG Vorbis audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
+    run_ffmpeg(arguments, &output_path.join("track.ogg"));
+
+    // Not an audio file
+    fs::write(output_path.join("not_audio.mp3"), b"plain text")
+        .expect("Could not create invalid audio file");
+
+    // Empty audio file
+    fs::write(output_path.join("empty.flac"), b"").expect("Could not create empty audio file");
+
+    // Truncated audio file
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    let full_file_path = output_path.join("_full.ogg");
+    run_ffmpeg(arguments, &full_file_path);
+
+    let bytes = fs::read(&full_file_path).expect("Could not read full audio file to truncate");
+    fs::write(output_path.join("truncated.ogg"), &bytes[..bytes.len() / 4])
+        .expect("Could not create truncated audio file");
+}
+
+fn extend_arguments(arguments: &mut Vec<String>, new_arguments: Vec<impl Into<String> + Clone>) {
+    arguments.extend(
+        new_arguments
+            .iter()
+            .cloned()
+            .map(|argument| argument.into())
+            .collect::<Vec<String>>(),
+    );
+}
+
+fn generate_default_file_creation_arguments() -> Vec<String> {
+    generate_file_creation_arguments(1, 440)
+}
+
+fn generate_file_creation_arguments(seconds: u32, frequency: u32) -> Vec<String> {
+    vec![
+        "-f".into(),
+        "lavfi".into(),
+        "-i".into(),
+        format!("sine=frequency={frequency}:duration={seconds}"),
+    ]
+}
+
+fn generate_full_metadata_tags_arguments() -> Vec<String> {
+    generate_metadata_arguments(vec![
+        ("title", "Test Track"),
+        ("artist", "Test Artist"),
+        ("album", "Test album"),
+        ("track", "1"),
+        ("disc", "1"),
+        ("date", "2024"),
+        ("genre", "Test Genre"),
+    ])
+}
+
+fn generate_metadata_arguments(
+    metadata_arguments: Vec<(impl Into<String>, impl Into<String>)>,
+) -> Vec<String> {
+    metadata_arguments
+        .into_iter()
+        .flat_map(|(tag, value)| {
+            [
+                "-metadata".into(),
+                format!("{}={}", tag.into(), value.into()),
+            ]
+        })
+        .collect()
+}
+
+fn run_ffmpeg<I, S>(arguments: I, output_file_path: &Path)
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let mut command = FfmpegCommand::new();
+
+    for argument in arguments {
+        command.arg(argument);
+    }
+
+    command
+        .output(output_file_path.to_string_lossy())
+        .spawn()
+        .expect("Could not spawn ffmpeg command child process")
+        .wait()
+        .expect("Command failed during execution");
+}
