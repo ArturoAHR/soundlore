@@ -198,6 +198,9 @@ fn generate_corrupt_files(output_path: &PathBuf) {
 }
 
 fn generate_partially_corrupt_files(output_path: &PathBuf) {
+    create_dir_all(output_path)
+        .expect("Could not create partially corrupt audio file fixtures directory.");
+
     // WAV audio file
     let mut arguments = generate_default_file_creation_arguments();
     extend_arguments(&mut arguments, vec!["-c:a", "pcm_s16le"]);
