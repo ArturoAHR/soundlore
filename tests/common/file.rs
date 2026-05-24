@@ -44,8 +44,7 @@ pub static FIXTURE_HASH: LazyLock<String> = LazyLock::new(|| {
 });
 
 fn get_fixture_root() -> PathBuf {
-    let base = env::var("CARGO_TARGET_TMPDIR")
-        .expect("CARGO_TARGET_TMPDIR environment variable is not set");
+    let base = env!("CARGO_TARGET_TMPDIR");
 
     Path::new(&base).join("audio").join(&*FIXTURE_HASH)
 }
