@@ -41,7 +41,7 @@ pub struct App {
     pub playback_bar: PlaybackBar,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AppStatus {
     Idle,
     // TODO: Add progress with count
