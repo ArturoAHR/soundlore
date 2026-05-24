@@ -15,7 +15,7 @@ pub fn generate_audio_file_fixtures(path: &PathBuf) {
     let all_formats_files_path = path.join("all_formats");
     let metadata_variants_files_path = path.join("metadata_variants");
     let corrupt_files_path = path.join("corrupt");
-    let partially_corrupt_files_path = path.join("partially corrupt");
+    let partially_corrupt_files_path = path.join("partially_corrupt");
 
     generate_all_formats_files(&all_formats_files_path);
     generate_metadata_variants_files(&metadata_variants_files_path);
