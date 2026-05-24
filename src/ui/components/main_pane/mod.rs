@@ -1,4 +1,5 @@
 use iced::{widget::text, Element, Renderer, Task};
+use tracing::instrument;
 
 use crate::ui::theme::Theme;
 
@@ -12,6 +13,7 @@ pub enum Event {}
 pub enum Outcome {}
 
 impl MainPane {
+    #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, event: Event) -> (Task<Event>, Option<Outcome>) {
         (Task::none(), None)
     }

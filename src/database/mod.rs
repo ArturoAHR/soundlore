@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
-use tracing::debug;
+use tracing::{debug, error, info, instrument};
 
 use crate::{
     config::DATABASE_FILE_NAME,
@@ -11,18 +11,27 @@ use crate::{
 
 pub mod migrations;
 
+#[instrument]
 pub async fn initialize_database() -> Result<SqlitePool, AppError> {
+    info!("Initializing Database");
+
     let pool = create_pool().await?;
 
     check_schema_version(&pool).await?;
     run_pending_migrations(&pool).await?;
+
+    info!("Database initialized");
 
     Ok(pool)
 }
 
 pub fn get_database_path() -> String {
     let data_dir = dirs::data_dir()
-        .expect("failed to get data dir")
+        .unwrap_or_else(|| {
+            error!("Failed to get user data directory.");
+
+            panic!("Failed to get data directory");
+        })
         .join("nameless-music-player");
 
     std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
@@ -30,6 +39,7 @@ pub fn get_database_path() -> String {
     format!("sqlite:{}", data_dir.join(DATABASE_FILE_NAME).display())
 }
 
+#[instrument]
 pub async fn create_pool() -> Result<SqlitePool, AppError> {
     let database_path = get_database_path();
 

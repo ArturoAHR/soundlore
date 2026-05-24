@@ -7,6 +7,7 @@ use iced::{
     widget::{column, row},
     Application, Element, Program, Task,
 };
+use tracing::{info, instrument};
 
 use crate::{
     error::AppError,
@@ -65,7 +66,10 @@ pub enum Message {
 }
 
 impl App {
+    #[instrument(skip(pool))]
     pub fn new(pool: SqlitePool, theme: Theme, ui_scale: f32) -> (Self, Task<Message>) {
+        info!("Setting up App instance.");
+
         (
             App {
                 pool,
@@ -88,6 +92,7 @@ impl App {
         String::from("Nameless Music Player")
     }
 
+    #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ScanDirectory(Some(directories)) => {

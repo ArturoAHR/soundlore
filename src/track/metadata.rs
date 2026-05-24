@@ -14,7 +14,7 @@ use symphonia::core::meta::well_known::{
 use symphonia::core::meta::{MetadataId, MetadataOptions, StandardTag, Tag};
 use symphonia::default::get_codecs;
 use thiserror::Error;
-use tracing::instrument;
+use tracing::{instrument, trace};
 
 #[derive(Debug, Clone, Error)]
 pub enum TrackPropertiesReadError {
@@ -161,8 +161,11 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, AppError> {
     Ok(track_properties)
 }
 
+#[instrument(skip_all, fields(tag_count = tags.len()))]
 fn extract_revision_tags(tags: &Vec<Tag>, track_properties: &mut TrackProperties) {
     for tag in tags {
+        trace!(key = %tag.raw.key, std = ?tag.std, "Extracting tag");
+
         if let Some(standard_tag) = &tag.std {
             match standard_tag {
                 StandardTag::TrackTitle(value) => {

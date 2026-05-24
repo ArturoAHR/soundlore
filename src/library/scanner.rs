@@ -8,12 +8,12 @@ use crate::file::utils::find_track_files;
 use crate::track::metadata::read_track_metadata;
 use crate::track::repository::upsert_tracks_batch;
 
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(directory_count = directories.len()))]
 pub async fn scan_files_in_directory(
     pool: &SqlitePool,
     directories: Vec<PathBuf>,
 ) -> Result<(), AppError> {
-    info!("Scanning files in directories: {:?}", directories);
+    info!(?directories, "Scanning files in directories");
 
     let valid_directories = directories.into_iter().filter_map(|path| {
         if path.is_dir() {
@@ -30,6 +30,12 @@ pub async fn scan_files_in_directory(
         track_file_paths.extend(find_track_files(&directory))
     }
 
+    info!(
+        file_count = track_file_paths.len(),
+        "Discovered candidate files"
+    );
+
+    let candidate_track_count = track_file_paths.len();
     let mut processed_tracks = vec![];
 
     for track_file_path in track_file_paths {
@@ -52,6 +58,12 @@ pub async fn scan_files_in_directory(
             }
         };
     }
+
+    info!(
+        successfully_processed = processed_tracks.len(),
+        failed_to_process = (candidate_track_count - processed_tracks.len()),
+        "Track metadata extraction complete"
+    );
 
     upsert_tracks_batch(pool, processed_tracks.as_slice()).await
 }
