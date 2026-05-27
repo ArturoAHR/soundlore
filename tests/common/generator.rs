@@ -268,10 +268,19 @@ fn generate_full_metadata_tags_arguments() -> Vec<String> {
         ("title", "Test Track"),
         ("artist", "Test Artist"),
         ("album", "Test album"),
-        ("track", "1"),
-        ("disc", "1"),
+        ("album_artist", "Test Album Artist"),
         ("date", "2024"),
         ("genre", "Test Genre"),
+        // Vorbis comments need -total fields, will be ignored in other containers.
+        ("track", "3/12"),
+        ("tracktotal", "12"),
+        ("disc", "1/2"),
+        ("disctotal", "2"),
+        // ReplayGain
+        ("replaygain_track_gain", "-6.54 dB"),
+        ("replaygain_track_peak", "0.987654"),
+        ("replaygain_album_gain", "-7.20 dB"),
+        ("replaygain_album_peak", "0.999000"),
     ])
 }
 
