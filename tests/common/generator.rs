@@ -267,7 +267,7 @@ fn generate_full_metadata_tags_arguments() -> Vec<String> {
     generate_metadata_arguments(vec![
         ("title", "Test Track"),
         ("artist", "Test Artist"),
-        ("album", "Test album"),
+        ("album", "Test Album"),
         ("album_artist", "Test Album Artist"),
         ("date", "2024"),
         ("genre", "Test Genre"),
