@@ -2,7 +2,6 @@ use nameless_music_player_lib::{
     app::{AppStatus, Message},
     track::models::{Track, TrackIden},
 };
-use pretty_assertions::assert_eq;
 use sea_query::{Asterisk, Query, SqliteQueryBuilder};
 use sea_query_sqlx::SqlxBinder;
 
