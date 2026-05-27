@@ -48,12 +48,6 @@ fn generate_all_formats_files(output_path: &PathBuf) {
     extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
     run_ffmpeg(arguments, &output_path.join("track.ogg"));
 
-    // Opus audio file
-    let mut arguments = generate_default_file_creation_arguments();
-    extend_arguments(&mut arguments, vec!["-c:a", "libopus"]);
-    extend_arguments(&mut arguments, generate_full_metadata_tags_arguments());
-    run_ffmpeg(arguments, &output_path.join("track.opus"));
-
     // FLAC audio file
     let mut arguments = generate_default_file_creation_arguments();
     extend_arguments(&mut arguments, vec!["-c:a", "flac"]);

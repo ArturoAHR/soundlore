@@ -23,6 +23,6 @@ pub fn is_supported_track_file(path: &Path) -> bool {
 
     matches!(
         path.extension().and_then(|e| e.to_str()),
-        Some("mp3" | "flac" | "ogg" | "opus" | "m4a" | "aac" | "wav" | "aiff")
+        Some("mp3" | "flac" | "ogg" | "m4a" | "aac" | "wav" | "aiff")
     )
 }
