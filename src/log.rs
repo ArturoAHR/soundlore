@@ -1,8 +1,4 @@
-use std::{
-    error::Error,
-    fs,
-    io::{stderr, IsTerminal},
-};
+use std::{error::Error, fs, io::stderr};
 
 use tracing::error;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
@@ -24,12 +20,10 @@ pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuar
         .with_line_number(true)
         .with_filter(get_filter());
 
-    let console_layer = stderr().is_terminal().then(|| {
-        tracing_subscriber::fmt::layer()
-            .with_writer(stderr)
-            .with_ansi(true)
-            .with_filter(get_filter())
-    });
+    let console_layer = tracing_subscriber::fmt::layer()
+        .with_writer(stderr)
+        .with_ansi(true)
+        .with_filter(get_filter());
 
     let registry = tracing_subscriber::registry().with(file_layer);
 
