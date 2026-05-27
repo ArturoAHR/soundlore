@@ -193,42 +193,34 @@ fn extract_revision_tags(tags: &Vec<Tag>, track_properties: &mut TrackProperties
                     track_properties.disc_total = Some(*value as i64);
                 }
                 StandardTag::RecordingYear(value) => {
-                    track_properties.year = Some(*value as i64);
+                    if track_properties.year.is_none() {
+                        track_properties.year = Some(*value as i64);
+                    }
+                }
+                StandardTag::RecordingDate(value) | StandardTag::ReleaseDate(value) => {
+                    if track_properties.year.is_none() {
+                        track_properties.year = value.get(..4).and_then(|s| s.parse().ok());
+                    }
                 }
                 StandardTag::Genre(value) => {
                     track_properties.genre = Some(fix_latin1_utf8_mojibake(value));
                 }
+                StandardTag::ReplayGainTrackGain(value) => {
+                    track_properties.replaygain_track_gain_db =
+                        value.trim_end_matches(" dB").parse().ok();
+                }
+                StandardTag::ReplayGainTrackPeak(value) => {
+                    track_properties.replaygain_track_peak = value.parse().ok();
+                }
+                StandardTag::ReplayGainAlbumGain(value) => {
+                    track_properties.replaygain_album_gain_db =
+                        value.trim_end_matches(" dB").parse().ok();
+                }
+                StandardTag::ReplayGainAlbumPeak(value) => {
+                    track_properties.replaygain_album_peak = value.parse().ok();
+                }
                 _ => {}
             }
-        }
-
-        let key = tag.raw.key.to_uppercase();
-        match key.as_str() {
-            "REPLAYGAIN_TRACK_GAIN" => {
-                track_properties.replaygain_track_gain_db = tag
-                    .raw
-                    .value
-                    .to_string()
-                    .trim_end_matches(" dB")
-                    .parse()
-                    .ok();
-            }
-            "REPLAYGAIN_TRACK_PEAK" => {
-                track_properties.replaygain_track_peak = tag.raw.value.to_string().parse().ok();
-            }
-            "REPLAYGAIN_ALBUM_GAIN" => {
-                track_properties.replaygain_album_gain_db = tag
-                    .raw
-                    .value
-                    .to_string()
-                    .trim_end_matches(" dB")
-                    .parse()
-                    .ok();
-            }
-            "REPLAYGAIN_ALBUM_PEAK" => {
-                track_properties.replaygain_album_peak = tag.raw.value.to_string().parse().ok();
-            }
-            _ => {}
         }
     }
 }
