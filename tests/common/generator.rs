@@ -149,6 +149,15 @@ fn generate_metadata_variants_files(output_path: &PathBuf) {
         vec!["-metadata", "title=日本語タイトル ⟨long⟩"],
     );
     run_ffmpeg(arguments, &output_path.join("unicode_mp3.mp3"));
+
+    // Unicode title OGG
+    let mut arguments = generate_default_file_creation_arguments();
+    extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+    extend_arguments(
+        &mut arguments,
+        vec!["-metadata", "title=日本語タイトル ⟨long⟩"],
+    );
+    run_ffmpeg(arguments, &output_path.join("unicode_ogg.ogg"));
 }
 
 fn generate_corrupt_files(output_path: &PathBuf) {
@@ -170,6 +179,8 @@ fn generate_corrupt_files(output_path: &PathBuf) {
     let bytes = fs::read(&full_file_path).expect("Could not read full audio file to truncate");
     fs::write(output_path.join("truncated.ogg"), &bytes[..bytes.len() / 4])
         .expect("Could not create truncated audio file");
+
+    fs::remove_file(&full_file_path).expect("could not remove the original full audio file");
 
     // Mislabeled
     let mut arguments = generate_default_file_creation_arguments();
@@ -232,6 +243,8 @@ fn generate_partially_corrupt_files(output_path: &PathBuf) {
     let bytes = fs::read(&full_file_path).expect("Could not read full audio file to truncate");
     fs::write(output_path.join("truncated.ogg"), &bytes[..bytes.len() / 4])
         .expect("Could not create truncated audio file");
+
+    fs::remove_file(&full_file_path).expect("could not remove the original full audio file");
 }
 
 fn extend_arguments(arguments: &mut Vec<String>, new_arguments: Vec<impl Into<String> + Clone>) {
