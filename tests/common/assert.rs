@@ -9,7 +9,11 @@ pub fn assert_tracks(expected_tracks: &[ExpectedTrack], tracks: &[Track]) {
     for expected_track in expected_tracks.iter() {
         let track = tracks
             .iter()
-            .find(|track| track.file_path.contains(&expected_track.file_name))
+            .find(|track| {
+                track
+                    .file_path
+                    .ends_with(&format!("/{}", expected_track.file_name))
+            })
             .expect(&format!(
                 "Could not find track {}",
                 expected_track.file_name
