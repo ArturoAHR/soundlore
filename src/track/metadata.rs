@@ -1,10 +1,11 @@
 use std::fs::File;
 use std::path::Path;
+use std::sync::Arc;
 
-use crate::error::AppError;
 use crate::track::models::TrackProperties;
 use crate::track::utils::fix_latin1_utf8_mojibake;
 use symphonia::core::codecs::CodecParameters;
+use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, TrackType};
 use symphonia::core::io::MediaSourceStream;
@@ -41,10 +42,28 @@ pub enum TrackPropertiesReadError {
 
     #[error("unexpected error")]
     UnexpectedError,
+
+    #[error("io error: {0}")]
+    Io(Arc<std::io::Error>),
+
+    #[error("symphonia error: {0}")]
+    Symphonia(Arc<SymphoniaError>),
+}
+
+impl From<std::io::Error> for TrackPropertiesReadError {
+    fn from(error: std::io::Error) -> Self {
+        TrackPropertiesReadError::Io(Arc::new(error))
+    }
+}
+
+impl From<SymphoniaError> for TrackPropertiesReadError {
+    fn from(error: SymphoniaError) -> Self {
+        TrackPropertiesReadError::Symphonia(Arc::new(error))
+    }
 }
 
 #[instrument]
-pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, AppError> {
+pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, TrackPropertiesReadError> {
     let file = File::open(path)?;
     let file_size_bytes = file.metadata()?.len() as i64;
 
