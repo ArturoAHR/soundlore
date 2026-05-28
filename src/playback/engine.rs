@@ -1,8 +1,10 @@
 use cpal::{
     default_host,
-    traits::{DeviceTrait, HostTrait},
-    BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, Stream,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, PauseStreamError,
+    PlayStreamError, Stream,
 };
+use rtrb::{Consumer, PopError};
 use thiserror::Error;
 use tracing::error;
 
@@ -12,44 +14,54 @@ use crate::error::AppError;
 pub enum PlaybackEngineError {
     #[error("output device not found")]
     OutputDeviceNotFound,
-    #[error("default stream configuration error")]
+    #[error("default stream configuration error: {0}")]
     DefaultStreamConfiguration(#[from] DefaultStreamConfigError),
-    #[error("build stream failed")]
+    #[error("build stream failed: {0}")]
     StreamBuildFailed(#[from] BuildStreamError),
+    #[error("failed to pause stream: {0}")]
+    StreamPauseFailed(#[from] PauseStreamError),
+    #[error("failed to play stream: {0}")]
+    StreamPlayFailed(#[from] PlayStreamError),
+    #[error("stream hasn't been built")]
+    MissingStream,
+    #[error("failed to consume next samples: {0}")]
+    EmptyBufferError(#[from] PopError),
 }
 
 pub struct PlaybackEngine {
-    pub stream: Stream,
+    stream: Option<Stream>,
 }
 
+/*
+ * TODO:
+ * - Implement stream rebuild when default output device changes (poll default output device).
+ */
 impl PlaybackEngine {
-    pub fn build() -> Result<Self, AppError> {
+    pub fn new() -> Self {
+        Self { stream: None }
+    }
+
+    pub fn build_stream(
+        &mut self,
+        mut sample_buffer_consumer: Consumer<f32>,
+    ) -> Result<(u32, u16), AppError> {
         let host = default_host();
         let device = host
             .default_output_device()
-            .ok_or_else(|| PlaybackEngineError::OutputDeviceNotFound)?;
+            .ok_or(PlaybackEngineError::OutputDeviceNotFound)?;
         let config = device
             .default_output_config()
             .map_err(PlaybackEngineError::DefaultStreamConfiguration)?;
 
-        let sample_rate = config.sample_rate() as f32;
-        let channels = config.channels() as usize;
-        let mut sample_clock = 0f32;
-
-        let mut next_sample = move || {
-            sample_clock = (sample_clock + 1.0) % sample_rate;
-            (sample_clock * 440.0 * 2.0 * std::f32::consts::PI / sample_rate).sin()
-        };
+        let sample_rate = config.sample_rate();
+        let channels = config.channels();
 
         let stream = device
             .build_output_stream(
                 &config.into(),
                 move |data: &mut [f32], _: &OutputCallbackInfo| {
-                    for frame in data.chunks_mut(channels) {
-                        let value = next_sample();
-                        for sample in frame.iter_mut() {
-                            *sample = value
-                        }
+                    for slot in data.iter_mut() {
+                        *slot = sample_buffer_consumer.pop().unwrap_or(0.0);
                     }
                 },
                 |error| error!("stream error: {error}"),
@@ -57,6 +69,26 @@ impl PlaybackEngine {
             )
             .map_err(PlaybackEngineError::StreamBuildFailed)?;
 
-        Ok(Self { stream })
+        self.stream = Some(stream);
+
+        Ok((sample_rate, channels))
+    }
+
+    pub fn play_stream(&self) -> Result<(), AppError> {
+        match &self.stream {
+            Some(stream) => Ok(stream
+                .play()
+                .map_err(PlaybackEngineError::StreamPlayFailed)?),
+            None => Err(PlaybackEngineError::MissingStream.into()),
+        }
+    }
+
+    pub fn pause_stream(&self) -> Result<(), AppError> {
+        match &self.stream {
+            Some(stream) => Ok(stream
+                .pause()
+                .map_err(PlaybackEngineError::StreamPauseFailed)?),
+            None => Err(PlaybackEngineError::MissingStream.into()),
+        }
     }
 }

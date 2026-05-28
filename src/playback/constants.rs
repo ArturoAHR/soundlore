@@ -1,0 +1,1 @@
+pub const SAMPLE_BUFFER_CAPACITY: usize = 19200;

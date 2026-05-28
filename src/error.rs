@@ -6,20 +6,23 @@ use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
-use crate::{playback::engine::PlaybackEngineError, track::metadata::TrackPropertiesReadError};
+use crate::{
+    playback::{engine::PlaybackEngineError, PlaybackControllerError},
+    track::metadata::TrackPropertiesReadError,
+};
 
 #[derive(Debug, Error, Clone)]
 pub enum AppError {
-    #[error("database error: {0}")]
+    #[error("database error - {0}")]
     Database(Arc<sqlx::Error>),
 
-    #[error("database migration error: {0}")]
+    #[error("database migration error - {0}")]
     DatabaseMigration(Arc<MigrateError>),
 
     #[error("app was downgraded but database is already at version {current} (app expects {expected}), please update the app.")]
     DatabaseDowngradeDetected { current: i64, expected: i64 },
 
-    #[error("database query generation error: {0}")]
+    #[error("database query generation error - {0}")]
     DatabaseQueryGeneration(Arc<SeaQueryError>),
 
     #[error("track not found: {path}")]
@@ -28,20 +31,23 @@ pub enum AppError {
     #[error("playlist not found: {name}")]
     PlaylistNotFound { name: String },
 
-    #[error("io error: {0}")]
+    #[error("io error - {0}")]
     Io(Arc<std::io::Error>),
 
-    #[error("track read error: {0}")]
+    #[error("track read error - {0}")]
     TrackPropertiesRead(#[from] TrackPropertiesReadError),
 
-    #[error("audio decode error: {0}")]
+    #[error("audio decode error - {0}")]
     Decode(Arc<SymphoniaError>),
 
-    #[error("thread join error: {0}")]
+    #[error("thread join error - {0}")]
     ThreadJoinFailed(Arc<JoinError>),
 
-    #[error("playback error: {0}")]
+    #[error("playback error - {0}")]
     PlaybackEngine(#[from] PlaybackEngineError),
+
+    #[error("playback controller error - {0}")]
+    PlaybackController(#[from] PlaybackControllerError),
 }
 
 impl From<sqlx::Error> for AppError {
