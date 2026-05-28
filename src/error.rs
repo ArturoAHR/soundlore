@@ -6,7 +6,7 @@ use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
-use crate::track::metadata::TrackPropertiesReadError;
+use crate::{playback::engine::PlaybackEngineError, track::metadata::TrackPropertiesReadError};
 
 #[derive(Debug, Error, Clone)]
 pub enum AppError {
@@ -39,6 +39,9 @@ pub enum AppError {
 
     #[error("thread join error: {0}")]
     ThreadJoinFailed(Arc<JoinError>),
+
+    #[error("playback error: {0}")]
+    PlaybackEngine(#[from] PlaybackEngineError),
 }
 
 impl From<sqlx::Error> for AppError {
