@@ -1,4 +1,7 @@
-use std::sync::mpsc::{SendError, Sender};
+use std::{
+    path::PathBuf,
+    sync::mpsc::{SendError, Sender},
+};
 
 use rtrb::RingBuffer;
 use thiserror::Error;
@@ -72,11 +75,11 @@ impl PlaybackController {
         Ok(())
     }
 
-    pub fn play(&mut self) -> Result<(), AppError> {
+    pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), AppError> {
         self.playback_engine.play_stream()?;
 
         self.pipeline_command_sender
-            .send(AudioPipelineCommand::Play(None))?;
+            .send(AudioPipelineCommand::Play(track_path))?;
 
         Ok(())
     }

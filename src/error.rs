@@ -2,12 +2,13 @@ use std::{path::PathBuf, sync::Arc};
 
 use sea_query::error::Error as SeaQueryError;
 use sqlx::migrate::MigrateError;
-use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
 use crate::{
-    playback::{engine::PlaybackEngineError, PlaybackControllerError},
+    playback::{
+        engine::PlaybackEngineError, pipeline::AudioPipelineError, PlaybackControllerError,
+    },
     track::metadata::TrackPropertiesReadError,
 };
 
@@ -37,11 +38,11 @@ pub enum AppError {
     #[error("track read error - {0}")]
     TrackPropertiesRead(#[from] TrackPropertiesReadError),
 
-    #[error("audio decode error - {0}")]
-    Decode(Arc<SymphoniaError>),
-
     #[error("thread join error - {0}")]
     ThreadJoinFailed(Arc<JoinError>),
+
+    #[error("audio pipeline error - {0}")]
+    AudioPipeline(#[from] AudioPipelineError),
 
     #[error("playback error - {0}")]
     PlaybackEngine(#[from] PlaybackEngineError),
@@ -71,12 +72,6 @@ impl From<SeaQueryError> for AppError {
 impl From<std::io::Error> for AppError {
     fn from(error: std::io::Error) -> Self {
         Self::Io(Arc::new(error))
-    }
-}
-
-impl From<SymphoniaError> for AppError {
-    fn from(error: SymphoniaError) -> Self {
-        Self::Decode(Arc::new(error))
     }
 }
 
