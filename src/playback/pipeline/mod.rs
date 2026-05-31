@@ -74,13 +74,6 @@ pub enum AudioPipelineStatus {
     Idle,
 }
 
-#[derive(Debug)]
-pub struct AudioPipelineConfiguration {
-    pub sample_rate: u32,
-    pub channels: u16,
-    pub sample_buffer_producer: Producer<f32>,
-}
-
 pub enum AudioPipelineCommand {
     Play(Option<PathBuf>),
     Pause,
