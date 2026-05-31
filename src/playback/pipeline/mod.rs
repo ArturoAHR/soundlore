@@ -29,6 +29,9 @@ pub enum AudioPipelineError {
     #[error("missing resampler parameters")]
     MissingResamplerParameters,
 
+    #[error("audio pipeline command receiver error: {0}")]
+    AudioPipelineCommandReceiver(#[from] AudioPipelineCommandReceiverError),
+
     #[error("audio decoder error: {0}")]
     AudioDecoder(#[from] AudioDecoderError),
 
@@ -42,7 +45,7 @@ pub enum AudioPipelineError {
     AudioSink(#[from] AudioSinkError),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum AudioPipelineCommandReceiverError {
     #[error("Failed to receive audio pipeline command: {0}")]
     ReceiveFailed(#[from] RecvError),
@@ -88,7 +91,6 @@ pub enum AudioPipelineCommand {
         channels: u16,
         producer: Producer<f32>,
     },
-    Exit,
 }
 
 impl AudioPipeline {
@@ -101,6 +103,74 @@ impl AudioPipeline {
             output_format: None,
             sink: None,
         }
+    }
+
+    pub fn pause(&mut self) {
+        self.status = AudioPipelineStatus::Idle;
+    }
+
+    pub fn stop(&mut self) {
+        // TODO: Reset the decoding position to start of the file.
+        self.status = AudioPipelineStatus::Idle;
+    }
+
+    pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), AudioPipelineError> {
+        let Some(track_path) = track_path else {
+            return Ok(());
+        };
+
+        self.build_decoder(track_path)?;
+
+        self.status = AudioPipelineStatus::ProducingSamples;
+
+        Ok(())
+    }
+
+    /// Get audio pipeline command blocking or non blocking depending on status.
+    pub fn receive_command(&self) -> Result<Option<AudioPipelineCommand>, AudioPipelineError> {
+        if matches!(self.status, AudioPipelineStatus::Idle) {
+            let command = self
+                .command_receiver
+                .recv()
+                .map_err(AudioPipelineCommandReceiverError::ReceiveFailed)?;
+
+            return Ok(Some(command));
+        }
+
+        Ok(self.command_receiver.try_recv().ok())
+    }
+
+    pub fn handle_command(
+        &mut self,
+        command: AudioPipelineCommand,
+    ) -> Result<(), AudioPipelineError> {
+        match command {
+            AudioPipelineCommand::Play(track_path) => {
+                self.play(track_path)?;
+            }
+            AudioPipelineCommand::ChangeConfiguration {
+                sample_rate,
+                channels,
+                producer,
+            } => {
+                self.set_output_configuration(
+                    AudioFormat {
+                        sample_rate,
+                        channels,
+                    },
+                    producer,
+                )?;
+            }
+            AudioPipelineCommand::Stop => {
+                self.stop();
+            }
+            AudioPipelineCommand::Pause => {
+                self.pause();
+            }
+            AudioPipelineCommand::Seek(_) => todo!(),
+        };
+
+        Ok(())
     }
 
     pub fn build_decoder(&mut self, track_path: PathBuf) -> Result<(), AudioPipelineError> {
@@ -142,27 +212,6 @@ impl AudioPipeline {
         Ok(())
     }
 
-    pub fn pause(&mut self) {
-        self.status = AudioPipelineStatus::Idle;
-    }
-
-    pub fn stop(&mut self) {
-        // TODO: Reset the decoding position to start of the file.
-        self.status = AudioPipelineStatus::Idle;
-    }
-
-    pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), AudioPipelineError> {
-        let Some(track_path) = track_path else {
-            return Ok(());
-        };
-
-        self.build_decoder(track_path)?;
-
-        self.status = AudioPipelineStatus::ProducingSamples;
-
-        Ok(())
-    }
-
     pub fn set_output_configuration(
         &mut self,
         output_format: AudioFormat,
@@ -195,58 +244,23 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
         let span = info_span!(parent: None, "audio_decoding_loop");
         let _guard = span.entered();
 
-        // Get audio pipeline command blocking or non blocking depending on status.
-        let pipeline_command_receive_result: Result<
-            AudioPipelineCommand,
-            AudioPipelineCommandReceiverError,
-        > = if matches!(audio_pipeline.status, AudioPipelineStatus::Idle) {
-            audio_pipeline
-                .command_receiver
-                .recv()
-                .map_err(AudioPipelineCommandReceiverError::ReceiveFailed)
-        } else {
-            audio_pipeline
-                .command_receiver
-                .try_recv()
-                .map_err(AudioPipelineCommandReceiverError::ReceiveAttemptFailed)
-        };
+        let mut audio_pipeline_command = None;
 
-        match pipeline_command_receive_result {
-            Ok(pipeline_command) => {
-                let pipeline_command_result = match pipeline_command {
-                    AudioPipelineCommand::Exit => break,
-                    AudioPipelineCommand::Play(track_path) => audio_pipeline.play(track_path),
-                    AudioPipelineCommand::ChangeConfiguration {
-                        sample_rate,
-                        channels,
-                        producer,
-                    } => audio_pipeline.set_output_configuration(
-                        AudioFormat {
-                            sample_rate,
-                            channels,
-                        },
-                        producer,
-                    ),
-                    AudioPipelineCommand::Stop => Ok(audio_pipeline.stop()),
-                    AudioPipelineCommand::Pause => Ok(audio_pipeline.pause()),
-                    AudioPipelineCommand::Seek(_) => todo!(),
-                };
+        match audio_pipeline.receive_command() {
+            Ok(command) => audio_pipeline_command = command,
+            Err(error) => {
+                error!("Audio pipeline command receive failed: {error}")
+            }
+        }
 
-                match pipeline_command_result {
-                    Ok(_) => {}
-                    Err(error) => {
-                        error!("{}", error.to_string())
-                    }
+        if let Some(audio_pipeline_command) = audio_pipeline_command {
+            match audio_pipeline.handle_command(audio_pipeline_command) {
+                Ok(_) => {}
+                Err(error) => {
+                    error!("Audio pipeline command processing failed: {error}")
                 }
             }
-
-            Err(error) => match error {
-                AudioPipelineCommandReceiverError::ReceiveFailed(_) => {
-                    error!("{}", error.to_string())
-                }
-                AudioPipelineCommandReceiverError::ReceiveAttemptFailed(_) => {}
-            },
-        };
+        }
 
         let Some(decoder) = audio_pipeline.decoder.as_mut() else {
             continue;
@@ -278,13 +292,14 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
         if !audio_sink.is_empty() {
             continue;
         }
-        // Resampling & Remixing
+
         let mut decoded_samples: Vec<f32>;
 
         match decoder.decode() {
             Ok(Some(samples)) => decoded_samples = samples,
             Ok(None) => {
                 info!("No more packets from demuxer.");
+
                 audio_pipeline.status = AudioPipelineStatus::Idle;
 
                 continue;
@@ -311,7 +326,7 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
             ) {
                 Ok(remixed_samples) => decoded_samples = remixed_samples,
                 Err(error) => {
-                    error!("Could not remix samples: {error}");
+                    error!("Could not convert samples: {error}");
 
                     audio_pipeline.status = AudioPipelineStatus::Idle;
 
@@ -342,7 +357,7 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
                 ) {
                     Ok(remixed_samples) => resampled_samples = remixed_samples,
                     Err(error) => {
-                        error!("Could not remix samples: {error}");
+                        error!("Could not convert samples: {error}");
 
                         audio_pipeline.status = AudioPipelineStatus::Idle;
 
@@ -361,7 +376,7 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
                 ) {
                     Ok(remixed_samples) => decoded_samples = remixed_samples,
                     Err(error) => {
-                        error!("Could not remix samples: {error}");
+                        error!("Could not convert samples: {error}");
 
                         audio_pipeline.status = AudioPipelineStatus::Idle;
 
