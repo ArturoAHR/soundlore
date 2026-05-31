@@ -103,7 +103,7 @@ impl AudioResampler {
         samples.extend(self.sample_buffer.drain(..));
         samples.extend(input_samples);
 
-        let input_frames = samples.len() / self.input.channels as usize;
+        let input_frames = samples.len() / channels as usize;
         let mut input_frames_left = input_frames;
         let mut input_frames_next = self.resampler.input_frames_next();
         let input_adapter = InterleavedSlice::new(&mut samples, channels, input_frames)?;
@@ -141,7 +141,7 @@ impl AudioResampler {
         }
 
         let last_resampled_sample_index = min(
-            indexing.output_offset * self.output.channels as usize,
+            indexing.output_offset * channels as usize,
             resampled_samples.len(),
         );
 
