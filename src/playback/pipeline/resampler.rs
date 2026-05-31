@@ -86,25 +86,22 @@ impl AudioResampler {
         })
     }
 
-    pub fn resample(&mut self, input_samples: &[f32]) -> Result<Vec<f32>, AudioResamplerError> {
+    pub fn resample(&mut self, samples: &[f32]) -> Result<Vec<f32>, AudioResamplerError> {
         let channels = self.resampler.nbr_channels();
-        let mut samples: Vec<f32> =
-            Vec::with_capacity(self.sample_buffer.len() + input_samples.len());
+        let mut input_samples: Vec<f32> =
+            Vec::with_capacity(self.sample_buffer.len() + samples.len());
 
-        samples.extend(self.sample_buffer.drain(..));
-        samples.extend(input_samples);
+        input_samples.extend(self.sample_buffer.drain(..));
+        input_samples.extend(samples);
 
-        let input_frames = samples.len() / channels as usize;
+        let input_frames = input_samples.len() / channels as usize;
         let mut input_frames_left = input_frames;
         let mut input_frames_next = self.resampler.input_frames_next();
-        let input_adapter = InterleavedSlice::new(&mut samples, channels, input_frames)?;
-
-        let mut resampled_samples: Vec<f32> =
-            vec![0.0; self.resampler.output_frames_max() * channels];
+        let input_adapter = InterleavedSlice::new(&mut input_samples, channels, input_frames)?;
 
         let output_frame_capacity = self.resampler.output_frames_max();
-        let mut output_adapter =
-            InterleavedSlice::new_mut(&mut resampled_samples, channels, output_frame_capacity)?;
+
+        let mut output_samples: Vec<f32> = vec![0.0; output_frame_capacity * channels];
 
         let mut indexing = Indexing {
             input_offset: 0,
@@ -113,7 +110,11 @@ impl AudioResampler {
             partial_len: None,
         };
 
+        let mut resampled_samples = Vec::new();
         while input_frames_left >= input_frames_next {
+            let mut output_adapter =
+                InterleavedSlice::new_mut(&mut output_samples, channels, output_frame_capacity)?;
+
             let (frames_read, frames_written) = self.resampler.process_into_buffer(
                 &input_adapter,
                 &mut output_adapter,
@@ -121,22 +122,21 @@ impl AudioResampler {
             )?;
 
             indexing.input_offset += frames_read;
-            indexing.output_offset += frames_written;
             input_frames_left -= frames_read;
             input_frames_next = self.resampler.input_frames_next();
+
+            let last_resampled_sample_index = min(
+                frames_written * channels as usize,
+                output_frame_capacity * channels,
+            );
+
+            resampled_samples.extend(&output_samples[0..last_resampled_sample_index]);
         }
 
-        if (indexing.input_offset * channels) < samples.len() {
+        if (indexing.input_offset * channels) < input_samples.len() {
             self.sample_buffer
-                .extend(&samples[indexing.input_offset * channels..]);
+                .extend(&input_samples[indexing.input_offset * channels..]);
         }
-
-        let last_resampled_sample_index = min(
-            indexing.output_offset * channels as usize,
-            resampled_samples.len(),
-        );
-
-        let resampled_samples = resampled_samples[0..last_resampled_sample_index].to_vec();
 
         Ok(resampled_samples)
     }
