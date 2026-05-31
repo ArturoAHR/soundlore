@@ -1,26 +1,21 @@
 use std::{
     path::PathBuf,
-    sync::{
-        mpsc::{self, Receiver, RecvError, Sender, TryRecvError},
-        Arc,
-    },
+    sync::mpsc::{self, Receiver, RecvError, Sender, TryRecvError},
     thread,
     time::Duration,
 };
 
 use rtrb::Producer;
-use rubato::ResamplerConstructionError;
-use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
 use tracing::{error, info, info_span};
 
 use crate::playback::{
     constants::SAMPLE_BUFFER_CAPACITY,
     pipeline::{
-        channel_converter::AudioChannelConverter,
+        channel_converter::{AudioChannelConverter, AudioChannelConverterError},
         decoder::{AudioDecoder, AudioDecoderError},
         resampler::{AudioResampler, AudioResamplerError},
-        sink::AudioSink,
+        sink::{AudioSink, AudioSinkError},
     },
 };
 
@@ -31,53 +26,20 @@ pub mod sink;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioPipelineError {
-    #[error("missing audio track on selected file")]
-    MissingAudioTrack,
-
-    #[error("missing codec parameters on selected file")]
-    MissingCodecParameters,
-
     #[error("missing resampler parameters")]
     MissingResamplerParameters,
-
-    #[error("missing remixing parameters")]
-    MissingRemixingParameters,
-
-    #[error("unsupported remixing: channels go from {0} to {1}.")]
-    UnsupportedRemixing(u16, u16),
-
-    #[error("failed to build resampler: {0}")]
-    ResamplerBuildFailed(Arc<ResamplerConstructionError>),
-
-    #[error("io error: {0}")]
-    Io(Arc<std::io::Error>),
-
-    #[error("symphonia error: {0}")]
-    Symphonia(Arc<SymphoniaError>),
 
     #[error("audio decoder error: {0}")]
     AudioDecoder(#[from] AudioDecoderError),
 
     #[error("audio resampler error: {0}")]
     AudioResampler(#[from] AudioResamplerError),
-}
 
-impl From<std::io::Error> for AudioPipelineError {
-    fn from(error: std::io::Error) -> Self {
-        Self::Io(Arc::new(error))
-    }
-}
+    #[error("audio channel converter error: {0}")]
+    AudioChannelConverter(#[from] AudioChannelConverterError),
 
-impl From<SymphoniaError> for AudioPipelineError {
-    fn from(error: SymphoniaError) -> Self {
-        Self::Symphonia(Arc::new(error))
-    }
-}
-
-impl From<ResamplerConstructionError> for AudioPipelineError {
-    fn from(error: ResamplerConstructionError) -> Self {
-        Self::ResamplerBuildFailed(Arc::new(error))
-    }
+    #[error("audio sink error: {0}")]
+    AudioSink(#[from] AudioSinkError),
 }
 
 #[derive(Debug, Error)]
