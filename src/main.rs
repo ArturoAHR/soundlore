@@ -1,8 +1,9 @@
-use std::process::exit;
+use std::{path::PathBuf, process::exit, str::FromStr};
 
 use iced_aw::ICED_AW_FONT_BYTES;
 use nameless_music_player_lib::{
-    app::app, database::initialize_database, log::initialize_logging, ui::theme::Theme,
+    app::app, database::initialize_database, log::initialize_logging, playback::PlaybackController,
+    ui::theme::Theme,
 };
 use rfd::{MessageDialog, MessageLevel};
 use tracing::{error, info};
@@ -14,6 +15,17 @@ fn main() -> iced::Result {
     let _worker_guard = initialize_logging();
 
     info!(version = env!("CARGO_PKG_VERSION"), "Starting application.");
+
+    let mut playback_controller = PlaybackController::new();
+
+    playback_controller.initialize_output().unwrap();
+
+    playback_controller
+        .play(Some(
+            PathBuf::from_str("/home/arturo/Desktop/test-data/Close to the Edge, Pt. 1.ogg")
+                .unwrap(),
+        ))
+        .unwrap();
 
     let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
 

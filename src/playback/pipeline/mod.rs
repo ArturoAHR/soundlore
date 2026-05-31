@@ -1,7 +1,4 @@
 use std::{
-    cmp::min,
-    collections::VecDeque,
-    fs::File,
     path::PathBuf,
     sync::{
         mpsc::{self, Receiver, RecvError, Sender, TryRecvError},
@@ -12,34 +9,25 @@ use std::{
 };
 
 use rtrb::Producer;
-use rubato::{
-    audioadapter_buffers::direct::InterleavedSlice, Fft, FixedSync, Indexing, Resampler,
-    ResamplerConstructionError,
-};
-use symphonia::{
-    core::{
-        codecs::{
-            audio::{AudioDecoder, AudioDecoderOptions},
-            CodecParameters,
-        },
-        errors::Error as SymphoniaError,
-        formats::{probe::Hint, FormatOptions, FormatReader, TrackType},
-        io::MediaSourceStream,
-        meta::MetadataOptions,
-    },
-    default::get_codecs,
-};
+use rubato::ResamplerConstructionError;
+use symphonia::core::errors::Error as SymphoniaError;
 use thiserror::Error;
 use tracing::{error, info, info_span};
 
 use crate::playback::{
-    constants::SAMPLE_BUFFER_CAPACITY, pipeline::channel_converter::AudioChannelConverter,
+    constants::SAMPLE_BUFFER_CAPACITY,
+    pipeline::{
+        channel_converter::AudioChannelConverter,
+        decoder::{AudioDecoder, AudioDecoderError},
+        resampler::{AudioResampler, AudioResamplerError},
+        sink::AudioSink,
+    },
 };
 
 pub mod channel_converter;
-// pub mod decoder;
-// pub mod resampler;
-// pub mod sink;
+pub mod decoder;
+pub mod resampler;
+pub mod sink;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioPipelineError {
@@ -66,6 +54,12 @@ pub enum AudioPipelineError {
 
     #[error("symphonia error: {0}")]
     Symphonia(Arc<SymphoniaError>),
+
+    #[error("audio decoder error: {0}")]
+    AudioDecoder(#[from] AudioDecoderError),
+
+    #[error("audio resampler error: {0}")]
+    AudioResampler(#[from] AudioResamplerError),
 }
 
 impl From<std::io::Error> for AudioPipelineError {
@@ -97,26 +91,22 @@ pub enum AudioPipelineCommandReceiverError {
 
 pub struct AudioPipeline {
     pub command_receiver: Receiver<AudioPipelineCommand>,
-    pub configuration: Option<AudioPipelineConfiguration>,
-    pub current_track: Option<AudioPipelineTrack>,
-    pub resampler: Option<Fft<f32>>,
+    pub decoder: Option<AudioDecoder>,
+    pub sink: Option<AudioSink>,
+    pub resampler: Option<AudioResampler>,
     pub status: AudioPipelineStatus,
+    pub output_format: Option<AudioFormat>,
+}
+
+#[derive(Debug)]
+pub struct AudioFormat {
+    sample_rate: u32,
+    channels: u16,
 }
 
 pub enum AudioPipelineStatus {
     ProducingSamples,
     Idle,
-}
-
-pub struct AudioPipelineTrack {
-    path: PathBuf,
-    audio_track_id: u32,
-    demuxer: Box<dyn FormatReader>,
-    decoder: Box<dyn AudioDecoder>,
-    sample_rate: u32,
-    channels: u16,
-    sample_buffer: VecDeque<f32>,
-    decoded_sample_buffer: VecDeque<f32>,
 }
 
 #[derive(Debug)]
@@ -143,100 +133,47 @@ impl AudioPipeline {
     pub fn new(command_receiver: Receiver<AudioPipelineCommand>) -> Self {
         Self {
             command_receiver,
-            configuration: None,
-            current_track: None,
             status: AudioPipelineStatus::Idle,
             resampler: None,
+            decoder: None,
+            output_format: None,
+            sink: None,
         }
     }
 
-    pub fn set_current_track(&mut self, track_path: PathBuf) -> Result<(), AudioPipelineError> {
-        let track_file = File::open(&track_path)?;
+    pub fn build_decoder(&mut self, track_path: PathBuf) -> Result<(), AudioPipelineError> {
+        let decoder = AudioDecoder::build(track_path)?;
 
-        let media_source_stream = MediaSourceStream::new(Box::new(track_file), Default::default());
+        self.decoder = Some(decoder);
 
-        let mut hint = Hint::new();
-
-        if let Some(file_format) = track_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|s| s.to_lowercase())
-        {
-            hint.with_extension(&file_format);
+        if self.output_format.is_some() {
+            self.build_resampler()?;
         }
-
-        let demuxer = symphonia::default::get_probe().probe(
-            &hint,
-            media_source_stream,
-            FormatOptions::default(),
-            MetadataOptions::default(),
-        )?;
-
-        let track = demuxer
-            .as_ref()
-            .first_track_known_codec(TrackType::Audio)
-            .ok_or_else(|| AudioPipelineError::MissingAudioTrack)?;
-
-        let Some(CodecParameters::Audio(codec_parameters)) = track.codec_params.as_ref() else {
-            return Err(AudioPipelineError::MissingCodecParameters.into());
-        };
-
-        let decoder =
-            get_codecs().make_audio_decoder(&codec_parameters, &AudioDecoderOptions::default())?;
-
-        let (Some(sample_rate), Some(channels)) = (
-            codec_parameters.sample_rate,
-            codec_parameters
-                .channels
-                .as_ref()
-                .and_then(|channels| Some(channels.count())),
-        ) else {
-            return Err(AudioPipelineError::MissingCodecParameters);
-        };
-
-        info!("Now playing {:?}.", track_path);
-
-        self.current_track = Some(AudioPipelineTrack {
-            path: track_path,
-            audio_track_id: track.id,
-            demuxer,
-            decoder,
-            sample_rate: sample_rate,
-            channels: channels as u16,
-            sample_buffer: VecDeque::new(),
-            decoded_sample_buffer: VecDeque::new(),
-        });
 
         Ok(())
     }
 
     pub fn build_resampler(&mut self) -> Result<(), AudioPipelineError> {
-        let Some(track) = self.current_track.as_ref() else {
+        let Some(decoder) = self.decoder.as_ref() else {
             return Err(AudioPipelineError::MissingResamplerParameters);
         };
 
-        let Some(configuration) = self.configuration.as_ref() else {
+        let Some(output_format) = self.output_format.as_ref() else {
             return Err(AudioPipelineError::MissingResamplerParameters);
         };
 
-        let (device_sample_rate, device_channels) =
-            (configuration.sample_rate, configuration.channels);
+        if decoder.track.sample_rate == output_format.sample_rate {
+            self.resampler = None;
 
-        let resampling_channels = min(track.channels, device_channels);
+            return Ok(());
+        }
 
-        let resampler = Fft::<f32>::new(
-            track.sample_rate as usize,
-            device_sample_rate as usize,
-            2048,
-            2,
-            resampling_channels.into(),
-            FixedSync::Output,
+        let resampler = AudioResampler::build(
+            decoder.track.sample_rate,
+            decoder.track.channels,
+            output_format.sample_rate,
+            output_format.channels,
         )?;
-
-        info!(
-            "Built resampler for transforming sample rate {}Hz to {}Hz with {} channels",
-            track.sample_rate, device_sample_rate, resampling_channels
-        );
 
         self.resampler = Some(resampler);
 
@@ -257,20 +194,33 @@ impl AudioPipeline {
             return Ok(());
         };
 
-        self.set_current_track(track_path)?;
+        self.build_decoder(track_path)?;
 
         self.status = AudioPipelineStatus::ProducingSamples;
 
         Ok(())
     }
 
-    pub fn update_pipeline_configuration(&mut self, configuration: AudioPipelineConfiguration) {
+    pub fn set_output_configuration(
+        &mut self,
+        output_format: AudioFormat,
+        audio_engine_producer: Producer<f32>,
+    ) -> Result<(), AudioPipelineError> {
         info!(
             "Configuration set, output sample rate is {}Hz with {} channels",
-            configuration.sample_rate, configuration.channels
+            output_format.sample_rate, output_format.channels
         );
 
-        self.configuration = Some(configuration);
+        let audio_sink = AudioSink::new(audio_engine_producer);
+
+        self.output_format = Some(output_format);
+        self.sink = Some(audio_sink);
+
+        if self.decoder.is_some() {
+            self.build_resampler()?;
+        }
+
+        Ok(())
     }
 }
 
@@ -308,13 +258,13 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
                         sample_rate,
                         channels,
                         producer,
-                    } => Ok(audio_pipeline.update_pipeline_configuration(
-                        AudioPipelineConfiguration {
+                    } => audio_pipeline.set_output_configuration(
+                        AudioFormat {
                             sample_rate,
                             channels,
-                            sample_buffer_producer: producer,
                         },
-                    )),
+                        producer,
+                    ),
                     AudioPipelineCommand::Stop => Ok(audio_pipeline.stop()),
                     AudioPipelineCommand::Pause => Ok(audio_pipeline.pause()),
                     AudioPipelineCommand::Seek(_) => todo!(),
@@ -336,113 +286,68 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
             },
         };
 
-        let Some(track) = audio_pipeline.current_track.as_ref() else {
+        let Some(decoder) = audio_pipeline.decoder.as_mut() else {
             continue;
         };
 
-        let Some(configuration) = audio_pipeline.configuration.as_ref() else {
+        let Some(output_format) = audio_pipeline.output_format.as_ref() else {
             continue;
         };
 
-        if track.sample_rate == configuration.sample_rate && audio_pipeline.resampler.is_some() {
-            audio_pipeline.resampler = None;
-        }
+        let Some(audio_sink) = audio_pipeline.sink.as_mut() else {
+            continue;
+        };
 
-        if track.sample_rate != configuration.sample_rate && audio_pipeline.resampler.is_none() {
-            match audio_pipeline.build_resampler() {
-                Ok(_) => {}
-                Err(error) => {
-                    error!("Unable to create resampler for track and output device: {error}");
+        match audio_sink.write() {
+            Ok(_) => {}
+            Err(_) => {
+                // Sleep 50% of the time it takes to drain the buffer.
+                let sleep_duration_milliseconds =
+                    ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
+                        / output_format.sample_rate as f32)
+                        * 0.5;
 
-                    audio_pipeline.status = AudioPipelineStatus::Idle;
-                    continue;
-                }
+                thread::sleep(Duration::from_millis(
+                    sleep_duration_milliseconds.ceil() as u64
+                ));
             }
         }
 
-        let Some(track) = audio_pipeline.current_track.as_mut() else {
-            continue;
-        };
-
-        let Some(configuration) = audio_pipeline.configuration.as_mut() else {
-            continue;
-        };
-
-        while !track.sample_buffer.is_empty() {
-            let Some(sample) = track.sample_buffer.front() else {
-                break;
-            };
-
-            match configuration.sample_buffer_producer.push(*sample) {
-                Ok(_) => {
-                    track.sample_buffer.pop_front();
-                }
-                Err(_) => {
-                    // Sleep 50% of the time it takes to drain the buffer.
-                    let sleep_duration_milliseconds =
-                        ((SAMPLE_BUFFER_CAPACITY as f32 / configuration.channels as f32) * 1000.0
-                            / configuration.sample_rate as f32)
-                            * 0.5;
-
-                    thread::sleep(Duration::from_millis(
-                        sleep_duration_milliseconds.ceil() as u64
-                    ));
-
-                    break;
-                }
-            };
-        }
-
-        if !track.sample_buffer.is_empty() {
+        if !audio_sink.is_empty() {
             continue;
         }
+        // Resampling & Remixing
+        let mut decoded_samples: Vec<f32>;
 
-        let mut packet = None;
+        match decoder.decode() {
+            Ok(Some(samples)) => decoded_samples = samples,
+            Ok(None) => {
+                info!("No more packets from demuxer.");
+                audio_pipeline.status = AudioPipelineStatus::Idle;
 
-        while let Ok(Some(current_packet)) = track.demuxer.next_packet() {
-            if current_packet.track_id == track.audio_track_id {
-                packet = Some(current_packet);
-                break;
+                continue;
             }
-        }
+            Err(AudioDecoderError::RecoverableDecoderError(error)) => {
+                error!("Decoder error: {error}");
 
-        let Some(packet) = packet else {
-            info!("No more packets from demuxer.");
-            audio_pipeline.status = AudioPipelineStatus::Idle;
+                continue;
+            }
+            Err(error) => {
+                error!("Decoder error: {error}");
 
-            continue;
-        };
-
-        let generic_audio_buffer = match track.decoder.decode(&packet) {
-            Ok(generic_audio_buffer) => generic_audio_buffer,
-            Err(decode_error) => {
-                error!("Failed to decode audio: {}", decode_error);
-
-                match decode_error {
-                    SymphoniaError::ResetRequired => {
-                        track.decoder.reset();
-                    }
-                    SymphoniaError::DecodeError(_) => {}
-                    SymphoniaError::IoError(_) => {}
-                    _ => {
-                        error!("Stopping decoding.");
-
-                        audio_pipeline.status = AudioPipelineStatus::Idle;
-                    }
-                }
+                audio_pipeline.status = AudioPipelineStatus::Idle;
 
                 continue;
             }
         };
 
-        // Resampling & Remixing
-        let mut samples: Vec<f32> = Vec::new();
-
-        generic_audio_buffer.copy_to_vec_interleaved(&mut samples);
-
-        if track.channels > configuration.channels {
-            match AudioChannelConverter::convert(&samples, track.channels, configuration.channels) {
-                Ok(remixed_samples) => samples = remixed_samples,
+        if decoder.track.channels > output_format.channels {
+            match AudioChannelConverter::convert(
+                &decoded_samples,
+                decoder.track.channels,
+                output_format.channels,
+            ) {
+                Ok(remixed_samples) => decoded_samples = remixed_samples,
                 Err(error) => {
                     error!("Could not remix samples: {error}");
 
@@ -454,88 +359,24 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
         }
 
         if let Some(resampler) = audio_pipeline.resampler.as_mut() {
-            let mut decoded_samples: Vec<f32> = Vec::new();
-            decoded_samples.extend(&track.decoded_sample_buffer);
-            track.decoded_sample_buffer.clear();
-            decoded_samples.extend(&samples);
+            let mut resampled_samples: Vec<f32>;
 
-            let input_frames = decoded_samples.len() / track.channels as usize;
-            let mut input_frames_left = input_frames;
-            let mut input_frames_next = resampler.input_frames_next();
-            let input_adapter =
-                InterleavedSlice::new(&mut decoded_samples, resampler.nbr_channels(), input_frames);
-
-            let input_adapter = match input_adapter {
-                Ok(adapter) => adapter,
+            match resampler.resample(&decoded_samples) {
+                Ok(samples) => resampled_samples = samples,
                 Err(error) => {
-                    error!("Failed to create input adapter for resampling: {error}");
+                    error!("Could not resample samples: {error}");
 
                     audio_pipeline.status = AudioPipelineStatus::Idle;
+
                     continue;
                 }
-            };
-
-            let mut resampled_samples: Vec<f32> =
-                vec![0.0; resampler.output_frames_max() * resampler.nbr_channels()];
-
-            let output_frame_capacity = resampler.output_frames_max();
-            let output_adapter = InterleavedSlice::new_mut(
-                &mut resampled_samples,
-                resampler.nbr_channels(),
-                output_frame_capacity,
-            );
-
-            let mut output_adapter = match output_adapter {
-                Ok(adapter) => adapter,
-                Err(error) => {
-                    error!("Failed to create output adapter for resampling: {error}");
-
-                    audio_pipeline.status = AudioPipelineStatus::Idle;
-                    continue;
-                }
-            };
-
-            let mut indexing = Indexing {
-                input_offset: 0,
-                output_offset: 0,
-                active_channels_mask: None,
-                partial_len: None,
-            };
-
-            while input_frames_left >= input_frames_next {
-                let resample_result = resampler.process_into_buffer(
-                    &input_adapter,
-                    &mut output_adapter,
-                    Some(&indexing),
-                );
-
-                let (frames_read, frames_written) = match resample_result {
-                    Ok(value) => value,
-                    Err(error) => {
-                        error!("Failed to resample chunk: {error}");
-
-                        audio_pipeline.status = AudioPipelineStatus::Idle;
-                        continue;
-                    }
-                };
-
-                indexing.input_offset += frames_read;
-                indexing.output_offset += frames_written;
-                input_frames_left -= frames_read;
-                input_frames_next = resampler.input_frames_next();
             }
 
-            if (indexing.input_offset * resampler.nbr_channels()) < decoded_samples.len() {
-                track
-                    .decoded_sample_buffer
-                    .extend(&decoded_samples[indexing.input_offset * resampler.nbr_channels()..]);
-            }
-
-            if track.channels < configuration.channels {
+            if decoder.track.channels < output_format.channels {
                 match AudioChannelConverter::convert(
                     &resampled_samples,
-                    track.channels,
-                    configuration.channels,
+                    decoder.track.channels,
+                    output_format.channels,
                 ) {
                     Ok(remixed_samples) => resampled_samples = remixed_samples,
                     Err(error) => {
@@ -548,20 +389,15 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
                 }
             }
 
-            track.sample_buffer.extend(
-                &resampled_samples[0..min(
-                    indexing.output_offset * configuration.channels as usize,
-                    resampled_samples.len(),
-                )],
-            );
+            audio_sink.buffer(&resampled_samples);
         } else {
-            if track.channels < configuration.channels {
+            if decoder.track.channels < output_format.channels {
                 match AudioChannelConverter::convert(
-                    &samples,
-                    track.channels,
-                    configuration.channels,
+                    &decoded_samples,
+                    decoder.track.channels,
+                    output_format.channels,
                 ) {
-                    Ok(remixed_samples) => samples = remixed_samples,
+                    Ok(remixed_samples) => decoded_samples = remixed_samples,
                     Err(error) => {
                         error!("Could not remix samples: {error}");
 
@@ -572,7 +408,7 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
                 }
             }
 
-            track.sample_buffer.extend(samples);
+            audio_sink.buffer(&decoded_samples);
         }
     });
 
