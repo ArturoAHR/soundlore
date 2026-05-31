@@ -32,7 +32,14 @@ use symphonia::{
 use thiserror::Error;
 use tracing::{error, info, info_span};
 
-use crate::playback::constants::SAMPLE_BUFFER_CAPACITY;
+use crate::playback::{
+    constants::SAMPLE_BUFFER_CAPACITY, pipeline::channel_converter::AudioChannelConverter,
+};
+
+pub mod channel_converter;
+// pub mod decoder;
+// pub mod resampler;
+// pub mod sink;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioPipelineError {
@@ -236,40 +243,6 @@ impl AudioPipeline {
         Ok(())
     }
 
-    pub fn remix_samples(
-        samples: &[f32],
-        input_channel_count: u16,
-        output_channel_count: u16,
-    ) -> Result<Vec<f32>, AudioPipelineError> {
-        if input_channel_count == output_channel_count {
-            return Ok(Vec::from(samples));
-        }
-
-        if input_channel_count == 1 && output_channel_count == 2 {
-            return Ok(samples
-                .iter()
-                .zip(samples)
-                .flat_map(|(l, r)| [l, r])
-                .cloned()
-                .collect());
-        }
-
-        if input_channel_count == 2 && output_channel_count == 1 {
-            let left_samples = samples.iter().step_by(2);
-            let right_samples = samples.iter().skip(1).step_by(2);
-
-            return Ok(left_samples
-                .zip(right_samples)
-                .map(|(l, r)| (l + r) / 2.0)
-                .collect());
-        }
-
-        return Err(AudioPipelineError::UnsupportedRemixing(
-            input_channel_count,
-            output_channel_count,
-        ));
-    }
-
     pub fn pause(&mut self) {
         self.status = AudioPipelineStatus::Idle;
     }
@@ -468,7 +441,7 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
         generic_audio_buffer.copy_to_vec_interleaved(&mut samples);
 
         if track.channels > configuration.channels {
-            match AudioPipeline::remix_samples(&samples, track.channels, configuration.channels) {
+            match AudioChannelConverter::convert(&samples, track.channels, configuration.channels) {
                 Ok(remixed_samples) => samples = remixed_samples,
                 Err(error) => {
                     error!("Could not remix samples: {error}");
@@ -559,7 +532,7 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
             }
 
             if track.channels < configuration.channels {
-                match AudioPipeline::remix_samples(
+                match AudioChannelConverter::convert(
                     &resampled_samples,
                     track.channels,
                     configuration.channels,
@@ -583,8 +556,11 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
             );
         } else {
             if track.channels < configuration.channels {
-                match AudioPipeline::remix_samples(&samples, track.channels, configuration.channels)
-                {
+                match AudioChannelConverter::convert(
+                    &samples,
+                    track.channels,
+                    configuration.channels,
+                ) {
                     Ok(remixed_samples) => samples = remixed_samples,
                     Err(error) => {
                         error!("Could not remix samples: {error}");
