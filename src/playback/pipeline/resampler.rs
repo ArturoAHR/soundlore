@@ -73,8 +73,8 @@ impl AudioResampler {
         let resampler = Fft::<f32>::new(
             input_sample_rate as usize,
             output_sample_rate as usize,
-            2048,
-            2,
+            RESAMPLER_CHUNK_SIZE,
+            RESAMPLER_SUB_CHUNK_SIZE,
             resampling_channels.into(),
             FixedSync::Output,
         )?;
