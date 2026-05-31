@@ -7,7 +7,7 @@ use std::{
 
 use rtrb::Producer;
 use thiserror::Error;
-use tracing::{error, info, info_span};
+use tracing::{error, info, info_span, warn};
 
 use crate::playback::{
     constants::SAMPLE_BUFFER_CAPACITY,
@@ -309,37 +309,39 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
 
     let mut audio_pipeline = AudioPipeline::new(command_receiver);
 
-    std::thread::spawn(move || loop {
+    std::thread::spawn(move || {
         let span = info_span!(parent: None, "audio_decoding_loop");
         let _guard = span.entered();
 
-        match audio_pipeline.process() {
-            Ok(_) => {}
-            Err(AudioPipelineError::AudioSink(AudioSinkError::FullRingBuffer)) => {
-                let Some(output_format) = audio_pipeline.output_format.as_ref() else {
+        loop {
+            match audio_pipeline.process() {
+                Ok(_) => {}
+                Err(AudioPipelineError::AudioSink(AudioSinkError::FullRingBuffer)) => {
+                    let Some(output_format) = audio_pipeline.output_format.as_ref() else {
+                        audio_pipeline.status = AudioPipelineStatus::Idle;
+
+                        continue;
+                    };
+
+                    let sleep_duration_milliseconds =
+                        ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
+                            / output_format.sample_rate as f32)
+                            * 0.5;
+
+                    thread::sleep(Duration::from_millis(
+                        sleep_duration_milliseconds.ceil() as u64
+                    ));
+                }
+                Err(AudioPipelineError::AudioDecoder(
+                    AudioDecoderError::RecoverableDecoderError(error),
+                )) => {
+                    warn!("recoverable audio pipeline error: {error}");
+                }
+                Err(error) => {
                     audio_pipeline.status = AudioPipelineStatus::Idle;
 
-                    continue;
-                };
-
-                let sleep_duration_milliseconds =
-                    ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
-                        / output_format.sample_rate as f32)
-                        * 0.5;
-
-                thread::sleep(Duration::from_millis(
-                    sleep_duration_milliseconds.ceil() as u64
-                ));
-            }
-            Err(AudioPipelineError::AudioDecoder(AudioDecoderError::RecoverableDecoderError(
-                error,
-            ))) => {
-                error!("audio pipeline error: {error}");
-            }
-            Err(error) => {
-                audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                error!("audio pipeline error: {error}");
+                    error!("audio pipeline error: {error}");
+                }
             }
         }
     });
