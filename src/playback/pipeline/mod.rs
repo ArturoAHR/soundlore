@@ -233,6 +233,82 @@ impl AudioPipeline {
 
         Ok(())
     }
+
+    /// Decoder thread processing
+    pub fn process(&mut self) -> Result<(), AudioPipelineError> {
+        let mut audio_pipeline_command = None;
+        match self.receive_command() {
+            Ok(command) => audio_pipeline_command = command,
+            Err(error) => {
+                error!("Audio pipeline command receive failed: {error}")
+            }
+        }
+
+        if let Some(audio_pipeline_command) = audio_pipeline_command {
+            match self.handle_command(audio_pipeline_command) {
+                Ok(_) => {}
+                Err(error) => {
+                    error!("Audio pipeline command processing failed: {error}")
+                }
+            }
+        }
+
+        let Some(decoder) = self.decoder.as_mut() else {
+            return Ok(());
+        };
+
+        let Some(output_format) = self.output_format.as_ref() else {
+            return Ok(());
+        };
+
+        let Some(audio_sink) = self.sink.as_mut() else {
+            return Ok(());
+        };
+
+        audio_sink.write()?;
+
+        let Some(mut decoded_samples) = decoder.decode()? else {
+            info!("No more packets from demuxer.");
+
+            self.status = AudioPipelineStatus::Idle;
+
+            return Ok(());
+        };
+
+        if decoder.track.channels > output_format.channels {
+            decoded_samples = AudioChannelConverter::convert(
+                &decoded_samples,
+                decoder.track.channels,
+                output_format.channels,
+            )?;
+        }
+
+        if let Some(resampler) = self.resampler.as_mut() {
+            let mut resampled_samples = resampler.resample(&decoded_samples)?;
+
+            if decoder.track.channels < output_format.channels {
+                resampled_samples = AudioChannelConverter::convert(
+                    &resampled_samples,
+                    decoder.track.channels,
+                    output_format.channels,
+                )?;
+            }
+
+            audio_sink.buffer(&resampled_samples);
+        } else {
+            if decoder.track.channels < output_format.channels {
+                decoded_samples = AudioChannelConverter::convert(
+                    &decoded_samples,
+                    decoder.track.channels,
+                    output_format.channels,
+                )?;
+            }
+
+            audio_sink.buffer(&decoded_samples);
+        }
+
+        Ok(())
+    }
 }
 
 pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
@@ -244,40 +320,15 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
         let span = info_span!(parent: None, "audio_decoding_loop");
         let _guard = span.entered();
 
-        let mut audio_pipeline_command = None;
-
-        match audio_pipeline.receive_command() {
-            Ok(command) => audio_pipeline_command = command,
-            Err(error) => {
-                error!("Audio pipeline command receive failed: {error}")
-            }
-        }
-
-        if let Some(audio_pipeline_command) = audio_pipeline_command {
-            match audio_pipeline.handle_command(audio_pipeline_command) {
-                Ok(_) => {}
-                Err(error) => {
-                    error!("Audio pipeline command processing failed: {error}")
-                }
-            }
-        }
-
-        let Some(decoder) = audio_pipeline.decoder.as_mut() else {
-            continue;
-        };
-
-        let Some(output_format) = audio_pipeline.output_format.as_ref() else {
-            continue;
-        };
-
-        let Some(audio_sink) = audio_pipeline.sink.as_mut() else {
-            continue;
-        };
-
-        match audio_sink.write() {
+        match audio_pipeline.process() {
             Ok(_) => {}
-            Err(_) => {
-                // Sleep 50% of the time it takes to drain the buffer.
+            Err(AudioPipelineError::AudioSink(AudioSinkError::FullRingBuffer)) => {
+                let Some(output_format) = audio_pipeline.output_format.as_ref() else {
+                    audio_pipeline.status = AudioPipelineStatus::Idle;
+
+                    continue;
+                };
+
                 let sleep_duration_milliseconds =
                     ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
                         / output_format.sample_rate as f32)
@@ -287,105 +338,16 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
                     sleep_duration_milliseconds.ceil() as u64
                 ));
             }
-        }
-
-        if !audio_sink.is_empty() {
-            continue;
-        }
-
-        let mut decoded_samples: Vec<f32>;
-
-        match decoder.decode() {
-            Ok(Some(samples)) => decoded_samples = samples,
-            Ok(None) => {
-                info!("No more packets from demuxer.");
-
-                audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                continue;
-            }
-            Err(AudioDecoderError::RecoverableDecoderError(error)) => {
-                error!("Decoder error: {error}");
-
-                continue;
+            Err(AudioPipelineError::AudioDecoder(AudioDecoderError::RecoverableDecoderError(
+                error,
+            ))) => {
+                error!("audio pipeline error: {error}");
             }
             Err(error) => {
-                error!("Decoder error: {error}");
-
                 audio_pipeline.status = AudioPipelineStatus::Idle;
 
-                continue;
+                error!("audio pipeline error: {error}");
             }
-        };
-
-        if decoder.track.channels > output_format.channels {
-            match AudioChannelConverter::convert(
-                &decoded_samples,
-                decoder.track.channels,
-                output_format.channels,
-            ) {
-                Ok(remixed_samples) => decoded_samples = remixed_samples,
-                Err(error) => {
-                    error!("Could not convert samples: {error}");
-
-                    audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                    continue;
-                }
-            }
-        }
-
-        if let Some(resampler) = audio_pipeline.resampler.as_mut() {
-            let mut resampled_samples: Vec<f32>;
-
-            match resampler.resample(&decoded_samples) {
-                Ok(samples) => resampled_samples = samples,
-                Err(error) => {
-                    error!("Could not resample samples: {error}");
-
-                    audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                    continue;
-                }
-            }
-
-            if decoder.track.channels < output_format.channels {
-                match AudioChannelConverter::convert(
-                    &resampled_samples,
-                    decoder.track.channels,
-                    output_format.channels,
-                ) {
-                    Ok(remixed_samples) => resampled_samples = remixed_samples,
-                    Err(error) => {
-                        error!("Could not convert samples: {error}");
-
-                        audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                        continue;
-                    }
-                }
-            }
-
-            audio_sink.buffer(&resampled_samples);
-        } else {
-            if decoder.track.channels < output_format.channels {
-                match AudioChannelConverter::convert(
-                    &decoded_samples,
-                    decoder.track.channels,
-                    output_format.channels,
-                ) {
-                    Ok(remixed_samples) => decoded_samples = remixed_samples,
-                    Err(error) => {
-                        error!("Could not convert samples: {error}");
-
-                        audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                        continue;
-                    }
-                }
-            }
-
-            audio_sink.buffer(&decoded_samples);
         }
     });
 
