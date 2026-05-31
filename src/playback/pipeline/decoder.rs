@@ -132,16 +132,13 @@ impl AudioDecoder {
         }
 
         let Some(packet) = packet else {
-            info!("No more packets from demuxer.");
-
+            // No more packets to decode.
             return Ok(None);
         };
 
         let generic_audio_buffer = match self.decoder.decode(&packet) {
             Ok(generic_audio_buffer) => Ok(generic_audio_buffer),
             Err(decode_error) => {
-                error!("Failed to decode audio: {}", decode_error);
-
                 match decode_error {
                     // Recoverable decoder errors
                     SymphoniaError::ResetRequired => {
