@@ -6,3 +6,4 @@ pub mod file;
 pub mod generator;
 pub mod log;
 pub mod models;
+pub mod playback;
