@@ -14,7 +14,6 @@ use symphonia::{
     default::get_codecs,
 };
 use thiserror::Error;
-use tracing::{error, info};
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioDecoderError {

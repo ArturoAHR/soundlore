@@ -44,9 +44,6 @@ pub enum AppError {
     #[error("audio pipeline error - {0}")]
     AudioPipeline(#[from] AudioPipelineError),
 
-    #[error("playback error - {0}")]
-    PlaybackEngine(#[from] PlaybackEngineError),
-
     #[error("playback controller error - {0}")]
     PlaybackController(#[from] PlaybackControllerError),
 }
