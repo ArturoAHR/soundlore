@@ -2,9 +2,6 @@ use std::{thread, time::Duration};
 
 use crate::common::{file::AUDIO_FILE_FIXTURES_PATH, playback::TestPlayback};
 
-#[path = "../common/mod.rs"]
-mod common;
-
 #[test]
 fn decodes_samples_into_consumer() {
     let mut playback = TestPlayback::build(48000, 2);

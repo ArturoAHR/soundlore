@@ -7,16 +7,13 @@ use sea_query_sqlx::SqlxBinder;
 
 use crate::{
     common::{app::TestApp, assert::assert_tracks, file::AUDIO_FILE_FIXTURES_PATH},
-    constants::{
+    scan::constants::{
         ALL_FORMATS_EXPECTED_TRACKS, CORRUPT_EXPECTED_TRACKS, METADATA_VARIANTS_EXPECTED_TRACKS,
         PARTIALLY_CORRUPT_EXPECTED_TRACKS,
     },
 };
 
 mod constants;
-
-#[path = "../common/mod.rs"]
-mod common;
 
 #[tokio::test]
 async fn scans_successfully_all_supported_formats() {
