@@ -1,15 +1,17 @@
 use std::{
     path::PathBuf,
-    sync::mpsc::{SendError, Sender},
+    sync::mpsc::{Receiver, SendError, Sender},
+    thread::JoinHandle,
 };
 
 use rtrb::RingBuffer;
 use thiserror::Error;
+use tracing::error;
 
 use crate::playback::{
     constants::SAMPLE_BUFFER_CAPACITY,
     engine::{PlaybackEngine, PlaybackEngineError},
-    pipeline::{spawn_audio_pipeline_thread, AudioPipelineCommand},
+    pipeline::{spawn_audio_pipeline_thread, AudioPipelineCommand, AudioPipelineEvent},
 };
 
 pub mod constants;
@@ -26,7 +28,10 @@ pub enum PlaybackControllerError {
 }
 
 pub struct PlaybackController {
-    pipeline_command_sender: Sender<AudioPipelineCommand>,
+    audio_pipeline_event_receiver: Receiver<AudioPipelineEvent>,
+    audio_pipeline_command_sender: Sender<AudioPipelineCommand>,
+    audio_pipeline_thread_handle: Option<JoinHandle<()>>,
+
     playback_engine: Box<dyn PlaybackEngine>,
 }
 
@@ -51,10 +56,16 @@ impl From<SendError<AudioPipelineCommand>> for PlaybackControllerError {
 
 impl PlaybackController {
     pub fn new(playback_engine: Box<dyn PlaybackEngine>) -> Self {
-        let pipeline_command_sender = spawn_audio_pipeline_thread();
+        let (
+            audio_pipeline_thread_handle,
+            audio_pipeline_command_sender,
+            audio_pipeline_event_receiver,
+        ) = spawn_audio_pipeline_thread();
 
         PlaybackController {
-            pipeline_command_sender,
+            audio_pipeline_thread_handle: Some(audio_pipeline_thread_handle),
+            audio_pipeline_command_sender,
+            audio_pipeline_event_receiver,
             playback_engine,
         }
     }
@@ -65,7 +76,7 @@ impl PlaybackController {
 
         let (sample_rate, channels) = self.playback_engine.build_stream(sample_buffer_consumer)?;
 
-        self.pipeline_command_sender
+        self.audio_pipeline_command_sender
             .send(AudioPipelineCommand::ChangeConfiguration {
                 sample_rate: sample_rate,
                 channels: channels,
@@ -78,7 +89,7 @@ impl PlaybackController {
     pub fn stop(&mut self) -> Result<(), PlaybackControllerError> {
         self.playback_engine.pause_stream()?;
 
-        self.pipeline_command_sender
+        self.audio_pipeline_command_sender
             .send(AudioPipelineCommand::Pause)?;
 
         Ok(())
@@ -87,9 +98,30 @@ impl PlaybackController {
     pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), PlaybackControllerError> {
         self.playback_engine.play_stream()?;
 
-        self.pipeline_command_sender
+        self.audio_pipeline_command_sender
             .send(AudioPipelineCommand::Play(track_path))?;
 
         Ok(())
+    }
+}
+
+impl Drop for PlaybackController {
+    fn drop(&mut self) {
+        match self
+            .audio_pipeline_command_sender
+            .send(AudioPipelineCommand::Exit)
+        {
+            Ok(_) => {
+                if let Some(audio_pipeline_thread_handle) = self.audio_pipeline_thread_handle.take()
+                {
+                    if let Err(error) = audio_pipeline_thread_handle.join() {
+                        error!("Audio pipeline thread join failed: {:#?}", error);
+                    };
+                }
+            }
+            Err(error) => {
+                error!("Could not issue exit command to audio pipeline: {error}")
+            }
+        };
     }
 }

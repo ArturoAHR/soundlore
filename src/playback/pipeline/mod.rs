@@ -1,7 +1,8 @@
 use std::{
+    ops::ControlFlow,
     path::PathBuf,
     sync::mpsc::{self, Receiver, RecvError, Sender, TryRecvError},
-    thread,
+    thread::{self, JoinHandle},
     time::Duration,
 };
 
@@ -56,10 +57,12 @@ pub enum AudioPipelineCommandReceiverError {
 
 pub struct AudioPipeline {
     pub command_receiver: Receiver<AudioPipelineCommand>,
+    pub event_sender: Sender<AudioPipelineEvent>,
+    pub status: AudioPipelineStatus,
+
     pub decoder: Option<AudioDecoder>,
     pub sink: Option<AudioSink>,
     pub resampler: Option<AudioResampler>,
-    pub status: AudioPipelineStatus,
     pub output_format: Option<AudioFormat>,
 }
 
@@ -84,12 +87,23 @@ pub enum AudioPipelineCommand {
         channels: u16,
         producer: Producer<f32>,
     },
+    Exit,
+}
+
+pub enum AudioPipelineEvent {
+    Exited,
+    DecodingEnded,
+    EndOfTrack,
 }
 
 impl AudioPipeline {
-    pub fn new(command_receiver: Receiver<AudioPipelineCommand>) -> Self {
+    pub fn new(
+        command_receiver: Receiver<AudioPipelineCommand>,
+        event_sender: Sender<AudioPipelineEvent>,
+    ) -> Self {
         Self {
             command_receiver,
+            event_sender,
             status: AudioPipelineStatus::Idle,
             resampler: None,
             decoder: None,
@@ -136,7 +150,7 @@ impl AudioPipeline {
     pub fn handle_command(
         &mut self,
         command: AudioPipelineCommand,
-    ) -> Result<(), AudioPipelineError> {
+    ) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
         match command {
             AudioPipelineCommand::Play(track_path) => {
                 self.play(track_path)?;
@@ -161,9 +175,12 @@ impl AudioPipeline {
                 self.pause();
             }
             AudioPipelineCommand::Seek(_) => todo!(),
+            AudioPipelineCommand::Exit => {
+                return Ok(ControlFlow::Break(()));
+            }
         };
 
-        Ok(())
+        Ok(ControlFlow::Continue(()))
     }
 
     pub fn build_decoder(&mut self, track_path: PathBuf) -> Result<(), AudioPipelineError> {
@@ -227,8 +244,17 @@ impl AudioPipeline {
         Ok(())
     }
 
+    pub fn emit_event(&self, event: AudioPipelineEvent) {
+        match self.event_sender.send(event) {
+            Ok(_) => {}
+            Err(error) => {
+                error!("Failed to send audio pipeline event: {error}");
+            }
+        }
+    }
+
     /// Decoder thread processing
-    pub fn process(&mut self) -> Result<(), AudioPipelineError> {
+    pub fn process(&mut self) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
         let mut audio_pipeline_command = None;
         match self.receive_command() {
             Ok(command) => audio_pipeline_command = command,
@@ -239,23 +265,26 @@ impl AudioPipeline {
 
         if let Some(audio_pipeline_command) = audio_pipeline_command {
             match self.handle_command(audio_pipeline_command) {
-                Ok(_) => {}
+                Ok(ControlFlow::Continue(_)) => {}
+                Ok(ControlFlow::Break(_)) => {
+                    return Ok(ControlFlow::Break(()));
+                }
                 Err(error) => {
-                    error!("Audio pipeline command processing failed: {error}")
+                    error!("Audio pipeline command processing failed: {error}");
                 }
             }
         }
 
         let Some(decoder) = self.decoder.as_mut() else {
-            return Ok(());
+            return Ok(ControlFlow::Continue(()));
         };
 
         let Some(output_format) = self.output_format.as_ref() else {
-            return Ok(());
+            return Ok(ControlFlow::Continue(()));
         };
 
         let Some(audio_sink) = self.sink.as_mut() else {
-            return Ok(());
+            return Ok(ControlFlow::Continue(()));
         };
 
         audio_sink.write()?;
@@ -265,7 +294,7 @@ impl AudioPipeline {
 
             self.status = AudioPipelineStatus::Idle;
 
-            return Ok(());
+            return Ok(ControlFlow::Continue(()));
         };
 
         if decoder.track.channels > output_format.channels {
@@ -300,22 +329,32 @@ impl AudioPipeline {
             audio_sink.buffer(&decoded_samples);
         }
 
-        Ok(())
+        Ok(ControlFlow::Continue(()))
     }
 }
 
-pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
+pub fn spawn_audio_pipeline_thread() -> (
+    JoinHandle<()>,
+    Sender<AudioPipelineCommand>,
+    Receiver<AudioPipelineEvent>,
+) {
     let (command_sender, command_receiver) = mpsc::channel();
+    let (event_sender, event_receiver) = mpsc::channel();
 
-    let mut audio_pipeline = AudioPipeline::new(command_receiver);
+    let mut audio_pipeline = AudioPipeline::new(command_receiver, event_sender);
 
-    std::thread::spawn(move || {
+    let audio_pipeline_thread_handle = std::thread::spawn(move || {
         let span = info_span!(parent: None, "audio_decoding_loop");
         let _guard = span.entered();
 
         loop {
             match audio_pipeline.process() {
-                Ok(_) => {}
+                Ok(ControlFlow::Continue(_)) => {}
+                Ok(ControlFlow::Break(_)) => {
+                    audio_pipeline.emit_event(AudioPipelineEvent::Exited);
+
+                    break;
+                }
                 Err(AudioPipelineError::AudioSink(AudioSinkError::FullRingBuffer)) => {
                     let Some(output_format) = audio_pipeline.output_format.as_ref() else {
                         audio_pipeline.status = AudioPipelineStatus::Idle;
@@ -346,5 +385,5 @@ pub fn spawn_audio_pipeline_thread() -> Sender<AudioPipelineCommand> {
         }
     });
 
-    command_sender
+    (audio_pipeline_thread_handle, command_sender, event_receiver)
 }
