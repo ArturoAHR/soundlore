@@ -58,3 +58,27 @@ pub fn assert_tracks(expected_tracks: &[ExpectedTrack], tracks: &[Track]) {
         assert_eq!(expected_track.last_played, track.last_played);
     }
 }
+
+#[macro_export]
+/// Repeatedly performs a boolean assertion and if it doesn't return true before a timeout, it panics.
+macro_rules! assert_timeout {
+    ($condition:expr, $duration:expr) => {
+        assert_timeout!($condition, $duration, "Assertion timed out");
+    };
+
+    ($condition:expr, $duration:expr, $($panic_arguments:tt)+) => {
+        let timer = std::time::Instant::now();
+
+        loop {
+            if $condition {
+                break;
+            }
+
+            if timer.elapsed() > $duration {
+                panic!($($panic_arguments)+);
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+}
