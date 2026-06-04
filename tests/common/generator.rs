@@ -279,7 +279,7 @@ fn generate_sample_rate_and_channels_variants_files(output_path: &PathBuf) {
                 vec!["-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3"],
             );
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join("track.mp3"));
+            run_ffmpeg(arguments, &output_path.join(format!("{}.mp3", file_name)));
 
             // OGG Vorbis audio file
             let mut arguments = generate_default_file_creation_arguments();
