@@ -16,11 +16,13 @@ pub fn generate_audio_file_fixtures(path: &PathBuf) {
     let metadata_variants_files_path = path.join("metadata_variants");
     let corrupt_files_path = path.join("corrupt");
     let partially_corrupt_files_path = path.join("partially_corrupt");
+    let sample_rate_and_channels_variants_file_path = path.join("all_sample_rates_and_channels");
 
     generate_all_formats_files(&all_formats_files_path);
     generate_metadata_variants_files(&metadata_variants_files_path);
     generate_corrupt_files(&corrupt_files_path);
     generate_partially_corrupt_files(&partially_corrupt_files_path);
+    generate_sample_rate_and_channels_variants_files(&sample_rate_and_channels_variants_file_path)
 }
 
 fn generate_all_formats_files(output_path: &PathBuf) {
@@ -245,6 +247,74 @@ fn generate_partially_corrupt_files(output_path: &PathBuf) {
         .expect("Could not create truncated audio file");
 
     fs::remove_file(&full_file_path).expect("could not remove the original full audio file");
+}
+
+fn generate_sample_rate_and_channels_variants_files(output_path: &PathBuf) {
+    create_dir_all(&output_path)
+        .expect("Could not create all formats audio file fixtures directory.");
+
+    let sample_rates = vec!["48000", "44100"];
+    let channel_counts = vec!["1", "2"];
+
+    for sample_rate in sample_rates.iter() {
+        for channels in channel_counts.iter() {
+            let channel_count_name = match *channels {
+                "1" => "mono",
+                "2" => "stereo",
+                _ => "unknown",
+            };
+
+            let file_name = format!("{}_{}", sample_rate, channel_count_name);
+
+            // WAV audio file
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(&mut arguments, vec!["-c:a", "pcm_s16le"]);
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join(format!("{}.wav", file_name)));
+
+            // MP3 audio file
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(
+                &mut arguments,
+                vec!["-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3"],
+            );
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join("track.mp3"));
+
+            // OGG Vorbis audio file
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join(format!("{}.ogg", file_name)));
+
+            // FLAC audio file
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(&mut arguments, vec!["-c:a", "flac"]);
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join(format!("{}.flac", file_name)));
+
+            // M4A audio file
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(&mut arguments, vec!["-c:a", "aac", "-b:a", "128k"]);
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join(format!("{}.m4a", file_name)));
+
+            // AAC audio file (Should drop all tags)
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(&mut arguments, vec!["-c:a", "aac", "-b:a", "128k"]);
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join(format!("{}.aac", file_name)));
+
+            // AIFF
+            let mut arguments = generate_default_file_creation_arguments();
+            extend_arguments(
+                &mut arguments,
+                vec!["-c:a", "pcm_s16be", "-write_id3v2", "1"],
+            );
+            extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
+            run_ffmpeg(arguments, &output_path.join(format!("{}.aiff", file_name)));
+        }
+    }
 }
 
 fn extend_arguments(arguments: &mut Vec<String>, new_arguments: Vec<impl Into<String> + Clone>) {

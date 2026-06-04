@@ -1,9 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nameless_music_player_lib::playback::{
-    engine::{PlaybackEngine, PlaybackEngineError},
-    PlaybackController,
-};
+use nameless_music_player_lib::playback::engine::{PlaybackEngine, PlaybackEngineError};
 use rtrb::Consumer;
 
 pub struct TestEngine {
