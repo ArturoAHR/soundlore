@@ -14,7 +14,8 @@ use crate::playback::{
     constants::SAMPLE_BUFFER_CAPACITY,
     pipeline::{
         channel_converter::{AudioChannelConverter, AudioChannelConverterError},
-        decoder::{AudioDecoder, AudioDecoderError},
+        decoder::{AudioDecoder, AudioDecoderError, AudioDecoderStatus},
+        event_emitter::{AudioPipelineEvent, AudioPipelineEventEmitter},
         resampler::{AudioResampler, AudioResamplerError},
         sink::{AudioSink, AudioSinkError},
     },
@@ -22,6 +23,7 @@ use crate::playback::{
 
 pub mod channel_converter;
 pub mod decoder;
+pub mod event_emitter;
 pub mod resampler;
 pub mod sink;
 
@@ -57,7 +59,7 @@ pub enum AudioPipelineCommandReceiverError {
 
 pub struct AudioPipeline {
     pub command_receiver: Receiver<AudioPipelineCommand>,
-    pub event_sender: Sender<AudioPipelineEvent>,
+    pub event_emitter: AudioPipelineEventEmitter,
     pub status: AudioPipelineStatus,
 
     pub decoder: Option<AudioDecoder>,
@@ -90,12 +92,6 @@ pub enum AudioPipelineCommand {
     Exit,
 }
 
-pub enum AudioPipelineEvent {
-    Exited,
-    DecodingEnded,
-    EndOfTrack,
-}
-
 impl AudioPipeline {
     pub fn new(
         command_receiver: Receiver<AudioPipelineCommand>,
@@ -103,7 +99,7 @@ impl AudioPipeline {
     ) -> Self {
         Self {
             command_receiver,
-            event_sender,
+            event_emitter: AudioPipelineEventEmitter::new(event_sender),
             status: AudioPipelineStatus::Idle,
             resampler: None,
             decoder: None,
@@ -244,15 +240,6 @@ impl AudioPipeline {
         Ok(())
     }
 
-    pub fn emit_event(&self, event: AudioPipelineEvent) {
-        match self.event_sender.send(event) {
-            Ok(_) => {}
-            Err(error) => {
-                error!("Failed to send audio pipeline event: {error}");
-            }
-        }
-    }
-
     /// Decoder thread processing
     pub fn process(&mut self) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
         let mut audio_pipeline_command = None;
@@ -287,12 +274,18 @@ impl AudioPipeline {
             return Ok(ControlFlow::Continue(()));
         };
 
+        if audio_sink.is_empty() && matches!(decoder.status, AudioDecoderStatus::Finished) {
+            self.event_emitter.emit(AudioPipelineEvent::EndOfTrack);
+
+            self.status = AudioPipelineStatus::Idle;
+        }
+
         audio_sink.write()?;
 
         let Some(mut decoded_samples) = decoder.decode()? else {
             info!("No more packets from demuxer.");
 
-            self.status = AudioPipelineStatus::Idle;
+            self.event_emitter.emit(AudioPipelineEvent::DecodingEnded);
 
             return Ok(ControlFlow::Continue(()));
         };
@@ -351,7 +344,9 @@ pub fn spawn_audio_pipeline_thread() -> (
             match audio_pipeline.process() {
                 Ok(ControlFlow::Continue(_)) => {}
                 Ok(ControlFlow::Break(_)) => {
-                    audio_pipeline.emit_event(AudioPipelineEvent::Exited);
+                    audio_pipeline
+                        .event_emitter
+                        .emit(AudioPipelineEvent::Exited);
 
                     break;
                 }

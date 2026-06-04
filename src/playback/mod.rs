@@ -11,7 +11,9 @@ use tracing::error;
 use crate::playback::{
     constants::SAMPLE_BUFFER_CAPACITY,
     engine::{PlaybackEngine, PlaybackEngineError},
-    pipeline::{spawn_audio_pipeline_thread, AudioPipelineCommand, AudioPipelineEvent},
+    pipeline::{
+        event_emitter::AudioPipelineEvent, spawn_audio_pipeline_thread, AudioPipelineCommand,
+    },
 };
 
 pub mod constants;

@@ -50,8 +50,14 @@ impl From<SymphoniaError> for AudioDecoderError {
 
 pub struct AudioDecoder {
     pub track: AudioDecoderTrack,
+    pub status: AudioDecoderStatus,
     demuxer: Box<dyn FormatReader>,
     decoder: Box<dyn SymphoniaDecoder>,
+}
+
+pub enum AudioDecoderStatus {
+    Finished,
+    Decoding,
 }
 
 pub struct AudioDecoderTrack {
@@ -113,6 +119,7 @@ impl AudioDecoder {
                 sample_rate,
                 channels: channels as u16,
             },
+            status: AudioDecoderStatus::Decoding,
             demuxer,
             decoder,
         })
@@ -132,6 +139,9 @@ impl AudioDecoder {
 
         let Some(packet) = packet else {
             // No more packets to decode.
+
+            self.status = AudioDecoderStatus::Finished;
+
             return Ok(None);
         };
 
