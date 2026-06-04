@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::mpsc::{Receiver, SendError, Sender},
+    sync::mpsc::{Receiver, SendError, Sender, TryRecvError},
     thread::JoinHandle,
 };
 
@@ -23,7 +23,10 @@ pub mod pipeline;
 #[derive(Debug, Error, Clone)]
 pub enum PlaybackControllerError {
     #[error("failed to send command to pipeline: {0}")]
-    PipelineCommandSendFailed(String),
+    AudioPipelineCommandSendFailed(String),
+
+    #[error("failed to poll event from the pipeline: {0}")]
+    AudioPipelineEventReceiveAttemptFailed(String),
 
     #[error("playback error - {0}")]
     PlaybackEngine(#[from] PlaybackEngineError),
@@ -52,7 +55,7 @@ pub enum PlaybackControllerCommand {
 
 impl From<SendError<AudioPipelineCommand>> for PlaybackControllerError {
     fn from(error: SendError<AudioPipelineCommand>) -> Self {
-        Self::PipelineCommandSendFailed(error.to_string())
+        Self::AudioPipelineCommandSendFailed(error.to_string())
     }
 }
 
@@ -104,6 +107,18 @@ impl PlaybackController {
             .send(AudioPipelineCommand::Play(track_path))?;
 
         Ok(())
+    }
+
+    pub fn poll_audio_pipeline_event(
+        &self,
+    ) -> Result<Option<AudioPipelineEvent>, PlaybackControllerError> {
+        match self.audio_pipeline_event_receiver.try_recv() {
+            Ok(event) => Ok(Some(event)),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(error) => Err(
+                PlaybackControllerError::AudioPipelineEventReceiveAttemptFailed(error.to_string()),
+            ),
+        }
     }
 }
 

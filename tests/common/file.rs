@@ -14,6 +14,7 @@ pub struct AudioFileFixturesPath {
     pub metadata_variants: PathBuf,
     pub corrupt: PathBuf,
     pub partially_corrupt: PathBuf,
+    pub all_sample_rates_and_channels: PathBuf,
 }
 
 pub static AUDIO_FILE_FIXTURES_PATH: LazyLock<AudioFileFixturesPath> = LazyLock::new(|| {
@@ -30,6 +31,7 @@ pub static AUDIO_FILE_FIXTURES_PATH: LazyLock<AudioFileFixturesPath> = LazyLock:
         metadata_variants: fixture_root.join("metadata_variants"),
         corrupt: fixture_root.join("corrupt"),
         partially_corrupt: fixture_root.join("partially_corrupt"),
+        all_sample_rates_and_channels: fixture_root.join("all_sample_rates_and_channels"),
     }
 });
 
