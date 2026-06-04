@@ -51,6 +51,9 @@ impl From<SymphoniaError> for AudioDecoderError {
 pub struct AudioDecoder {
     pub track: AudioDecoderTrack,
     pub status: AudioDecoderStatus,
+
+    pub delivered_frames: u64,
+
     demuxer: Box<dyn FormatReader>,
     decoder: Box<dyn SymphoniaDecoder>,
 }
@@ -63,8 +66,11 @@ pub enum AudioDecoderStatus {
 pub struct AudioDecoderTrack {
     pub path: PathBuf,
     packet_track_id: u32,
+
     pub sample_rate: u32,
     pub channels: u16,
+
+    pub total_frames: u64,
 }
 
 impl AudioDecoder {
@@ -102,12 +108,13 @@ impl AudioDecoder {
         let decoder =
             get_codecs().make_audio_decoder(&codec_parameters, &AudioDecoderOptions::default())?;
 
-        let (Some(sample_rate), Some(channels)) = (
+        let (Some(sample_rate), Some(channels), Some(total_frames)) = (
             codec_parameters.sample_rate,
             codec_parameters
                 .channels
                 .as_ref()
                 .and_then(|channels| Some(channels.count())),
+            track.num_frames,
         ) else {
             return Err(AudioDecoderError::MissingCodecParameters);
         };
@@ -118,7 +125,9 @@ impl AudioDecoder {
                 packet_track_id: track.id,
                 sample_rate,
                 channels: channels as u16,
+                total_frames,
             },
+            delivered_frames: 0,
             status: AudioDecoderStatus::Decoding,
             demuxer,
             decoder,
@@ -172,6 +181,8 @@ impl AudioDecoder {
         let mut samples: Vec<f32> = Vec::new();
 
         generic_audio_buffer.copy_to_vec_interleaved(&mut samples);
+
+        self.delivered_frames += samples.len() as u64;
 
         Ok(Some(samples))
     }

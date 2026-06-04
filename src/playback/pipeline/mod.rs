@@ -8,7 +8,7 @@ use std::{
 
 use rtrb::Producer;
 use thiserror::Error;
-use tracing::{error, info, info_span, warn};
+use tracing::{error, info, info_span, instrument, warn};
 
 use crate::playback::{
     constants::SAMPLE_BUFFER_CAPACITY,
@@ -117,6 +117,7 @@ impl AudioPipeline {
         self.status = AudioPipelineStatus::Idle;
     }
 
+    #[instrument(skip(self))]
     pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), AudioPipelineError> {
         let Some(track_path) = track_path else {
             return Ok(());
@@ -125,6 +126,7 @@ impl AudioPipeline {
         self.build_decoder(track_path)?;
 
         self.status = AudioPipelineStatus::ProducingSamples;
+        info!("Started playing track");
 
         Ok(())
     }
@@ -211,6 +213,8 @@ impl AudioPipeline {
             decoder.track.channels,
             output_format.sample_rate,
             output_format.channels,
+            decoder.track.total_frames,
+            None,
         )?;
 
         self.resampler = Some(resampler);
@@ -274,7 +278,9 @@ impl AudioPipeline {
             return Ok(ControlFlow::Continue(()));
         };
 
-        if audio_sink.is_empty() && matches!(decoder.status, AudioDecoderStatus::Finished) {
+        let decoder_has_finished = matches!(decoder.status, AudioDecoderStatus::Finished);
+
+        if audio_sink.is_empty() && decoder_has_finished {
             self.event_emitter.emit(AudioPipelineEvent::EndOfTrack);
 
             self.status = AudioPipelineStatus::Idle;
@@ -282,10 +288,28 @@ impl AudioPipeline {
 
         audio_sink.write()?;
 
+        if decoder_has_finished {
+            return Ok(ControlFlow::Continue(()));
+        }
+
         let Some(mut decoded_samples) = decoder.decode()? else {
             info!("No more packets from demuxer.");
 
             self.event_emitter.emit(AudioPipelineEvent::DecodingEnded);
+
+            if let Some(resampler) = self.resampler.as_mut() {
+                let mut resampled_samples = resampler.flush()?;
+
+                if decoder.track.channels < output_format.channels {
+                    resampled_samples = AudioChannelConverter::convert(
+                        &resampled_samples,
+                        decoder.track.channels,
+                        output_format.channels,
+                    )?;
+                }
+
+                audio_sink.buffer(&resampled_samples);
+            }
 
             return Ok(ControlFlow::Continue(()));
         };
