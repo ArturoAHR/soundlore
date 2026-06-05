@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::sync::Arc;
 use std::{cmp::min, collections::VecDeque};
 
@@ -7,7 +6,7 @@ use rubato::{
     Fft, FixedSync, Indexing, ResampleError, Resampler, ResamplerConstructionError,
 };
 use thiserror::Error;
-use tracing::{debug, info, instrument};
+use tracing::{info, instrument};
 
 use crate::playback::constants::{RESAMPLER_CHUNK_SIZE, RESAMPLER_SUB_CHUNK_SIZE};
 use crate::playback::pipeline::AudioFormat;
@@ -50,7 +49,6 @@ pub struct AudioResampler {
 
     total_frames: u64,
     delivered_frames: u64,
-    resample_ratio: f64,
     channels: usize,
 
     resampler: Fft<f32>,
@@ -101,7 +99,6 @@ impl AudioResampler {
             status,
             total_frames,
             delivered_frames,
-            resample_ratio,
             channels,
 
             input: AudioFormat {
@@ -205,6 +202,10 @@ impl AudioResampler {
     /// Flushes the contents inside the sample buffer in the instance and within the
     /// `rubato::Resampler` instance for the last remaining samples.
     pub fn flush(&mut self) -> Result<Vec<f32>, AudioResamplerError> {
+        if self.total_frames < self.delivered_frames {
+            return Ok(Vec::new());
+        }
+
         let channels = self.channels;
 
         let mut input_samples: Vec<f32> = Vec::with_capacity(self.sample_buffer.len());
@@ -218,36 +219,18 @@ impl AudioResampler {
         //     self.total_frames, self.delivered_frames
         // );
 
-        let frames_left = self.total_frames - self.delivered_frames;
-        let input_sample_rate_frames_left =
-            (frames_left as f64 / self.resample_ratio).ceil() as usize;
-
-        let max_input_frame_requirement = self.resampler.input_frames_max();
-        let empty_frames_to_add = max_input_frame_requirement
-            * max(
-                1,
-                ((input_frames + input_sample_rate_frames_left) / max_input_frame_requirement) + 1,
-            )
-            - input_frames;
-
-        // println!("TEST - Empty frames to add: {empty_frames_to_add}");
-
-        input_samples.extend(vec![0.0; empty_frames_to_add * channels]);
-        let input_frames_left = input_samples.len() / channels;
-
-        let input_adapter = InterleavedSlice::new(&mut input_samples, channels, input_frames_left)?;
-
         let mut indexing = Indexing {
             input_offset: 0,
             output_offset: 0,
             active_channels_mask: None,
-            partial_len: None,
+            partial_len: Some(input_frames),
         };
 
         let output_frame_capacity = self.resampler.output_frames_max();
         let mut resampled_samples = Vec::new();
 
-        while self.delivered_frames != self.total_frames {
+        while self.delivered_frames <= self.total_frames {
+            let input_adapter = InterleavedSlice::new(&mut input_samples, channels, input_frames)?;
             let mut output_samples: Vec<f32> = vec![0.0; output_frame_capacity * channels];
             let mut output_adapter =
                 InterleavedSlice::new_mut(&mut output_samples, channels, output_frame_capacity)?;
@@ -269,9 +252,14 @@ impl AudioResampler {
             self.delivered_frames += frames_written as u64;
 
             // println!("TEST - frames_read: {frames_read}, frames_written: {frames_written}");
+            // println!(
+            //     "TEST - total_frames: {}, delivered_frames: {}",
+            //     self.total_frames, self.delivered_frames
+            // );
 
-            if indexing.input_offset >= input_frames_left {
-                break;
+            if indexing.input_offset >= input_frames {
+                indexing.input_offset = 0;
+                indexing.partial_len = Some(0);
             }
         }
 
