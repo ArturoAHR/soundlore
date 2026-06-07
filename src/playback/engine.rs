@@ -1,10 +1,9 @@
 use std::{fmt::Debug, sync::Arc};
 
 use cpal::{
-    default_host,
-    traits::{DeviceTrait, HostTrait, StreamTrait},
     BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, PauseStreamError,
-    PlayStreamError, Stream,
+    PlayStreamError, Stream, default_host,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use rtrb::{Consumer, PopError};
 use thiserror::Error;
@@ -73,8 +72,15 @@ pub trait PlaybackEngine {
     fn pause_stream(&self) -> Result<(), PlaybackEngineError>;
 }
 
+pub enum PlaybackEngineStatus {
+    Playing,
+    Paused,
+}
+
 pub struct AudioEngine {
     stream: Option<Stream>,
+
+    status: PlaybackEngineStatus,
 }
 
 /*
@@ -83,7 +89,10 @@ pub struct AudioEngine {
  */
 impl AudioEngine {
     pub fn new() -> Self {
-        Self { stream: None }
+        Self {
+            stream: None,
+            status: PlaybackEngineStatus::Playing,
+        }
     }
 }
 
@@ -118,16 +127,26 @@ impl PlaybackEngine for AudioEngine {
     }
 
     fn play_stream(&self) -> Result<(), PlaybackEngineError> {
-        match &self.stream {
-            Some(stream) => Ok(stream.play()?),
-            None => Err(PlaybackEngineError::MissingStream),
+        let Some(stream) = self.stream.as_ref() else {
+            return Err(PlaybackEngineError::MissingStream);
+        };
+
+        if matches!(self.status, PlaybackEngineStatus::Paused) {
+            stream.play()?
         }
+
+        Ok(())
     }
 
     fn pause_stream(&self) -> Result<(), PlaybackEngineError> {
-        match &self.stream {
-            Some(stream) => Ok(stream.pause()?),
-            None => Err(PlaybackEngineError::MissingStream),
+        let Some(stream) = self.stream.as_ref() else {
+            return Err(PlaybackEngineError::MissingStream);
+        };
+
+        if matches!(self.status, PlaybackEngineStatus::Playing) {
+            stream.pause()?
         }
+
+        Ok(())
     }
 }

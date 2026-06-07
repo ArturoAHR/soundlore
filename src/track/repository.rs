@@ -28,7 +28,7 @@ pub async fn upsert_tracks_batch(
                 TrackIden::FileFormat,
                 // Codec Parameters
                 TrackIden::Codec,
-                TrackIden::DurationSecs,
+                TrackIden::Frames,
                 TrackIden::SampleRate,
                 TrackIden::Channels,
                 TrackIden::BitDepth,
@@ -58,7 +58,7 @@ pub async fn upsert_tracks_batch(
                 track.file_format.clone().into(),
                 // Audio Metadata
                 track.codec.clone().into(),
-                track.duration_secs.into(),
+                track.frames.into(),
                 track.sample_rate.into(),
                 track.channels.into(),
                 track.bit_depth.into(),
@@ -87,7 +87,7 @@ pub async fn upsert_tracks_batch(
                         TrackIden::FileSizeBytes,
                         // Codec Parameters
                         TrackIden::Codec,
-                        TrackIden::DurationSecs,
+                        TrackIden::Frames,
                         TrackIden::SampleRate,
                         TrackIden::Channels,
                         TrackIden::BitDepth,

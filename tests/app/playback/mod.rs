@@ -1,6 +1,9 @@
-use std::{thread, time::Duration};
+use std::{path::PathBuf, thread, time::Duration};
 
-use nameless_music_player_lib::playback::pipeline::event_emitter::AudioPipelineEvent;
+use nameless_music_player_lib::{
+    playback::pipeline::thread::AudioPipelineThreadEvent,
+    track::{metadata::read_track_metadata, models::Track},
+};
 use tracing::debug;
 
 use crate::{
@@ -16,7 +19,7 @@ fn decodes_samples_into_consumer() {
 
     playback
         .playback_controller
-        .play(Some(
+        .play(create_mock_track(
             format!(
                 "{}/track.mp3",
                 audio_file_fixtures_path.all_formats.to_str().unwrap()
@@ -64,7 +67,7 @@ fn decodes_different_sample_rates_and_channels_with_44100_stereo_output() {
 
                 playback
                     .playback_controller
-                    .play(Some(
+                    .play(create_mock_track(
                         audio_file_fixtures_path
                             .all_sample_rates_and_channels
                             .join(&file_name),
@@ -81,7 +84,7 @@ fn decodes_different_sample_rates_and_channels_with_44100_stereo_output() {
                         if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event()
                         {
                             match event {
-                                Some(AudioPipelineEvent::EndOfTrack) => break,
+                                Some(AudioPipelineThreadEvent::TrackFinished) => break,
                                 _ => {
                                     thread::sleep(Duration::from_millis(100));
                                     continue;
@@ -138,7 +141,7 @@ fn decodes_different_sample_rates_and_channels_with_48000_stereo_output() {
 
                 playback
                     .playback_controller
-                    .play(Some(
+                    .play(create_mock_track(
                         audio_file_fixtures_path
                             .all_sample_rates_and_channels
                             .join(&file_name),
@@ -155,7 +158,7 @@ fn decodes_different_sample_rates_and_channels_with_48000_stereo_output() {
                         if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event()
                         {
                             match event {
-                                Some(AudioPipelineEvent::EndOfTrack) => break,
+                                Some(AudioPipelineThreadEvent::TrackFinished) => break,
                                 _ => {
                                     thread::sleep(Duration::from_millis(100));
                                     continue;
@@ -181,5 +184,43 @@ fn decodes_different_sample_rates_and_channels_with_48000_stereo_output() {
                 );
             }
         }
+    }
+}
+
+fn create_mock_track(track_path: PathBuf) -> Track {
+    let track_properties = read_track_metadata(&track_path).unwrap();
+
+    Track {
+        id: "36a7839f-15d5-44dd-9971-0696236370e9".to_owned(),
+        file_path: track_properties.file_path,
+        file_size_bytes: track_properties.file_size_bytes,
+        file_format: track_properties.file_format,
+        codec: track_properties.codec,
+        frames: track_properties.frames,
+        sample_rate: track_properties.sample_rate,
+        channels: track_properties.channels,
+        bit_depth: track_properties.bit_depth,
+        bitrate_kbps: track_properties.bitrate_kbps,
+        title: track_properties.title,
+        artist: track_properties.artist,
+        album: track_properties.album,
+        album_artist: track_properties.album_artist,
+        track_number: track_properties.track_number,
+        track_total: track_properties.track_total,
+        disc_number: track_properties.disc_number,
+        disc_total: track_properties.disc_total,
+        year: track_properties.year,
+        genre: track_properties.genre,
+        replaygain_track_gain_db: track_properties.replaygain_track_gain_db,
+        replaygain_track_peak: track_properties.replaygain_track_peak,
+        replaygain_album_gain_db: track_properties.replaygain_album_gain_db,
+        replaygain_album_peak: track_properties.replaygain_album_peak,
+        play_count: 0,
+        skip_count: 0,
+        volume_adjustment_db: 0.0,
+        last_played: None,
+        created_at: 1,
+        updated_at: 1,
+        deleted_at: None,
     }
 }

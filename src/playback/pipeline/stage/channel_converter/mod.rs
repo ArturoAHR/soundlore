@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+pub mod stage;
+
 #[derive(Debug, Error, Clone)]
 pub enum AudioChannelConverterError {
     #[error("unsupported conversion: {0} to {1}.")]

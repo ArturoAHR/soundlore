@@ -3,7 +3,7 @@ name = "nameless-music-player"
 version = "0.1.0"
 description = "A Music Player App"
 authors = ["ArturoAHR"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary

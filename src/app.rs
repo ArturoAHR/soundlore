@@ -12,6 +12,7 @@ use tracing::{info, instrument};
 use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
+    playback,
     ui::{
         components::{
             explorer_pane::{self, ExplorerPane},
@@ -63,6 +64,8 @@ pub enum Message {
     TrackInformationPane(track_information_pane::Event),
     StatusBar(status_bar::Event),
     PlaybackBar(playback_bar::Event),
+
+    Playback(playback::Event),
 }
 
 impl App {
@@ -117,6 +120,7 @@ impl App {
             Message::TrackInformationPane(event) => self.handle_track_information_pane(event),
             Message::StatusBar(event) => self.handle_status_bar(event),
             Message::PlaybackBar(event) => self.handle_playback_bar(event),
+            Message::Playback(event) => todo!(),
         }
     }
 

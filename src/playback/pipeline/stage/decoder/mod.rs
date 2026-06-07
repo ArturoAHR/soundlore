@@ -1,4 +1,4 @@
-use std::{fs::File, path::PathBuf, sync::Arc};
+use std::{fs::File, sync::Arc};
 
 use symphonia::{
     core::{
@@ -14,6 +14,13 @@ use symphonia::{
     default::get_codecs,
 };
 use thiserror::Error;
+
+use crate::{
+    playback::pipeline::{stage::AudioPipelineSamples, thread::AudioPipelineThreadEvent},
+    track::models::Track,
+};
+
+pub mod stage;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioDecoderError {
@@ -49,10 +56,10 @@ impl From<SymphoniaError> for AudioDecoderError {
 }
 
 pub struct AudioDecoder {
-    pub track: AudioDecoderTrack,
     pub status: AudioDecoderStatus,
+    pub pending_events: Vec<AudioPipelineThreadEvent>,
 
-    pub delivered_frames: u64,
+    packet_track_id: u32,
 
     demuxer: Box<dyn FormatReader>,
     decoder: Box<dyn SymphoniaDecoder>,
@@ -63,31 +70,14 @@ pub enum AudioDecoderStatus {
     Decoding,
 }
 
-pub struct AudioDecoderTrack {
-    pub path: PathBuf,
-    packet_track_id: u32,
-
-    pub sample_rate: u32,
-    pub channels: u16,
-
-    pub total_frames: u64,
-}
-
 impl AudioDecoder {
-    pub fn build(track_path: PathBuf) -> Result<Self, AudioDecoderError> {
-        let track_file = File::open(&track_path)?;
+    pub fn build(track: &Track) -> Result<Self, AudioDecoderError> {
+        let track_file = File::open(&track.file_path)?;
 
         let media_source_stream = MediaSourceStream::new(Box::new(track_file), Default::default());
 
         let mut hint = Hint::new();
-
-        if let Some(file_format) = track_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|s| s.to_lowercase())
-        {
-            hint.with_extension(&file_format);
-        }
+        hint.with_extension(&track.file_format);
 
         let demuxer = symphonia::default::get_probe().probe(
             &hint,
@@ -96,38 +86,23 @@ impl AudioDecoder {
             MetadataOptions::default(),
         )?;
 
-        let track = demuxer
+        let audio_track = demuxer
             .as_ref()
             .first_track_known_codec(TrackType::Audio)
             .ok_or_else(|| AudioDecoderError::MissingAudioTrack)?;
 
-        let Some(CodecParameters::Audio(codec_parameters)) = track.codec_params.as_ref() else {
+        let Some(CodecParameters::Audio(codec_parameters)) = audio_track.codec_params.as_ref()
+        else {
             return Err(AudioDecoderError::MissingCodecParameters);
         };
 
         let decoder =
             get_codecs().make_audio_decoder(&codec_parameters, &AudioDecoderOptions::default())?;
 
-        let (Some(sample_rate), Some(channels), Some(total_frames)) = (
-            codec_parameters.sample_rate,
-            codec_parameters
-                .channels
-                .as_ref()
-                .and_then(|channels| Some(channels.count())),
-            track.num_frames,
-        ) else {
-            return Err(AudioDecoderError::MissingCodecParameters);
-        };
-
         Ok(Self {
-            track: AudioDecoderTrack {
-                path: track_path,
-                packet_track_id: track.id,
-                sample_rate,
-                channels: channels as u16,
-                total_frames,
-            },
-            delivered_frames: 0,
+            pending_events: Vec::new(),
+
+            packet_track_id: audio_track.id,
             status: AudioDecoderStatus::Decoding,
             demuxer,
             decoder,
@@ -135,11 +110,11 @@ impl AudioDecoder {
     }
 
     /// Returns decoded samples, if there are no more samples `None` will be returned.
-    pub fn decode(&mut self) -> Result<Option<Vec<f32>>, AudioDecoderError> {
+    pub fn decode(&mut self) -> Result<AudioPipelineSamples, AudioDecoderError> {
         let mut packet = None;
 
         while let Ok(Some(current_packet)) = self.demuxer.next_packet() {
-            if current_packet.track_id == self.track.packet_track_id {
+            if current_packet.track_id == self.packet_track_id {
                 packet = Some(current_packet);
 
                 break;
@@ -150,8 +125,10 @@ impl AudioDecoder {
             // No more packets to decode.
 
             self.status = AudioDecoderStatus::Finished;
+            self.pending_events
+                .push(AudioPipelineThreadEvent::DecodingFinished);
 
-            return Ok(None);
+            return Ok(AudioPipelineSamples::End(vec![]));
         };
 
         let generic_audio_buffer = match self.decoder.decode(&packet) {
@@ -182,8 +159,6 @@ impl AudioDecoder {
 
         generic_audio_buffer.copy_to_vec_interleaved(&mut samples);
 
-        self.delivered_frames += samples.len() as u64;
-
-        Ok(Some(samples))
+        Ok(AudioPipelineSamples::Chunk(samples))
     }
 }

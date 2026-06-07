@@ -6,7 +6,7 @@ use thiserror::Error;
 use tokio::task::JoinError;
 
 use crate::{
-    playback::{pipeline::AudioPipelineError, PlaybackControllerError},
+    playback::{PlaybackControllerError, pipeline::AudioPipelineError},
     track::metadata::TrackPropertiesReadError,
 };
 
@@ -18,7 +18,9 @@ pub enum AppError {
     #[error("database migration error - {0}")]
     DatabaseMigration(Arc<MigrateError>),
 
-    #[error("app was downgraded but database is already at version {current} (app expects {expected}), please update the app.")]
+    #[error(
+        "app was downgraded but database is already at version {current} (app expects {expected}), please update the app."
+    )]
     DatabaseDowngradeDetected { current: i64, expected: i64 },
 
     #[error("database query generation error - {0}")]

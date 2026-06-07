@@ -12,7 +12,7 @@ pub struct Track {
 
     // Codec Parameters
     pub codec: String,
-    pub duration_secs: f64,
+    pub frames: i64,
     pub sample_rate: i64,
     pub channels: i64,
     pub bit_depth: Option<i64>,
@@ -57,7 +57,7 @@ pub struct TrackProperties {
 
     // Codec Parameters
     pub codec: String,
-    pub duration_secs: f64,
+    pub frames: i64,
     pub sample_rate: i64,
     pub channels: i64,
     pub bit_depth: Option<i64>,
@@ -92,6 +92,7 @@ pub struct UpdateTrack {
     // Codec Parameters
     pub codec: String,
     pub duration_secs: f64,
+    pub frames: i64,
     pub sample_rate: i64,
     pub channels: i64,
     pub bit_depth: Option<i64>,

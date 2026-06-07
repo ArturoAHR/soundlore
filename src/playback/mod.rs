@@ -8,12 +8,18 @@ use rtrb::RingBuffer;
 use thiserror::Error;
 use tracing::error;
 
-use crate::playback::{
-    constants::SAMPLE_BUFFER_CAPACITY,
-    engine::{PlaybackEngine, PlaybackEngineError},
-    pipeline::{
-        event_emitter::AudioPipelineEvent, spawn_audio_pipeline_thread, AudioPipelineCommand,
+use crate::{
+    playback::{
+        constants::SAMPLE_BUFFER_CAPACITY,
+        engine::{PlaybackEngine, PlaybackEngineError},
+        pipeline::{
+            AudioFormat,
+            thread::{
+                AudioPipelineThreadCommand, AudioPipelineThreadEvent, spawn_audio_pipeline_thread,
+            },
+        },
     },
+    track::models::Track,
 };
 
 pub mod constants;
@@ -33,8 +39,8 @@ pub enum PlaybackControllerError {
 }
 
 pub struct PlaybackController {
-    audio_pipeline_event_receiver: Receiver<AudioPipelineEvent>,
-    audio_pipeline_command_sender: Sender<AudioPipelineCommand>,
+    audio_pipeline_event_receiver: Receiver<AudioPipelineThreadEvent>,
+    audio_pipeline_command_sender: Sender<AudioPipelineThreadCommand>,
     audio_pipeline_thread_handle: Option<JoinHandle<()>>,
 
     playback_engine: Box<dyn PlaybackEngine>,
@@ -53,8 +59,8 @@ pub enum PlaybackControllerCommand {
     // TODO: Add Seek
 }
 
-impl From<SendError<AudioPipelineCommand>> for PlaybackControllerError {
-    fn from(error: SendError<AudioPipelineCommand>) -> Self {
+impl From<SendError<AudioPipelineThreadCommand>> for PlaybackControllerError {
+    fn from(error: SendError<AudioPipelineThreadCommand>) -> Self {
         Self::AudioPipelineCommandSendFailed(error.to_string())
     }
 }
@@ -82,11 +88,40 @@ impl PlaybackController {
         let (sample_rate, channels) = self.playback_engine.build_stream(sample_buffer_consumer)?;
 
         self.audio_pipeline_command_sender
-            .send(AudioPipelineCommand::ChangeConfiguration {
-                sample_rate: sample_rate,
-                channels: channels,
-                producer: sample_buffer_producer,
+            .send(AudioPipelineThreadCommand::ChangeOutput {
+                output: AudioFormat {
+                    sample_rate,
+                    channels,
+                },
+                audio_engine_producer: sample_buffer_producer,
             })?;
+
+        Ok(())
+    }
+
+    pub fn play(&mut self, track: Track) -> Result<(), PlaybackControllerError> {
+        self.playback_engine.play_stream()?;
+
+        self.audio_pipeline_command_sender
+            .send(AudioPipelineThreadCommand::Play(track))?;
+
+        Ok(())
+    }
+
+    pub fn resume(&mut self) -> Result<(), PlaybackControllerError> {
+        self.playback_engine.play_stream()?;
+
+        self.audio_pipeline_command_sender
+            .send(AudioPipelineThreadCommand::Resume)?;
+
+        Ok(())
+    }
+
+    pub fn pause(&mut self) -> Result<(), PlaybackControllerError> {
+        self.playback_engine.pause_stream()?;
+
+        self.audio_pipeline_command_sender
+            .send(AudioPipelineThreadCommand::Pause)?;
 
         Ok(())
     }
@@ -95,23 +130,14 @@ impl PlaybackController {
         self.playback_engine.pause_stream()?;
 
         self.audio_pipeline_command_sender
-            .send(AudioPipelineCommand::Pause)?;
-
-        Ok(())
-    }
-
-    pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.play_stream()?;
-
-        self.audio_pipeline_command_sender
-            .send(AudioPipelineCommand::Play(track_path))?;
+            .send(AudioPipelineThreadCommand::Stop)?;
 
         Ok(())
     }
 
     pub fn poll_audio_pipeline_event(
         &self,
-    ) -> Result<Option<AudioPipelineEvent>, PlaybackControllerError> {
+    ) -> Result<Option<AudioPipelineThreadEvent>, PlaybackControllerError> {
         match self.audio_pipeline_event_receiver.try_recv() {
             Ok(event) => Ok(Some(event)),
             Err(TryRecvError::Empty) => Ok(None),
@@ -126,7 +152,7 @@ impl Drop for PlaybackController {
     fn drop(&mut self) {
         match self
             .audio_pipeline_command_sender
-            .send(AudioPipelineCommand::Exit)
+            .send(AudioPipelineThreadCommand::Exit)
         {
             Ok(_) => {
                 if let Some(audio_pipeline_thread_handle) = self.audio_pipeline_thread_handle.take()

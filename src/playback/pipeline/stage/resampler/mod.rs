@@ -11,6 +11,8 @@ use tracing::{info, instrument};
 use crate::playback::constants::{RESAMPLER_CHUNK_SIZE, RESAMPLER_SUB_CHUNK_SIZE};
 use crate::playback::pipeline::AudioFormat;
 
+pub mod stage;
+
 #[derive(Debug, Error, Clone)]
 pub enum AudioResamplerError {
     #[error("failed to build resampler: {0}")]
@@ -60,6 +62,7 @@ pub struct AudioResampler {
 pub enum AudioResamplerStatus {
     Resampling,
     Warmup(usize),
+    Finished,
 }
 
 impl AudioResampler {
@@ -201,15 +204,17 @@ impl AudioResampler {
 
     /// Flushes the contents inside the sample buffer in the instance and within the
     /// `rubato::Resampler` instance for the last remaining samples.
-    pub fn flush(&mut self) -> Result<Vec<f32>, AudioResamplerError> {
+    pub fn flush(&mut self, samples: &[f32]) -> Result<Vec<f32>, AudioResamplerError> {
         if self.total_frames < self.delivered_frames {
             return Ok(Vec::new());
         }
 
         let channels = self.channels;
 
-        let mut input_samples: Vec<f32> = Vec::with_capacity(self.sample_buffer.len());
+        let mut input_samples: Vec<f32> =
+            Vec::with_capacity(self.sample_buffer.len() + samples.len());
 
+        input_samples.extend(samples);
         input_samples.extend(self.sample_buffer.drain(..));
 
         let input_frames = input_samples.len() / channels as usize;
@@ -262,6 +267,8 @@ impl AudioResampler {
                 indexing.partial_len = Some(0);
             }
         }
+
+        self.status = AudioResamplerStatus::Finished;
 
         Ok(resampled_samples)
     }

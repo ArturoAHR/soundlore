@@ -18,6 +18,7 @@ impl AudioSink {
     pub fn new(audio_engine_producer: Producer<f32>) -> Self {
         Self {
             audio_engine_producer,
+
             sample_buffer: VecDeque::new(),
         }
     }

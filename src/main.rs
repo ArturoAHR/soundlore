@@ -1,8 +1,12 @@
-use std::{path::PathBuf, process::exit, str::FromStr};
+use std::process::exit;
 
 use iced_aw::ICED_AW_FONT_BYTES;
 use nameless_music_player_lib::{
-    app::app, database::initialize_database, log::initialize_logging, ui::theme::Theme,
+    app::app,
+    database::initialize_database,
+    log::initialize_logging,
+    playback::{PlaybackController, engine::AudioEngine},
+    ui::theme::Theme,
 };
 use rfd::{MessageDialog, MessageLevel};
 use tracing::{error, info};
@@ -31,6 +35,10 @@ fn main() -> iced::Result {
             exit(1);
         }
     };
+
+    let mut playback_controller = PlaybackController::new(Box::new(AudioEngine::new()));
+
+    playback_controller.initialize_output().unwrap();
 
     app(pool.clone(), Theme::default(), 1.0)
         .window_size((1024.0, 768.0))

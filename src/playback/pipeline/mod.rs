@@ -1,408 +1,198 @@
-use std::{
-    ops::ControlFlow,
-    path::PathBuf,
-    sync::mpsc::{self, Receiver, RecvError, Sender, TryRecvError},
-    thread::{self, JoinHandle},
-    time::Duration,
-};
+use std::ops::ControlFlow;
 
-use rtrb::Producer;
 use thiserror::Error;
-use tracing::{error, info, info_span, instrument, warn};
+use tracing::{error, warn};
 
-use crate::playback::{
-    constants::SAMPLE_BUFFER_CAPACITY,
-    pipeline::{
-        channel_converter::{AudioChannelConverter, AudioChannelConverterError},
-        decoder::{AudioDecoder, AudioDecoderError, AudioDecoderStatus},
-        event_emitter::{AudioPipelineEvent, AudioPipelineEventEmitter},
-        resampler::{AudioResampler, AudioResamplerError},
+use crate::{
+    playback::pipeline::{
+        command::{AudioPipelineCommandReceiver, AudioPipelineCommandReceiverError},
+        config::AudioPipelineConfiguration,
         sink::{AudioSink, AudioSinkError},
+        stage::{
+            channel_converter::AudioChannelConverterError, decoder::AudioDecoderError,
+            resampler::AudioResamplerError,
+        },
+        thread::{AudioPipelineThreadCommand, AudioPipelineThreadEvent},
+        track::{AudioTrackPipeline, AudioTrackPipelineStatus},
     },
+    track::models::Track,
 };
 
-pub mod channel_converter;
-pub mod decoder;
-pub mod event_emitter;
-pub mod resampler;
+pub mod builder;
+pub mod command;
+pub mod config;
+pub mod event;
 pub mod sink;
+pub mod stage;
+pub mod thread;
+pub mod track;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioPipelineError {
-    #[error("missing resampler parameters")]
-    MissingResamplerParameters,
+    #[error("There are no more samples to decode for current track.")]
+    AudioTrackPipelineFinished,
 
     #[error("audio pipeline command receiver error: {0}")]
     AudioPipelineCommandReceiver(#[from] AudioPipelineCommandReceiverError),
 
-    #[error("audio decoder error: {0}")]
-    AudioDecoder(#[from] AudioDecoderError),
+    #[error("decoder error: {0}")]
+    Decoder(#[from] AudioDecoderError),
 
-    #[error("audio resampler error: {0}")]
-    AudioResampler(#[from] AudioResamplerError),
+    #[error("channel converter error: {0}")]
+    ChannelConverter(#[from] AudioChannelConverterError),
 
-    #[error("audio channel converter error: {0}")]
-    AudioChannelConverter(#[from] AudioChannelConverterError),
+    #[error("resampler error: {0}")]
+    Resampler(#[from] AudioResamplerError),
 
-    #[error("audio sink error: {0}")]
-    AudioSink(#[from] AudioSinkError),
-}
-
-#[derive(Debug, Error, Clone)]
-pub enum AudioPipelineCommandReceiverError {
-    #[error("Failed to receive audio pipeline command: {0}")]
-    ReceiveFailed(#[from] RecvError),
-
-    #[error("There are no pending audio pipeline commands in the channel: {0}")]
-    ReceiveAttemptFailed(#[from] TryRecvError),
+    #[error("sink error: {0}")]
+    Sink(#[from] AudioSinkError),
 }
 
 pub struct AudioPipeline {
-    pub command_receiver: Receiver<AudioPipelineCommand>,
-    pub event_emitter: AudioPipelineEventEmitter,
+    audio_track_pipelines: Vec<AudioTrackPipeline>,
+    audio_sink: AudioSink,
+
+    command_receiver: AudioPipelineCommandReceiver,
     pub status: AudioPipelineStatus,
 
-    pub decoder: Option<AudioDecoder>,
-    pub sink: Option<AudioSink>,
-    pub resampler: Option<AudioResampler>,
-    pub output_format: Option<AudioFormat>,
-}
-
-#[derive(Debug)]
-pub struct AudioFormat {
-    sample_rate: u32,
-    channels: u16,
+    configuration: AudioPipelineConfiguration,
 }
 
 pub enum AudioPipelineStatus {
-    ProducingSamples,
     Idle,
+    ProducingSamples,
+    Paused,
 }
 
-pub enum AudioPipelineCommand {
-    Play(Option<PathBuf>),
-    Pause,
-    Stop,
-    Seek(f32),
-    ChangeConfiguration {
-        sample_rate: u32,
-        channels: u16,
-        producer: Producer<f32>,
-    },
-    Exit,
+#[derive(Debug, Clone)]
+pub struct AudioFormat {
+    pub sample_rate: u32,
+    pub channels: u16,
 }
 
 impl AudioPipeline {
     pub fn new(
-        command_receiver: Receiver<AudioPipelineCommand>,
-        event_sender: Sender<AudioPipelineEvent>,
+        configuration: AudioPipelineConfiguration,
+        audio_sink: AudioSink,
+        command_receiver: AudioPipelineCommandReceiver,
+        track: Option<Track>,
     ) -> Self {
-        Self {
+        let mut audio_pipeline = Self {
+            audio_sink,
             command_receiver,
-            event_emitter: AudioPipelineEventEmitter::new(event_sender),
+            configuration,
+            audio_track_pipelines: Vec::new(),
             status: AudioPipelineStatus::Idle,
-            resampler: None,
-            decoder: None,
-            output_format: None,
-            sink: None,
+        };
+
+        if let Some(track) = track {
+            if let Err(error) = audio_pipeline.play_track(track) {
+                error!(
+                    "Failed to create audio track pipeline when creating audio pipeline {error}"
+                );
+            }
         }
+
+        audio_pipeline
+    }
+
+    pub fn play_track(&mut self, track: Track) -> Result<(), AudioPipelineError> {
+        let audio_track_pipeline = AudioTrackPipeline::build(track, self.configuration.clone())?;
+
+        self.audio_track_pipelines = vec![audio_track_pipeline];
+
+        self.status = AudioPipelineStatus::ProducingSamples;
+
+        Ok(())
     }
 
     pub fn pause(&mut self) {
         self.status = AudioPipelineStatus::Idle;
     }
 
-    pub fn stop(&mut self) {
-        // TODO: Reset the decoding position to start of the file.
-        self.status = AudioPipelineStatus::Idle;
-    }
+    pub fn resume(&mut self) {
+        let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
+            warn!("Attempted to resume playback without a track to play.");
 
-    #[instrument(skip(self))]
-    pub fn play(&mut self, track_path: Option<PathBuf>) -> Result<(), AudioPipelineError> {
-        let Some(track_path) = track_path else {
-            return Ok(());
+            return;
         };
 
-        self.build_decoder(track_path)?;
-
-        self.status = AudioPipelineStatus::ProducingSamples;
-        info!("Started playing track");
-
-        Ok(())
-    }
-
-    /// Get audio pipeline command blocking or non blocking depending on status.
-    pub fn receive_command(&self) -> Result<Option<AudioPipelineCommand>, AudioPipelineError> {
-        if matches!(self.status, AudioPipelineStatus::Idle) {
-            let command = self
-                .command_receiver
-                .recv()
-                .map_err(AudioPipelineCommandReceiverError::ReceiveFailed)?;
-
-            return Ok(Some(command));
+        if matches!(
+            audio_track_pipeline.status,
+            AudioTrackPipelineStatus::Ongoing | AudioTrackPipelineStatus::Ready
+        ) {
+            self.status = AudioPipelineStatus::ProducingSamples;
         }
-
-        Ok(self.command_receiver.try_recv().ok())
+        // TODO: Add track replay if the status of the audio track pipeline is `Finished`.
     }
 
     pub fn handle_command(
         &mut self,
-        command: AudioPipelineCommand,
+        command: AudioPipelineThreadCommand,
     ) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
+        if let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) {
+            audio_track_pipeline.handle_command(&command)?;
+        }
+
         match command {
-            AudioPipelineCommand::Play(track_path) => {
-                self.play(track_path)?;
-            }
-            AudioPipelineCommand::ChangeConfiguration {
-                sample_rate,
-                channels,
-                producer,
+            AudioPipelineThreadCommand::Play(track) => self.play_track(track)?,
+            AudioPipelineThreadCommand::Pause => self.pause(),
+            AudioPipelineThreadCommand::Resume => todo!(),
+            AudioPipelineThreadCommand::Stop => todo!(),
+            AudioPipelineThreadCommand::PlayNext => todo!(),
+            AudioPipelineThreadCommand::PlayPrevious => todo!(),
+            AudioPipelineThreadCommand::Seek(_) => todo!(),
+            AudioPipelineThreadCommand::ChangeNextTrack(_) => todo!(),
+            AudioPipelineThreadCommand::ChangeOutput {
+                output: _,
+                audio_engine_producer: _,
             } => {
-                self.set_output_configuration(
-                    AudioFormat {
-                        sample_rate,
-                        channels,
-                    },
-                    producer,
-                )?;
+                todo!()
             }
-            AudioPipelineCommand::Stop => {
-                self.stop();
-            }
-            AudioPipelineCommand::Pause => {
-                self.pause();
-            }
-            AudioPipelineCommand::Seek(_) => todo!(),
-            AudioPipelineCommand::Exit => {
-                return Ok(ControlFlow::Break(()));
-            }
+            AudioPipelineThreadCommand::Exit => return Ok(ControlFlow::Break(())),
         };
 
         Ok(ControlFlow::Continue(()))
     }
 
-    pub fn build_decoder(&mut self, track_path: PathBuf) -> Result<(), AudioPipelineError> {
-        let decoder = AudioDecoder::build(track_path)?;
-
-        self.decoder = Some(decoder);
-
-        if self.output_format.is_some() {
-            self.build_resampler()?;
-        }
-
-        Ok(())
-    }
-
-    pub fn build_resampler(&mut self) -> Result<(), AudioPipelineError> {
-        let Some(decoder) = self.decoder.as_ref() else {
-            return Err(AudioPipelineError::MissingResamplerParameters);
-        };
-
-        let Some(output_format) = self.output_format.as_ref() else {
-            return Err(AudioPipelineError::MissingResamplerParameters);
-        };
-
-        if decoder.track.sample_rate == output_format.sample_rate {
-            self.resampler = None;
-
-            return Ok(());
-        }
-
-        let resampler = AudioResampler::build(
-            decoder.track.sample_rate,
-            decoder.track.channels,
-            output_format.sample_rate,
-            output_format.channels,
-            decoder.track.total_frames,
-            None,
-        )?;
-
-        self.resampler = Some(resampler);
-
-        Ok(())
-    }
-
-    pub fn set_output_configuration(
-        &mut self,
-        output_format: AudioFormat,
-        audio_engine_producer: Producer<f32>,
-    ) -> Result<(), AudioPipelineError> {
-        info!(
-            "Configuration set, output sample rate is {}Hz with {} channels",
-            output_format.sample_rate, output_format.channels
-        );
-
-        let audio_sink = AudioSink::new(audio_engine_producer);
-
-        self.output_format = Some(output_format);
-        self.sink = Some(audio_sink);
-
-        if self.decoder.is_some() {
-            self.build_resampler()?;
-        }
-
-        Ok(())
-    }
-
-    /// Decoder thread processing
     pub fn process(&mut self) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
-        let mut audio_pipeline_command = None;
-        match self.receive_command() {
-            Ok(command) => audio_pipeline_command = command,
-            Err(error) => {
-                error!("Audio pipeline command receive failed: {error}")
-            }
-        }
+        let command = self.command_receiver.receive(&self.status)?;
 
-        if let Some(audio_pipeline_command) = audio_pipeline_command {
-            match self.handle_command(audio_pipeline_command) {
+        if let Some(command) = command {
+            match self.handle_command(command) {
                 Ok(ControlFlow::Continue(_)) => {}
-                Ok(ControlFlow::Break(_)) => {
-                    return Ok(ControlFlow::Break(()));
-                }
-                Err(error) => {
-                    error!("Audio pipeline command processing failed: {error}");
-                }
+                Ok(ControlFlow::Break(_)) => return Ok(ControlFlow::Break(())),
+                Err(_) => {}
             }
         }
 
-        let Some(decoder) = self.decoder.as_mut() else {
+        self.audio_sink.write()?;
+
+        let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
+            self.status = AudioPipelineStatus::Idle;
+
             return Ok(ControlFlow::Continue(()));
         };
 
-        let Some(output_format) = self.output_format.as_ref() else {
-            return Ok(ControlFlow::Continue(()));
-        };
-
-        let Some(audio_sink) = self.sink.as_mut() else {
-            return Ok(ControlFlow::Continue(()));
-        };
-
-        let decoder_has_finished = matches!(decoder.status, AudioDecoderStatus::Finished);
-
-        if audio_sink.is_empty() && decoder_has_finished {
-            self.event_emitter.emit(AudioPipelineEvent::EndOfTrack);
+        if self.audio_sink.is_empty()
+            && matches!(
+                audio_track_pipeline.status,
+                AudioTrackPipelineStatus::Finished
+            )
+        {
+            self.configuration
+                .event_emitter
+                .emit(AudioPipelineThreadEvent::TrackFinished);
 
             self.status = AudioPipelineStatus::Idle;
-        }
-
-        audio_sink.write()?;
-
-        if decoder_has_finished {
-            return Ok(ControlFlow::Continue(()));
-        }
-
-        let Some(mut decoded_samples) = decoder.decode()? else {
-            info!("No more packets from demuxer.");
-
-            self.event_emitter.emit(AudioPipelineEvent::DecodingEnded);
-
-            if let Some(resampler) = self.resampler.as_mut() {
-                let mut resampled_samples = resampler.flush()?;
-
-                if decoder.track.channels < output_format.channels {
-                    resampled_samples = AudioChannelConverter::convert(
-                        &resampled_samples,
-                        decoder.track.channels,
-                        output_format.channels,
-                    )?;
-                }
-
-                audio_sink.buffer(&resampled_samples);
-            }
 
             return Ok(ControlFlow::Continue(()));
-        };
-
-        if decoder.track.channels > output_format.channels {
-            decoded_samples = AudioChannelConverter::convert(
-                &decoded_samples,
-                decoder.track.channels,
-                output_format.channels,
-            )?;
         }
 
-        if let Some(resampler) = self.resampler.as_mut() {
-            let mut resampled_samples = resampler.resample(&decoded_samples)?;
+        let samples = audio_track_pipeline.produce_samples()?;
 
-            if decoder.track.channels < output_format.channels {
-                resampled_samples = AudioChannelConverter::convert(
-                    &resampled_samples,
-                    decoder.track.channels,
-                    output_format.channels,
-                )?;
-            }
-
-            audio_sink.buffer(&resampled_samples);
-        } else {
-            if decoder.track.channels < output_format.channels {
-                decoded_samples = AudioChannelConverter::convert(
-                    &decoded_samples,
-                    decoder.track.channels,
-                    output_format.channels,
-                )?;
-            }
-
-            audio_sink.buffer(&decoded_samples);
-        }
+        self.audio_sink.buffer(&samples.as_ref());
 
         Ok(ControlFlow::Continue(()))
     }
-}
-
-pub fn spawn_audio_pipeline_thread() -> (
-    JoinHandle<()>,
-    Sender<AudioPipelineCommand>,
-    Receiver<AudioPipelineEvent>,
-) {
-    let (command_sender, command_receiver) = mpsc::channel();
-    let (event_sender, event_receiver) = mpsc::channel();
-
-    let mut audio_pipeline = AudioPipeline::new(command_receiver, event_sender);
-
-    let audio_pipeline_thread_handle = std::thread::spawn(move || {
-        let span = info_span!(parent: None, "audio_decoding_loop");
-        let _guard = span.entered();
-
-        loop {
-            match audio_pipeline.process() {
-                Ok(ControlFlow::Continue(_)) => {}
-                Ok(ControlFlow::Break(_)) => {
-                    audio_pipeline
-                        .event_emitter
-                        .emit(AudioPipelineEvent::Exited);
-
-                    break;
-                }
-                Err(AudioPipelineError::AudioSink(AudioSinkError::FullRingBuffer)) => {
-                    let Some(output_format) = audio_pipeline.output_format.as_ref() else {
-                        audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                        continue;
-                    };
-
-                    let sleep_duration_milliseconds =
-                        ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
-                            / output_format.sample_rate as f32)
-                            * 0.5;
-
-                    thread::sleep(Duration::from_millis(
-                        sleep_duration_milliseconds.ceil() as u64
-                    ));
-                }
-                Err(AudioPipelineError::AudioDecoder(
-                    AudioDecoderError::RecoverableDecoderError(error),
-                )) => {
-                    warn!("recoverable audio pipeline error: {error}");
-                }
-                Err(error) => {
-                    audio_pipeline.status = AudioPipelineStatus::Idle;
-
-                    error!("audio pipeline error: {error}");
-                }
-            }
-        }
-    });
-
-    (audio_pipeline_thread_handle, command_sender, event_receiver)
 }

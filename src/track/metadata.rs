@@ -63,6 +63,7 @@ impl From<SymphoniaError> for TrackPropertiesReadError {
 }
 
 #[instrument]
+// TODO: Improve duration extraction by running background decode to ascertain exact sample count.
 pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, TrackPropertiesReadError> {
     let file = File::open(path)?;
     let file_size_bytes = file.metadata()?.len() as i64;
@@ -93,12 +94,16 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, TrackProperti
     let Some(CodecParameters::Audio(codec_params)) = track.codec_params.as_ref() else {
         return Err(TrackPropertiesReadError::MissingCodecParameters.into());
     };
-
     let duration_secs = track
         .num_frames
         .zip(codec_params.sample_rate)
         .map(|(frames, rate)| frames as f64 / rate as f64)
         .ok_or_else(|| TrackPropertiesReadError::MissingDuration)?;
+
+    // TODO: Get frame count from decoding if num_frames isn't populated.
+    let frames = track
+        .num_frames
+        .ok_or_else(|| TrackPropertiesReadError::MissingDuration)? as i64;
 
     let codec = get_codecs()
         .get_audio_decoder(codec_params.codec)
@@ -128,7 +133,7 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, TrackProperti
         file_format,
 
         codec,
-        duration_secs,
+        frames,
         channels,
         sample_rate,
         bit_depth,
