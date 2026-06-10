@@ -137,7 +137,7 @@ impl AudioPipeline {
         match command {
             AudioPipelineThreadCommand::Play(track) => self.play_track(track)?,
             AudioPipelineThreadCommand::Pause => self.pause(),
-            AudioPipelineThreadCommand::Resume => todo!(),
+            AudioPipelineThreadCommand::Resume => self.resume(),
             AudioPipelineThreadCommand::Stop => todo!(),
             AudioPipelineThreadCommand::PlayNext => todo!(),
             AudioPipelineThreadCommand::PlayPrevious => todo!(),

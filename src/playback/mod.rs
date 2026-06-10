@@ -53,9 +53,10 @@ pub enum Event {
 }
 
 pub enum PlaybackControllerCommand {
-    Play(Option<PathBuf>),
+    Play(Track),
     Stop,
     Pause,
+    Resume,
     // TODO: Add Seek
 }
 
