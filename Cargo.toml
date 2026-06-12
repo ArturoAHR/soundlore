@@ -43,4 +43,5 @@ ffmpeg-sidecar = "2.5.1"
 futures = "0.3.32"
 iced_test = "0.14.0"
 pretty_assertions = "1.4.1"
+rayon = "1.12.0"
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }

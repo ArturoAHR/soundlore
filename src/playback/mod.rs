@@ -1,5 +1,4 @@
 use std::{
-    path::PathBuf,
     sync::mpsc::{Receiver, SendError, Sender, TryRecvError},
     thread::JoinHandle,
 };

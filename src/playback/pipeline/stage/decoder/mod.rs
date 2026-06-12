@@ -3,13 +3,14 @@ use std::{fs::File, sync::Arc};
 use symphonia::{
     core::{
         codecs::{
-            audio::{AudioDecoder as SymphoniaDecoder, AudioDecoderOptions},
             CodecParameters,
+            audio::{AudioDecoder as SymphoniaDecoder, AudioDecoderOptions},
         },
         errors::Error as SymphoniaError,
-        formats::{probe::Hint, FormatOptions, FormatReader, TrackType},
+        formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType, probe::Hint},
         io::MediaSourceStream,
         meta::MetadataOptions,
+        units::Timestamp,
     },
     default::get_codecs,
 };
@@ -160,5 +161,17 @@ impl AudioDecoder {
         generic_audio_buffer.copy_to_vec_interleaved(&mut samples);
 
         Ok(AudioPipelineSamples::Chunk(samples))
+    }
+
+    pub fn seek(&mut self, frames: i64) -> Result<(), AudioDecoderError> {
+        self.demuxer.seek(
+            SeekMode::Coarse,
+            SeekTo::Timestamp {
+                ts: Timestamp::new(frames),
+                track_id: self.packet_track_id,
+            },
+        )?;
+
+        Ok(())
     }
 }

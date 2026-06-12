@@ -1,202 +1,134 @@
-use std::{path::PathBuf, thread, time::Duration};
+use std::{
+    path::PathBuf,
+    thread::{self},
+    time::Duration,
+};
 
 use nameless_music_player_lib::{
     playback::pipeline::thread::AudioPipelineThreadEvent,
     track::{metadata::read_track_metadata, models::Track},
 };
 use pretty_assertions::assert_eq;
-use tracing::debug;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{
-    assert_timeout,
-    common::{file::AUDIO_FILE_FIXTURES_PATH, playback::TestPlayback},
-};
+use crate::common::{file::AUDIO_FILE_FIXTURES_PATH, playback::TestPlayback};
 
-// #[test]
-fn decodes_samples_into_consumer() {
-    let mut playback = TestPlayback::build(48000, 2);
+#[test]
+fn decodes_different_sample_rates_and_channels() {
+    let output_sample_rates = vec![48000, 44100];
+    let output_channel_counts = vec![1, 2];
+    let sample_rates = vec![48000, 44100];
+    let channel_counts = vec![1, 2];
+    let formats = vec!["wav", "mp3", "ogg", "aac", "flac", "m4a", "aiff"];
+
+    let mut test_cases = Vec::new();
+
+    for output_sample_rate in output_sample_rates.iter() {
+        for output_channels in output_channel_counts.iter() {
+            for input_sample_rate in sample_rates.iter() {
+                for input_channels in channel_counts.iter() {
+                    for format in formats.iter() {
+                        let input_sample_rate = *input_sample_rate;
+                        let input_channels = *input_channels;
+                        let output_sample_rate = *output_sample_rate;
+                        let output_channels = *output_channels;
+                        let format = *format;
+
+                        let test_case = (
+                            input_sample_rate,
+                            input_channels,
+                            output_sample_rate,
+                            output_channels,
+                            format,
+                        );
+
+                        test_cases.push(test_case);
+                    }
+                }
+            }
+        }
+    }
+
+    test_cases.par_iter().for_each(
+        |&(input_sample_rate, input_channels, output_sample_rate, output_channels, format)| {
+            test_playback_controller_play(
+                input_sample_rate,
+                input_channels,
+                output_sample_rate,
+                output_channels,
+                format.to_owned(),
+            );
+        },
+    );
+}
+
+fn test_playback_controller_play(
+    input_sample_rate: u32,
+    input_channels: u16,
+    output_sample_rate: u32,
+    output_channels: u16,
+    format: String,
+) {
+    let mut playback = TestPlayback::build(output_sample_rate, output_channels);
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
+
+    let mut sample_count = 0;
+
+    let channel_count_name = match input_channels {
+        1 => "mono",
+        2 => "stereo",
+        _ => unreachable!(),
+    };
+
+    let file_name = format!("{}_{}.{}", input_sample_rate, channel_count_name, format);
 
     playback
         .playback_controller
         .play(create_mock_track(
-            format!(
-                "{}/track.mp3",
-                audio_file_fixtures_path.all_formats.to_str().unwrap()
-            )
-            .into(),
+            audio_file_fixtures_path
+                .all_sample_rates_and_channels
+                .join(&file_name),
         ))
         .unwrap();
 
     let mut playback_engine = playback.playback_engine.borrow_mut();
 
-    let sample_buffer_consumer = playback_engine.sample_buffer_consumer.as_mut().unwrap();
+    loop {
+        let sample_buffer_consumer = playback_engine.sample_buffer_consumer.as_mut().unwrap();
 
-    assert_timeout!(
-        !sample_buffer_consumer.is_empty(),
-        Duration::from_millis(100),
-        "Should have produced decoded samples and pushed them into the buffer"
-    );
-}
-
-#[test]
-fn decodes_different_sample_rates_and_channels_with_44100_stereo_output() {
-    let output_sample_rate = 44100;
-    let output_channels = 2;
-
-    let mut playback = TestPlayback::build(output_sample_rate, output_channels);
-
-    let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
-
-    let sample_rates = vec![48000, 44100];
-    let channel_counts = vec![1, 2];
-    let formats = vec!["wav", "mp3", "ogg", "aac", "flac", "m4a", "aiff"];
-
-    for sample_rate in sample_rates.iter() {
-        for channels in channel_counts.iter() {
-            for format in formats.iter() {
-                let mut sample_count = 0;
-
-                let channel_count_name = match channels {
-                    1 => "mono",
-                    2 => "stereo",
-                    _ => unreachable!(),
-                };
-
-                let file_name = format!("{}_{}.{}", sample_rate, channel_count_name, format);
-
-                playback
-                    .playback_controller
-                    .play(create_mock_track(
-                        audio_file_fixtures_path
-                            .all_sample_rates_and_channels
-                            .join(&file_name),
-                    ))
-                    .unwrap();
-
-                let mut playback_engine = playback.playback_engine.borrow_mut();
-
-                loop {
-                    let sample_buffer_consumer =
-                        playback_engine.sample_buffer_consumer.as_mut().unwrap();
-
-                    if sample_buffer_consumer.is_empty() {
-                        if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event()
-                        {
-                            match event {
-                                Some(AudioPipelineThreadEvent::TrackFinished) => break,
-                                _ => {
-                                    thread::sleep(Duration::from_millis(100));
-                                    continue;
-                                }
-                            }
-                        }
+        if sample_buffer_consumer.is_empty() {
+            if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event() {
+                match event {
+                    Some(AudioPipelineThreadEvent::TrackFinished) => break,
+                    _ => {
+                        thread::sleep(Duration::from_millis(100));
+                        continue;
                     }
-
-                    let samples_contained = sample_buffer_consumer.slots();
-
-                    let mut output_samples = vec![0.0; samples_contained];
-
-                    sample_count += samples_contained;
-
-                    let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
-                }
-
-                match *format {
-                    "ogg" | "mp3" | "wav" | "aiff" | "flac" => assert_eq!(
-                        sample_count,
-                        output_channels as usize * output_sample_rate as usize,
-                        "Incorrect sample count for file: {file_name}."
-                    ),
-                    "m4a" | "aac" => assert!(
-                        sample_count >= output_channels as usize * output_sample_rate as usize,
-                        "Insufficient sample count for file: {file_name}",
-                    ),
-                    _ => unreachable!(),
                 }
             }
         }
+
+        let samples_contained = sample_buffer_consumer.slots();
+
+        let mut output_samples = vec![0.0; samples_contained];
+
+        sample_count += samples_contained;
+
+        let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
     }
-}
 
-#[test]
-fn decodes_different_sample_rates_and_channels_with_48000_stereo_output() {
-    let output_sample_rate = 48000;
-    let output_channels = 2;
-
-    let mut playback = TestPlayback::build(output_sample_rate, output_channels);
-
-    let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
-
-    let sample_rates = vec![48000, 44100];
-    let channel_counts = vec![1, 2];
-    let formats = vec!["wav", "mp3", "ogg", "aac", "flac", "m4a", "aiff"];
-
-    for sample_rate in sample_rates.iter() {
-        for channels in channel_counts.iter() {
-            for format in formats.iter() {
-                let mut sample_count = 0;
-
-                let channel_count_name = match channels {
-                    1 => "mono",
-                    2 => "stereo",
-                    _ => unreachable!(),
-                };
-
-                let file_name = format!("{}_{}.{}", sample_rate, channel_count_name, format);
-
-                playback
-                    .playback_controller
-                    .play(create_mock_track(
-                        audio_file_fixtures_path
-                            .all_sample_rates_and_channels
-                            .join(&file_name),
-                    ))
-                    .unwrap();
-
-                let mut playback_engine = playback.playback_engine.borrow_mut();
-
-                loop {
-                    let sample_buffer_consumer =
-                        playback_engine.sample_buffer_consumer.as_mut().unwrap();
-
-                    if sample_buffer_consumer.is_empty() {
-                        if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event()
-                        {
-                            match event {
-                                Some(AudioPipelineThreadEvent::TrackFinished) => break,
-                                _ => {
-                                    thread::sleep(Duration::from_millis(100));
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    let samples_contained = sample_buffer_consumer.slots();
-
-                    let mut output_samples = vec![0.0; samples_contained];
-
-                    sample_count += samples_contained;
-
-                    let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
-                }
-
-                match *format {
-                    "ogg" | "mp3" | "wav" | "aiff" | "flac" => assert_eq!(
-                        sample_count,
-                        output_channels as usize * output_sample_rate as usize,
-                        "Incorrect sample count for file: {file_name}."
-                    ),
-                    "m4a" | "aac" => assert!(
-                        sample_count >= output_channels as usize * output_sample_rate as usize,
-                        "Insufficient sample count for file: {file_name}",
-                    ),
-                    _ => unreachable!(),
-                }
-            }
-        }
+    match format.as_ref() {
+        "ogg" | "mp3" | "wav" | "aiff" | "flac" => assert_eq!(
+            sample_count,
+            output_channels as usize * output_sample_rate as usize,
+            "Incorrect sample count for file: {file_name}."
+        ),
+        "m4a" | "aac" => assert!(
+            sample_count >= output_channels as usize * output_sample_rate as usize,
+            "Insufficient sample count for file: {file_name}",
+        ),
+        _ => unreachable!(),
     }
 }
 
