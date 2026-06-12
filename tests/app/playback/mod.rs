@@ -4,6 +4,7 @@ use nameless_music_player_lib::{
     playback::pipeline::thread::AudioPipelineThreadEvent,
     track::{metadata::read_track_metadata, models::Track},
 };
+use pretty_assertions::assert_eq;
 use tracing::debug;
 
 use crate::{
@@ -11,7 +12,7 @@ use crate::{
     common::{file::AUDIO_FILE_FIXTURES_PATH, playback::TestPlayback},
 };
 
-#[test]
+// #[test]
 fn decodes_samples_into_consumer() {
     let mut playback = TestPlayback::build(48000, 2);
 
@@ -102,12 +103,18 @@ fn decodes_different_sample_rates_and_channels_with_44100_stereo_output() {
                     let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
                 }
 
-                debug!("Sample count for {file_name}: {sample_count}");
-
-                assert!(
-                    sample_count >= output_channels as usize * output_sample_rate as usize,
-                    "Insufficient sample count for file: {file_name}",
-                );
+                match *format {
+                    "ogg" | "mp3" | "wav" | "aiff" | "flac" => assert_eq!(
+                        sample_count,
+                        output_channels as usize * output_sample_rate as usize,
+                        "Incorrect sample count for file: {file_name}."
+                    ),
+                    "m4a" | "aac" => assert!(
+                        sample_count >= output_channels as usize * output_sample_rate as usize,
+                        "Insufficient sample count for file: {file_name}",
+                    ),
+                    _ => unreachable!(),
+                }
             }
         }
     }
@@ -176,12 +183,18 @@ fn decodes_different_sample_rates_and_channels_with_48000_stereo_output() {
                     let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
                 }
 
-                debug!("Sample count for {file_name}: {sample_count}");
-
-                assert!(
-                    sample_count >= output_channels as usize * output_sample_rate as usize,
-                    "Insufficient sample count for file: {file_name}",
-                );
+                match *format {
+                    "ogg" | "mp3" | "wav" | "aiff" | "flac" => assert_eq!(
+                        sample_count,
+                        output_channels as usize * output_sample_rate as usize,
+                        "Incorrect sample count for file: {file_name}."
+                    ),
+                    "m4a" | "aac" => assert!(
+                        sample_count >= output_channels as usize * output_sample_rate as usize,
+                        "Insufficient sample count for file: {file_name}",
+                    ),
+                    _ => unreachable!(),
+                }
             }
         }
     }

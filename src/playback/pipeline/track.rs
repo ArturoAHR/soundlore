@@ -1,6 +1,6 @@
 use std::vec;
 
-use tracing::{instrument, warn};
+use tracing::{instrument, trace, warn};
 
 use crate::{
     playback::pipeline::{
@@ -48,8 +48,6 @@ impl AudioTrackPipeline {
             configuration.track.channels as u16,
             configuration.output.sample_rate,
             configuration.output.channels,
-            configuration.track.frames as u64,
-            None,
         )?;
 
         let audio_decoder_stage = AudioPipelineDecoderStage::new(decoder);
@@ -96,7 +94,16 @@ impl AudioTrackPipeline {
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[instrument(
+        skip(self), 
+        level = "debug",
+        fields(
+            track = self.configuration.track.file_path
+                .rsplit_once('/')
+                .map(|(_, file_name)| file_name )
+                .unwrap_or(self.configuration.track.file_path.as_ref())
+        )
+    )]
     pub fn produce_samples(&mut self) -> Result<AudioPipelineSamples, AudioPipelineError> {
         if matches!(self.status, AudioTrackPipelineStatus::Finished) {
             return Err(AudioPipelineError::AudioTrackPipelineFinished);
@@ -120,6 +127,11 @@ impl AudioTrackPipeline {
         }
 
         self.frames_delivered += samples.len() as u64 / self.configuration.output.channels as u64;
+
+        trace!(
+            frames_delivered = samples.len() / self.configuration.output.channels as usize,
+            total_frames_delivered = self.frames_delivered,
+        );
 
         if matches!(samples, AudioPipelineSamples::End(_)) {
             if self.frames_delivered > self.configuration.track.frames as u64 {

@@ -1,7 +1,7 @@
 use std::ops::ControlFlow;
 
 use thiserror::Error;
-use tracing::{error, warn};
+use tracing::{error, instrument, warn};
 
 use crate::{
     playback::pipeline::{
@@ -96,6 +96,7 @@ impl AudioPipeline {
         audio_pipeline
     }
 
+    #[instrument(skip_all)]
     pub fn play_track(&mut self, track: Track) -> Result<(), AudioPipelineError> {
         let audio_track_pipeline = AudioTrackPipeline::build(track, self.configuration.clone())?;
 
@@ -110,6 +111,7 @@ impl AudioPipeline {
         self.status = AudioPipelineStatus::Idle;
     }
 
+    #[instrument(skip_all)]
     pub fn resume(&mut self) {
         let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
             warn!("Attempted to resume playback without a track to play.");
@@ -126,6 +128,7 @@ impl AudioPipeline {
         // TODO: Add track replay if the status of the audio track pipeline is `Finished`.
     }
 
+    #[instrument(skip(self))]
     pub fn handle_command(
         &mut self,
         command: AudioPipelineThreadCommand,
@@ -155,6 +158,7 @@ impl AudioPipeline {
         Ok(ControlFlow::Continue(()))
     }
 
+    #[instrument(skip_all, err)]
     pub fn process(&mut self) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
         let command = self.command_receiver.receive(&self.status)?;
 
