@@ -31,6 +31,7 @@ pub enum AudioPipelineThreadCommand {
     Exit,
 }
 
+#[derive(Debug, Clone)]
 pub enum AudioPipelineThreadEvent {
     DecodingFinished,
     Exited,

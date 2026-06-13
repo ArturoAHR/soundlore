@@ -49,6 +49,7 @@ pub struct PlaybackController {
 pub enum Event {
     Initialized,
     UnexpectedError(PlaybackControllerError),
+    OutputDeviceChanged,
 }
 
 pub enum PlaybackControllerCommand {

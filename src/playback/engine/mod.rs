@@ -9,6 +9,8 @@ use rtrb::{Consumer, PopError};
 use thiserror::Error;
 use tracing::error;
 
+pub mod device;
+
 #[derive(Debug, Error, Clone)]
 pub enum PlaybackEngineError {
     #[error("output device not found")]

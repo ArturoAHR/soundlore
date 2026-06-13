@@ -53,6 +53,7 @@ fn main() -> iced::Result {
     )
     .title(App::title)
     .theme(App::theme)
+    .subscription(App::subscription)
     .scale_factor(|app: &App| app.scale_factor())
     .window_size((1024.0, 768.0))
     .font(ICED_AW_FONT_BYTES)

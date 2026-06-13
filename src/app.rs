@@ -4,7 +4,7 @@ use rfd::AsyncFileDialog;
 use sqlx::SqlitePool;
 
 use iced::{
-    Element, Task,
+    Element, Subscription, Task,
     widget::{column, row},
 };
 use tracing::{info, instrument};
@@ -12,7 +12,7 @@ use tracing::{info, instrument};
 use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback::{self, PlaybackController},
+    playback::{self, PlaybackController, engine::device::watch_default_device},
     ui::{
         components::{
             explorer_pane::{self, ExplorerPane},
@@ -277,6 +277,10 @@ impl App {
             playback_bar
         ]
         .into()
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        Subscription::run(watch_default_device)
     }
 
     pub fn scale_factor(&self) -> f32 {
