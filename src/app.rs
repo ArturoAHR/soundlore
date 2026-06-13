@@ -4,15 +4,15 @@ use rfd::AsyncFileDialog;
 use sqlx::SqlitePool;
 
 use iced::{
+    Element, Task,
     widget::{column, row},
-    Application, Element, Program, Task,
 };
 use tracing::{info, instrument};
 
 use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback,
+    playback::{self, PlaybackController},
     ui::{
         components::{
             explorer_pane::{self, ExplorerPane},
@@ -27,12 +27,13 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
 pub struct App {
     pub pool: SqlitePool,
     pub ui_scale: f32,
     pub theme: Theme,
     pub status: AppStatus,
+
+    pub playback_controller: PlaybackController,
 
     pub navigation_bar: NavigationBar,
     pub explorer_pane: ExplorerPane,
@@ -69,8 +70,13 @@ pub enum Message {
 }
 
 impl App {
-    #[instrument(skip(pool))]
-    pub fn new(pool: SqlitePool, theme: Theme, ui_scale: f32) -> (Self, Task<Message>) {
+    #[instrument(skip(pool, playback_controller))]
+    pub fn new(
+        pool: SqlitePool,
+        theme: Theme,
+        ui_scale: f32,
+        playback_controller: PlaybackController,
+    ) -> (Self, Task<Message>) {
         info!("Setting up App instance.");
 
         (
@@ -79,6 +85,9 @@ impl App {
                 theme,
                 ui_scale,
                 status: AppStatus::Idle,
+
+                playback_controller,
+
                 navigation_bar: NavigationBar {},
                 explorer_pane: ExplorerPane {},
                 main_pane: MainPane {},
@@ -277,19 +286,4 @@ impl App {
     pub fn theme(&self) -> Theme {
         self.theme.to_owned()
     }
-}
-
-pub fn app(
-    pool: SqlitePool,
-    theme: Theme,
-    ui_scale: f32,
-) -> Application<impl Program<State = App, Message = Message, Theme = Theme>> {
-    iced::application(
-        move || App::new(pool.clone(), theme.clone(), ui_scale),
-        App::update,
-        App::view,
-    )
-    .title(App::title)
-    .theme(App::theme)
-    .scale_factor(|app: &App| app.scale_factor())
 }

@@ -2,7 +2,7 @@ use std::process::exit;
 
 use iced_aw::ICED_AW_FONT_BYTES;
 use nameless_music_player_lib::{
-    app::app,
+    app::App,
     database::initialize_database,
     log::initialize_logging,
     playback::{PlaybackController, engine::AudioEngine},
@@ -40,9 +40,22 @@ fn main() -> iced::Result {
 
     playback_controller.initialize_output().unwrap();
 
-    app(pool.clone(), Theme::default(), 1.0)
-        .window_size((1024.0, 768.0))
-        .font(ICED_AW_FONT_BYTES)
-        .font(include_bytes!("../fonts/music-player-icons.ttf"))
-        .run()
+    iced::application(
+        move || {
+            let mut playback_controller = PlaybackController::new(Box::new(AudioEngine::new()));
+
+            playback_controller.initialize_output().unwrap();
+
+            App::new(pool.clone(), Theme::default(), 1.0, playback_controller)
+        },
+        App::update,
+        App::view,
+    )
+    .title(App::title)
+    .theme(App::theme)
+    .scale_factor(|app: &App| app.scale_factor())
+    .window_size((1024.0, 768.0))
+    .font(ICED_AW_FONT_BYTES)
+    .font(include_bytes!("../fonts/music-player-icons.ttf"))
+    .run()
 }
