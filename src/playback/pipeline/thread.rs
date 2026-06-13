@@ -21,7 +21,7 @@ pub enum AudioPipelineThreadCommand {
     Resume,
     PlayNext,
     PlayPrevious,
-    Seek(i64),
+    Seek(u64),
     Stop,
     ChangeNextTrack(Track),
     ChangeOutput {

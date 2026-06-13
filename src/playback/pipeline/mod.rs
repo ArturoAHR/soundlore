@@ -111,6 +111,12 @@ impl AudioPipeline {
         self.status = AudioPipelineStatus::Idle;
     }
 
+    pub fn stop(&mut self) {
+        self.status = AudioPipelineStatus::Idle;
+
+        self.audio_sink.clear();
+    }
+
     #[instrument(skip_all)]
     pub fn resume(&mut self) {
         let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
@@ -141,7 +147,7 @@ impl AudioPipeline {
             AudioPipelineThreadCommand::Play(track) => self.play_track(track)?,
             AudioPipelineThreadCommand::Pause => self.pause(),
             AudioPipelineThreadCommand::Resume => self.resume(),
-            AudioPipelineThreadCommand::Stop => todo!(),
+            AudioPipelineThreadCommand::Stop => self.stop(),
             AudioPipelineThreadCommand::PlayNext => todo!(),
             AudioPipelineThreadCommand::PlayPrevious => todo!(),
             AudioPipelineThreadCommand::Seek(_) => todo!(),

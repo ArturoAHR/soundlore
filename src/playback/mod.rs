@@ -56,7 +56,7 @@ pub enum PlaybackControllerCommand {
     Stop,
     Pause,
     Resume,
-    // TODO: Add Seek
+    Seek(u64),
 }
 
 impl From<SendError<AudioPipelineThreadCommand>> for PlaybackControllerError {
@@ -131,6 +131,13 @@ impl PlaybackController {
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Stop)?;
+
+        Ok(())
+    }
+
+    pub fn seek(&mut self, timestamp: u64) -> Result<(), PlaybackControllerError> {
+        self.audio_pipeline_command_sender
+            .send(AudioPipelineThreadCommand::Seek(timestamp))?;
 
         Ok(())
     }

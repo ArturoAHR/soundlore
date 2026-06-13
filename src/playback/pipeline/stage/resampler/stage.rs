@@ -1,10 +1,15 @@
+use tracing::instrument;
+
+use std::cmp::min;
+
 use crate::playback::pipeline::{
+    AudioPipelineError,
     config::AudioTrackPipelineConfiguration,
     stage::{
-        resampler::AudioResampler, AudioPipelineBaseStage, AudioPipelineProcessStage,
-        AudioPipelineSamples,
+        AudioPipelineBaseStage, AudioPipelineProcessStage, AudioPipelineSamples,
+        AudioPipelineStageCommandOutcome, resampler::AudioResampler,
     },
-    AudioPipelineError,
+    thread::AudioPipelineThreadCommand,
 };
 
 pub struct AudioPipelineResamplerStage {
@@ -18,6 +23,21 @@ impl AudioPipelineResamplerStage {
 }
 
 impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineResamplerStage {
+    fn handle_command(
+        &mut self,
+        configuration: &AudioTrackPipelineConfiguration,
+        command: &AudioPipelineThreadCommand,
+    ) -> Result<Option<AudioPipelineStageCommandOutcome>, AudioPipelineError> {
+        match command {
+            AudioPipelineThreadCommand::Seek(_) | AudioPipelineThreadCommand::Stop => {
+                self.rebuild_resampler(configuration)?;
+
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
     fn is_enabled(&self, configuration: &AudioTrackPipelineConfiguration) -> bool {
         let input_sample_rate = configuration.track.sample_rate;
         let output_sample_rate = configuration.output.sample_rate as i64;
@@ -29,9 +49,19 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineRe
 impl AudioPipelineProcessStage<AudioTrackPipelineConfiguration> for AudioPipelineResamplerStage {
     fn process_stage(
         &mut self,
-        _configuration: &AudioTrackPipelineConfiguration,
+        configuration: &AudioTrackPipelineConfiguration,
         samples: AudioPipelineSamples,
     ) -> Result<AudioPipelineSamples, AudioPipelineError> {
+        // If output device changes in a significant way, we need to rebuild.
+        if configuration.output.sample_rate != self.resampler.output.sample_rate
+            || min(
+                configuration.track.channels as u16,
+                configuration.output.channels,
+            ) != self.resampler.channels
+        {
+            self.rebuild_resampler(configuration)?;
+        }
+
         match samples {
             AudioPipelineSamples::Chunk(samples) => {
                 let resampled_samples = self.resampler.resample(samples.as_ref())?;
@@ -44,5 +74,29 @@ impl AudioPipelineProcessStage<AudioTrackPipelineConfiguration> for AudioPipelin
                 Ok(AudioPipelineSamples::End(resampled_samples))
             }
         }
+    }
+}
+
+impl AudioPipelineResamplerStage {
+    #[instrument(skip_all, level = "debug")]
+    fn rebuild_resampler(
+        &mut self,
+        configuration: &AudioTrackPipelineConfiguration,
+    ) -> Result<(), AudioPipelineError> {
+        let input_sample_rate = configuration.track.sample_rate as u32;
+        let input_channels = configuration.track.channels as u16;
+        let output_sample_rate = configuration.output.sample_rate;
+        let output_channels = configuration.output.channels;
+
+        let new_resampler = AudioResampler::build(
+            input_sample_rate,
+            input_channels,
+            output_sample_rate,
+            output_channels,
+        )?;
+
+        self.resampler = new_resampler;
+
+        Ok(())
     }
 }

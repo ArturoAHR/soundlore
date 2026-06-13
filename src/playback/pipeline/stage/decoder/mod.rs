@@ -7,7 +7,9 @@ use symphonia::{
             audio::{AudioDecoder as SymphoniaDecoder, AudioDecoderOptions},
         },
         errors::Error as SymphoniaError,
-        formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType, probe::Hint},
+        formats::{
+            FormatOptions, FormatReader, SeekMode, SeekTo, SeekedTo, TrackType, probe::Hint,
+        },
         io::MediaSourceStream,
         meta::MetadataOptions,
         units::Timestamp,
@@ -163,15 +165,21 @@ impl AudioDecoder {
         Ok(AudioPipelineSamples::Chunk(samples))
     }
 
-    pub fn seek(&mut self, frames: i64) -> Result<(), AudioDecoderError> {
-        self.demuxer.seek(
-            SeekMode::Coarse,
+    pub fn seek(
+        &mut self,
+        timestamp: u64,
+        seek_mode: SeekMode,
+    ) -> Result<SeekedTo, AudioDecoderError> {
+        let seeked_to = self.demuxer.seek(
+            seek_mode,
             SeekTo::Timestamp {
-                ts: Timestamp::new(frames),
+                ts: Timestamp::new(timestamp as i64),
                 track_id: self.packet_track_id,
             },
         )?;
 
-        Ok(())
+        self.decoder.reset();
+
+        Ok(seeked_to)
     }
 }

@@ -47,6 +47,8 @@ impl From<ResampleError> for AudioResamplerError {
 pub struct AudioResampler {
     pub input: AudioFormat,
     pub output: AudioFormat,
+    pub channels: u16,
+
     pub status: AudioResamplerStatus,
 
     resampling_mode: ResamplingMode,
@@ -97,9 +99,6 @@ impl AudioResampler {
         Ok(Self {
             resampler,
             status,
-            resampling_mode: ResamplingMode::Resample,
-            total_samples_read: 0,
-            total_samples_delivered: 0,
 
             input: AudioFormat {
                 sample_rate: input_sample_rate,
@@ -109,6 +108,12 @@ impl AudioResampler {
                 sample_rate: output_sample_rate,
                 channels: output_channels,
             },
+            channels: resampling_channels,
+
+            resampling_mode: ResamplingMode::Resample,
+            total_samples_read: 0,
+            total_samples_delivered: 0,
+
             sample_buffer: VecDeque::new(),
         })
     }

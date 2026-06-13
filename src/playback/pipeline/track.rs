@@ -7,12 +7,9 @@ use crate::{
         AudioPipelineError,
         config::{AudioPipelineConfiguration, AudioTrackPipelineConfiguration},
         stage::{
-            AudioPipelineSamples, AudioTrackPipelineStage,
-            channel_converter::stage::{
+            AudioPipelineSamples, AudioPipelineStageCommandOutcome, AudioTrackPipelineStage, channel_converter::stage::{
                 AudioPipelineChannelConverterStage, AudioPipelineChannelConverterStagePosition,
-            },
-            decoder::{AudioDecoder, stage::AudioPipelineDecoderStage},
-            resampler::{AudioResampler, stage::AudioPipelineResamplerStage},
+            }, decoder::{AudioDecoder, stage::AudioPipelineDecoderStage}, resampler::{AudioResampler, stage::AudioPipelineResamplerStage}
         },
         thread::AudioPipelineThreadCommand,
     },
@@ -80,13 +77,27 @@ impl AudioTrackPipeline {
         &mut self,
         command: &AudioPipelineThreadCommand,
     ) -> Result<(), AudioPipelineError> {
+        let mut outcomes = Vec::new();
+
         for stage in &mut self.stages {
             match stage {
                 AudioTrackPipelineStage::Process(stage) => {
-                    stage.handle_command(&self.configuration, command)?;
+                    outcomes.push(stage.handle_command(&self.configuration, command)?);
                 }
                 AudioTrackPipelineStage::Source(stage) => {
-                    stage.handle_command(&self.configuration, command)?;
+                    outcomes.push(stage.handle_command(&self.configuration, command)?);
+                }
+            }
+        }
+
+        for outcome in outcomes {
+            let Some(outcome) = outcome else {
+                continue;
+            };
+            
+            match outcome {
+                AudioPipelineStageCommandOutcome::SeekedTo(new_timestamp) => {
+                    self.frames_delivered = new_timestamp;
                 }
             }
         }

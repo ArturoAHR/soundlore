@@ -47,4 +47,8 @@ impl AudioSink {
     pub fn buffer(&mut self, samples: &[f32]) {
         self.sample_buffer.extend(samples);
     }
+
+    pub fn clear(&mut self) {
+        self.sample_buffer.clear();
+    }
 }
