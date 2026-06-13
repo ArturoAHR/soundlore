@@ -5,6 +5,7 @@ use sqlx::SqlitePool;
 
 use iced::{
     Element, Subscription, Task,
+    time::{every, milliseconds},
     widget::{column, row},
 };
 use tracing::{info, instrument};
@@ -12,7 +13,10 @@ use tracing::{info, instrument};
 use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback::{self, PlaybackController, engine::device::watch_default_device},
+    playback::{
+        self, PlaybackController, engine::device::watch_default_device,
+        pipeline::thread::AudioPipelineThreadEvent,
+    },
     ui::{
         components::{
             explorer_pane::{self, ExplorerPane},
@@ -129,7 +133,7 @@ impl App {
             Message::TrackInformationPane(event) => self.handle_track_information_pane(event),
             Message::StatusBar(event) => self.handle_status_bar(event),
             Message::PlaybackBar(event) => self.handle_playback_bar(event),
-            Message::Playback(event) => todo!(),
+            Message::Playback(event) => self.handle_playback(event),
         }
     }
 
@@ -236,6 +240,30 @@ impl App {
         Task::batch([outcome_task, component_task])
     }
 
+    fn handle_playback(&mut self, event: playback::Event) -> Task<Message> {
+        match event {
+            playback::Event::AudioPipelineEventPollTick => {
+                while let Ok(Some(event)) = self.playback_controller.poll_audio_pipeline_event() {
+                    match event {
+                        AudioPipelineThreadEvent::TrackFinished => {
+                            // TODO: Implement playing next track.
+                        }
+                        _ => {}
+                    }
+                }
+
+                Task::none()
+            }
+            playback::Event::PendingOutputDeviceChange => {
+                // TODO: Add error handling for this task
+                let _ = self.playback_controller.initialize_output();
+
+                Task::none()
+            }
+            _ => Task::none(),
+        }
+    }
+
     pub fn view(&self) -> Element<'_, Message, Theme> {
         let navigation_bar = self
             .navigation_bar
@@ -280,7 +308,13 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        Subscription::run(watch_default_device)
+        let audio_pipeline_event_poll_timer = every(milliseconds(16))
+            .map(|_| Message::Playback(playback::Event::AudioPipelineEventPollTick));
+
+        Subscription::batch(vec![
+            Subscription::run(watch_default_device),
+            audio_pipeline_event_poll_timer,
+        ])
     }
 
     pub fn scale_factor(&self) -> f32 {

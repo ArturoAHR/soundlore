@@ -36,7 +36,7 @@ pub fn watch_default_device() -> impl Stream<Item = Message> {
 
             if current_device_id != new_device_id {
                 if let Err(error) = output
-                    .send(Message::Playback(Event::OutputDeviceChanged))
+                    .send(Message::Playback(Event::PendingOutputDeviceChange))
                     .await
                 {
                     error!("Failed to send event: {error}");
