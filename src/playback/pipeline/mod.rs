@@ -144,19 +144,30 @@ impl AudioPipeline {
         }
 
         match command {
-            AudioPipelineThreadCommand::Play(track) => self.play_track(track)?,
-            AudioPipelineThreadCommand::Pause => self.pause(),
-            AudioPipelineThreadCommand::Resume => self.resume(),
-            AudioPipelineThreadCommand::Stop => self.stop(),
+            AudioPipelineThreadCommand::Play(track) => {
+                self.play_track(track)?;
+            }
+            AudioPipelineThreadCommand::Pause => {
+                self.pause();
+            }
+            AudioPipelineThreadCommand::Resume => {
+                self.resume();
+            }
+            AudioPipelineThreadCommand::Stop => {
+                self.stop();
+            }
             AudioPipelineThreadCommand::PlayNext => todo!(),
             AudioPipelineThreadCommand::PlayPrevious => todo!(),
-            AudioPipelineThreadCommand::Seek(_) => todo!(),
+            AudioPipelineThreadCommand::Seek(_) => {
+                self.audio_sink.clear();
+            }
             AudioPipelineThreadCommand::ChangeNextTrack(_) => todo!(),
             AudioPipelineThreadCommand::ChangeOutput {
-                output: _,
-                audio_engine_producer: _,
+                output,
+                audio_engine_producer,
             } => {
-                todo!()
+                self.audio_sink = AudioSink::new(audio_engine_producer);
+                self.configuration.output = output;
             }
             AudioPipelineThreadCommand::Exit => return Ok(ControlFlow::Break(())),
         };
