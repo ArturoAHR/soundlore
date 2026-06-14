@@ -73,6 +73,16 @@ impl AudioTrackPipeline {
         })
     }
 
+     #[instrument(
+        skip(self), 
+        level = "debug",
+        fields(
+            track = self.configuration.track.file_path
+                .rsplit_once('/')
+                .map(|(_, file_name)| file_name )
+                .unwrap_or(self.configuration.track.file_path.as_ref())
+        )
+    )]
     pub fn handle_command(
         &mut self,
         command: &AudioPipelineThreadCommand,
