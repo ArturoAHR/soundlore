@@ -1,4 +1,10 @@
-use std::{fmt::Debug, sync::Arc};
+use std::{
+    fmt::Debug,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+};
 
 use cpal::{
     BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, PauseStreamError,
@@ -69,6 +75,8 @@ pub trait PlaybackEngine {
     fn build_stream(
         &mut self,
         sample_buffer_consumer: Consumer<f32>,
+        samples_played: Arc<AtomicU64>,
+        samples_to_skip: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError>;
     fn play_stream(&self) -> Result<(), PlaybackEngineError>;
     fn pause_stream(&self) -> Result<(), PlaybackEngineError>;
@@ -102,6 +110,8 @@ impl PlaybackEngine for AudioEngine {
     fn build_stream(
         &mut self,
         mut sample_buffer_consumer: Consumer<f32>,
+        samples_played: Arc<AtomicU64>,
+        samples_to_skip: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError> {
         let host = default_host();
         let device = host
@@ -115,8 +125,34 @@ impl PlaybackEngine for AudioEngine {
         let stream = device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &OutputCallbackInfo| {
+                let mut skipped_samples_left = samples_to_skip.load(Ordering::Relaxed);
+                let mut skipped_samples = 0;
+
+                while skipped_samples_left > 0 && sample_buffer_consumer.pop().is_ok() {
+                    skipped_samples_left -= 1;
+                    skipped_samples += 1;
+                }
+
+                if skipped_samples > 0 {
+                    samples_to_skip.fetch_sub(skipped_samples, Ordering::Relaxed);
+                }
+
+                if skipped_samples_left > 0 {
+                    for slot in data.iter_mut() {
+                        *slot = 0.0;
+                    }
+
+                    return;
+                }
+
                 for slot in data.iter_mut() {
-                    *slot = sample_buffer_consumer.pop().unwrap_or(0.0);
+                    let Ok(sample) = sample_buffer_consumer.pop() else {
+                        *slot = 0.0;
+                        continue;
+                    };
+
+                    *slot = sample;
+                    samples_played.fetch_add(1, Ordering::Relaxed);
                 }
             },
             |error| error!("stream error: {error}"),

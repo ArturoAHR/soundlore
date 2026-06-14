@@ -1,5 +1,9 @@
 use std::{
-    sync::mpsc::{Receiver, SendError, Sender, TryRecvError},
+    sync::{
+        Arc,
+        atomic::AtomicU64,
+        mpsc::{Receiver, SendError, Sender, TryRecvError},
+    },
     thread::JoinHandle,
 };
 
@@ -43,6 +47,10 @@ pub struct PlaybackController {
     audio_pipeline_thread_handle: Option<JoinHandle<()>>,
 
     playback_engine: Box<dyn PlaybackEngine>,
+
+    pub samples_played: Arc<AtomicU64>,
+    pub track_start_timestamp: Arc<AtomicU64>,
+    samples_to_skip: Arc<AtomicU64>,
 }
 
 #[derive(Debug, Clone)]
@@ -70,17 +78,29 @@ impl From<SendError<AudioPipelineThreadCommand>> for PlaybackControllerError {
 
 impl PlaybackController {
     pub fn new(playback_engine: Box<dyn PlaybackEngine>) -> Self {
+        let samples_played = Arc::new(AtomicU64::new(0));
+        let samples_to_skip = Arc::new(AtomicU64::new(0));
+        let track_start_timestamp = Arc::new(AtomicU64::new(0));
+
         let (
             audio_pipeline_thread_handle,
             audio_pipeline_command_sender,
             audio_pipeline_event_receiver,
-        ) = spawn_audio_pipeline_thread();
+        ) = spawn_audio_pipeline_thread(
+            Arc::clone(&samples_played),
+            Arc::clone(&samples_to_skip),
+            Arc::clone(&track_start_timestamp),
+        );
 
         PlaybackController {
             audio_pipeline_thread_handle: Some(audio_pipeline_thread_handle),
             audio_pipeline_command_sender,
             audio_pipeline_event_receiver,
             playback_engine,
+
+            samples_played: Arc::clone(&samples_played),
+            samples_to_skip: Arc::clone(&samples_to_skip),
+            track_start_timestamp: Arc::clone(&track_start_timestamp),
         }
     }
 
@@ -88,7 +108,11 @@ impl PlaybackController {
         let (sample_buffer_producer, sample_buffer_consumer) =
             RingBuffer::new(SAMPLE_BUFFER_CAPACITY);
 
-        let (sample_rate, channels) = self.playback_engine.build_stream(sample_buffer_consumer)?;
+        let (sample_rate, channels) = self.playback_engine.build_stream(
+            sample_buffer_consumer,
+            Arc::clone(&self.samples_played),
+            Arc::clone(&self.samples_to_skip),
+        )?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::ChangeOutput {

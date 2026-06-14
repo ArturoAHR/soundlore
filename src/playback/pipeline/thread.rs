@@ -1,4 +1,8 @@
-use std::{ops::ControlFlow, time::Duration};
+use std::{
+    ops::ControlFlow,
+    sync::{Arc, atomic::AtomicU64},
+    time::Duration,
+};
 
 use rtrb::Producer;
 use tracing::{error, info_span, warn};
@@ -38,7 +42,11 @@ pub enum AudioPipelineThreadEvent {
     TrackFinished,
 }
 
-pub fn spawn_audio_pipeline_thread() -> (
+pub fn spawn_audio_pipeline_thread(
+    samples_played: Arc<AtomicU64>,
+    samples_to_skip: Arc<AtomicU64>,
+    track_start_timestamp: Arc<AtomicU64>,
+) -> (
     std::thread::JoinHandle<()>,
     std::sync::mpsc::Sender<AudioPipelineThreadCommand>,
     std::sync::mpsc::Receiver<AudioPipelineThreadEvent>,
