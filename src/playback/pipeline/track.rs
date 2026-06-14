@@ -98,6 +98,8 @@ impl AudioTrackPipeline {
             match outcome {
                 AudioPipelineStageCommandOutcome::SeekedTo(new_timestamp) => {
                     self.frames_delivered = new_timestamp;
+
+                    self.status = AudioTrackPipelineStatus::Ongoing;
                 }
             }
         }

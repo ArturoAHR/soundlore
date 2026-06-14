@@ -180,6 +180,8 @@ impl AudioDecoder {
 
         self.decoder.reset();
 
+        self.status = AudioDecoderStatus::Decoding;
+
         Ok(seeked_to)
     }
 }

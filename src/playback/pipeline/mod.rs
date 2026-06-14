@@ -159,6 +159,8 @@ impl AudioPipeline {
             AudioPipelineThreadCommand::PlayNext => todo!(),
             AudioPipelineThreadCommand::PlayPrevious => todo!(),
             AudioPipelineThreadCommand::Seek(_) => {
+                self.status = AudioPipelineStatus::ProducingSamples;
+
                 self.audio_sink.clear();
             }
             AudioPipelineThreadCommand::ChangeNextTrack(_) => todo!(),
