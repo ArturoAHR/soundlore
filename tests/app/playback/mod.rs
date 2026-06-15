@@ -123,7 +123,7 @@ fn test_playback_controller_play(
 fn performs_seek_correctly() {
     let input_sample_rate = 48000;
     let input_channels = 2;
-    let output_sample_rate = 41000;
+    let output_sample_rate = 44100;
     let output_channels = 2;
 
     let formats = &*SUPPORTED_FILE_FORMATS;
