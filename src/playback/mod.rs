@@ -1,7 +1,7 @@
 use std::{
     sync::{
         Arc,
-        atomic::AtomicU64,
+        atomic::{AtomicI64, AtomicU64, Ordering},
         mpsc::{Receiver, SendError, Sender, TryRecvError},
     },
     thread::JoinHandle,
@@ -48,8 +48,8 @@ pub struct PlaybackController {
 
     playback_engine: Box<dyn PlaybackEngine>,
 
-    pub samples_played: Arc<AtomicU64>,
-    pub track_start_timestamp: Arc<AtomicU64>,
+    samples_played: Arc<AtomicU64>,
+    track_start_timestamp: Arc<AtomicI64>,
     samples_to_skip: Arc<AtomicU64>,
 }
 
@@ -80,7 +80,7 @@ impl PlaybackController {
     pub fn new(playback_engine: Box<dyn PlaybackEngine>) -> Self {
         let samples_played = Arc::new(AtomicU64::new(0));
         let samples_to_skip = Arc::new(AtomicU64::new(0));
-        let track_start_timestamp = Arc::new(AtomicU64::new(0));
+        let track_start_timestamp = Arc::new(AtomicI64::new(0));
 
         let (
             audio_pipeline_thread_handle,
@@ -181,6 +181,11 @@ impl PlaybackController {
                 PlaybackControllerError::AudioPipelineEventReceiveAttemptFailed(error.to_string()),
             ),
         }
+    }
+
+    pub fn current_track_samples_played(&self) -> i64 {
+        return self.samples_played.load(Ordering::Relaxed) as i64
+            - self.track_start_timestamp.load(Ordering::Relaxed);
     }
 }
 

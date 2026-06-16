@@ -1,4 +1,10 @@
-use std::ops::ControlFlow;
+use std::{
+    ops::ControlFlow,
+    sync::{
+        Arc,
+        atomic::{AtomicI64, AtomicU64},
+    },
+};
 
 use thiserror::Error;
 use tracing::{error, instrument, warn};
@@ -56,6 +62,10 @@ pub struct AudioPipeline {
     pub status: AudioPipelineStatus,
 
     configuration: AudioPipelineConfiguration,
+
+    samples_played: Arc<AtomicU64>,
+    samples_to_skip: Arc<AtomicU64>,
+    track_start_timestamp: Arc<AtomicI64>,
 }
 
 pub enum AudioPipelineStatus {
@@ -76,6 +86,9 @@ impl AudioPipeline {
         audio_sink: AudioSink,
         command_receiver: AudioPipelineCommandReceiver,
         track: Option<Track>,
+        samples_played: Arc<AtomicU64>,
+        samples_to_skip: Arc<AtomicU64>,
+        track_start_timestamp: Arc<AtomicI64>,
     ) -> Self {
         let mut audio_pipeline = Self {
             audio_sink,
@@ -83,6 +96,10 @@ impl AudioPipeline {
             configuration,
             audio_track_pipelines: Vec::new(),
             status: AudioPipelineStatus::Idle,
+
+            samples_played,
+            samples_to_skip,
+            track_start_timestamp,
         };
 
         if let Some(track) = track {

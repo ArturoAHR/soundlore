@@ -1,15 +1,20 @@
+use std::sync::{
+    Arc,
+    atomic::{AtomicI64, AtomicU64},
+};
+
 use rtrb::Producer;
 use thiserror::Error;
 use tracing::warn;
 
 use crate::{
     playback::pipeline::{
+        AudioFormat, AudioPipeline,
         command::{AudioPipelineCommandReceiver, CommandReceiver},
         config::AudioPipelineConfiguration,
         event::{AudioPipelineEventEmitter, EventSender},
         sink::AudioSink,
         thread::AudioPipelineThreadCommand,
-        AudioFormat, AudioPipeline,
     },
     track::models::Track,
 };
@@ -31,6 +36,9 @@ pub struct AudioPipelineBuilder {
     command_receiver: CommandReceiver,
     // TODO: Add initial playback configuration here (example: transition type or volume)
     // configuration: AudioPipelineConfiguration,
+    samples_played: Arc<AtomicU64>,
+    track_start_timestamp: Arc<AtomicI64>,
+    samples_to_skip: Arc<AtomicU64>,
 }
 
 pub struct AudioPipelineOutput {
@@ -39,12 +47,21 @@ pub struct AudioPipelineOutput {
 }
 
 impl AudioPipelineBuilder {
-    pub fn new(command_receiver: CommandReceiver, event_sender: EventSender) -> Self {
+    pub fn new(
+        command_receiver: CommandReceiver,
+        event_sender: EventSender,
+        samples_played: Arc<AtomicU64>,
+        track_start_timestamp: Arc<AtomicI64>,
+        samples_to_skip: Arc<AtomicU64>,
+    ) -> Self {
         Self {
             track: None,
             output: None,
             event_emitter: AudioPipelineEventEmitter::new(event_sender),
             command_receiver,
+            samples_played,
+            samples_to_skip,
+            track_start_timestamp,
         }
     }
 
@@ -106,6 +123,9 @@ impl AudioPipelineBuilder {
             audio_sink,
             command_receiver,
             self.track,
+            self.samples_played,
+            self.samples_to_skip,
+            self.track_start_timestamp,
         ))
     }
 }
