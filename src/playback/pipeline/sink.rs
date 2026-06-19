@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 
 use rtrb::Producer;
 use thiserror::Error;
+use tracing::{debug, instrument};
 
 use crate::playback::constants::SAMPLE_BUFFER_CAPACITY;
 
@@ -37,11 +38,14 @@ impl AudioSink {
         }
     }
 
+    #[instrument(skip(self), level = "debug")]
     pub fn write(&mut self) -> Result<(), AudioSinkError> {
         if self.status == AudioSinkStatus::Clearing {
             if self.audio_engine_producer.slots() != SAMPLE_BUFFER_CAPACITY {
                 return Err(AudioSinkError::AwaitingBufferClear);
             }
+
+            debug!("Audio thread ring buffer was cleared, proceeding to write to producer.");
 
             self.status = AudioSinkStatus::Writing;
         }
