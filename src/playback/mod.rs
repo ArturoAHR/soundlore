@@ -50,7 +50,8 @@ pub struct PlaybackController {
 
     samples_played: Arc<AtomicU64>,
     track_start_timestamp: Arc<AtomicI64>,
-    samples_to_skip: Arc<AtomicU64>,
+    decoder_seek_landing_timestamp: Arc<AtomicU64>,
+    generation_counter: Arc<AtomicU64>,
 }
 
 #[derive(Debug, Clone)]
@@ -79,8 +80,9 @@ impl From<SendError<AudioPipelineThreadCommand>> for PlaybackControllerError {
 impl PlaybackController {
     pub fn new(playback_engine: Box<dyn PlaybackEngine>) -> Self {
         let samples_played = Arc::new(AtomicU64::new(0));
-        let samples_to_skip = Arc::new(AtomicU64::new(0));
+        let generation_counter = Arc::new(AtomicU64::new(0));
         let track_start_timestamp = Arc::new(AtomicI64::new(0));
+        let decoder_seek_landing_timestamp = Arc::new(AtomicU64::new(0));
 
         let (
             audio_pipeline_thread_handle,
@@ -88,7 +90,7 @@ impl PlaybackController {
             audio_pipeline_event_receiver,
         ) = spawn_audio_pipeline_thread(
             Arc::clone(&samples_played),
-            Arc::clone(&samples_to_skip),
+            Arc::clone(&generation_counter),
             Arc::clone(&track_start_timestamp),
         );
 
@@ -99,8 +101,9 @@ impl PlaybackController {
             playback_engine,
 
             samples_played: Arc::clone(&samples_played),
-            samples_to_skip: Arc::clone(&samples_to_skip),
+            generation_counter: Arc::clone(&generation_counter),
             track_start_timestamp: Arc::clone(&track_start_timestamp),
+            decoder_seek_landing_timestamp: Arc::clone(&decoder_seek_landing_timestamp),
         }
     }
 
@@ -111,7 +114,9 @@ impl PlaybackController {
         let (sample_rate, channels) = self.playback_engine.build_stream(
             sample_buffer_consumer,
             Arc::clone(&self.samples_played),
-            Arc::clone(&self.samples_to_skip),
+            Arc::clone(&self.track_start_timestamp),
+            Arc::clone(&self.decoder_seek_landing_timestamp),
+            Arc::clone(&self.generation_counter),
         )?;
 
         self.audio_pipeline_command_sender

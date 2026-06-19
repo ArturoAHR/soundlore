@@ -2,7 +2,7 @@ use std::{
     fmt::Debug,
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicI64, AtomicU64, Ordering},
     },
 };
 
@@ -76,7 +76,9 @@ pub trait PlaybackEngine {
         &mut self,
         sample_buffer_consumer: Consumer<f32>,
         samples_played: Arc<AtomicU64>,
-        samples_to_skip: Arc<AtomicU64>,
+        track_start_timestamp: Arc<AtomicI64>,
+        decoder_seek_landing_timestamp: Arc<AtomicU64>,
+        generation_counter: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError>;
     fn play_stream(&self) -> Result<(), PlaybackEngineError>;
     fn pause_stream(&self) -> Result<(), PlaybackEngineError>;
@@ -111,7 +113,9 @@ impl PlaybackEngine for AudioEngine {
         &mut self,
         mut sample_buffer_consumer: Consumer<f32>,
         samples_played: Arc<AtomicU64>,
-        samples_to_skip: Arc<AtomicU64>,
+        track_start_timestamp: Arc<AtomicI64>,
+        decoder_seek_landing_timestamp: Arc<AtomicU64>,
+        generation_counter: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError> {
         let host = default_host();
         let device = host
@@ -122,29 +126,26 @@ impl PlaybackEngine for AudioEngine {
         let sample_rate = config.sample_rate();
         let channels = config.channels();
 
+        let mut current_generation_counter = 0;
+
         let stream = device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &OutputCallbackInfo| {
-                let mut skipped_samples_left = samples_to_skip.load(Ordering::Relaxed);
-                let mut skipped_samples = 0;
+                let loaded_generation_counter = generation_counter.load(Ordering::Acquire);
 
-                while skipped_samples_left > 0 && sample_buffer_consumer.pop().is_ok() {
-                    skipped_samples_left -= 1;
-                    skipped_samples += 1;
+                if current_generation_counter != loaded_generation_counter {
+                    current_generation_counter = loaded_generation_counter;
+
+                    let start_timestamp = samples_played.load(Ordering::Relaxed) as i64
+                        - decoder_seek_landing_timestamp.load(Ordering::Relaxed) as i64;
+
+                    track_start_timestamp.store(start_timestamp, Ordering::Relaxed);
+
+                    // Clear ring buffer
+                    while sample_buffer_consumer.pop().is_ok() {}
                 }
 
-                if skipped_samples > 0 {
-                    samples_to_skip.fetch_sub(skipped_samples, Ordering::Relaxed);
-                }
-
-                if skipped_samples_left > 0 {
-                    for slot in data.iter_mut() {
-                        *slot = 0.0;
-                    }
-
-                    return;
-                }
-
+                let mut played = 0;
                 for slot in data.iter_mut() {
                     let Ok(sample) = sample_buffer_consumer.pop() else {
                         *slot = 0.0;
@@ -152,8 +153,10 @@ impl PlaybackEngine for AudioEngine {
                     };
 
                     *slot = sample;
-                    samples_played.fetch_add(1, Ordering::Relaxed);
+                    played += 1;
                 }
+
+                samples_played.fetch_add(played, Ordering::Relaxed);
             },
             |error| error!("stream error: {error}"),
             None,
