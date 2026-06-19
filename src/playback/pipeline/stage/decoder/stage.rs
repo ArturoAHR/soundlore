@@ -2,14 +2,13 @@ use symphonia::core::formats::SeekMode;
 use tracing::{debug, instrument};
 
 use crate::playback::pipeline::{
-    AudioPipelineError,
+    AudioPipelineCommand, AudioPipelineError,
     config::AudioTrackPipelineConfiguration,
     stage::{
-        AudioPipelineBaseStage, AudioPipelineSamples, AudioPipelineSourceStage,
-        AudioPipelineStageCommandOutcome,
+        AudioPipelineBaseStage, AudioPipelineCommandOutcome, AudioPipelineSamples,
+        AudioPipelineSourceStage,
         decoder::{AudioDecoder, AudioDecoderStatus},
     },
-    thread::AudioPipelineThreadCommand,
 };
 
 pub struct AudioPipelineDecoderStage {
@@ -27,10 +26,10 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineDe
     fn handle_command(
         &mut self,
         _configuration: &AudioTrackPipelineConfiguration,
-        command: &AudioPipelineThreadCommand,
-    ) -> Result<Option<AudioPipelineStageCommandOutcome>, AudioPipelineError> {
+        command: &AudioPipelineCommand,
+    ) -> Result<Option<AudioPipelineCommandOutcome>, AudioPipelineError> {
         match command {
-            AudioPipelineThreadCommand::Seek(timestamp) => {
+            AudioPipelineCommand::Seek(timestamp) => {
                 let seeked_to = self.decoder.seek(*timestamp, SeekMode::Coarse)?;
 
                 let new_timestamp = seeked_to.actual_ts.get() as u64;
@@ -41,16 +40,13 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineDe
                     "Decoder seek."
                 );
 
-                Ok(Some(AudioPipelineStageCommandOutcome::SeekedTo(
-                    new_timestamp,
-                )))
+                Ok(Some(AudioPipelineCommandOutcome::SeekedTo(new_timestamp)))
             }
-            AudioPipelineThreadCommand::Stop => {
+            AudioPipelineCommand::Stop => {
                 let _ = self.decoder.seek(0, SeekMode::Accurate)?;
 
-                Ok(Some(AudioPipelineStageCommandOutcome::SeekedTo(0)))
+                Ok(Some(AudioPipelineCommandOutcome::SeekedTo(0)))
             }
-            _ => Ok(None),
         }
     }
 

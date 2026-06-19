@@ -3,15 +3,27 @@ use std::collections::VecDeque;
 use rtrb::Producer;
 use thiserror::Error;
 
+use crate::playback::constants::SAMPLE_BUFFER_CAPACITY;
+
 #[derive(Debug, Error, Clone)]
 pub enum AudioSinkError {
     #[error("the audio engine ring buffer is full")]
     FullRingBuffer,
+    #[error("awaiting for the ring buffer to clear")]
+    AwaitingBufferClear,
 }
 
 pub struct AudioSink {
+    status: AudioSinkStatus,
+
     audio_engine_producer: Producer<f32>,
     sample_buffer: VecDeque<f32>,
+}
+
+#[derive(PartialEq)]
+pub enum AudioSinkStatus {
+    Writing,
+    Clearing,
 }
 
 impl AudioSink {
@@ -20,10 +32,20 @@ impl AudioSink {
             audio_engine_producer,
 
             sample_buffer: VecDeque::new(),
+
+            status: AudioSinkStatus::Writing,
         }
     }
 
     pub fn write(&mut self) -> Result<(), AudioSinkError> {
+        if self.status == AudioSinkStatus::Clearing {
+            if self.audio_engine_producer.slots() != SAMPLE_BUFFER_CAPACITY {
+                return Err(AudioSinkError::AwaitingBufferClear);
+            }
+
+            self.status = AudioSinkStatus::Writing;
+        }
+
         while !self.sample_buffer.is_empty() {
             let Some(sample) = self.sample_buffer.front() else {
                 break;
@@ -50,5 +72,7 @@ impl AudioSink {
 
     pub fn clear(&mut self) {
         self.sample_buffer.clear();
+
+        self.status = AudioSinkStatus::Clearing;
     }
 }

@@ -3,13 +3,12 @@ use tracing::instrument;
 use std::cmp::min;
 
 use crate::playback::pipeline::{
-    AudioPipelineError,
+    AudioPipelineCommand, AudioPipelineError,
     config::AudioTrackPipelineConfiguration,
     stage::{
-        AudioPipelineBaseStage, AudioPipelineProcessStage, AudioPipelineSamples,
-        AudioPipelineStageCommandOutcome, resampler::AudioResampler,
+        AudioPipelineBaseStage, AudioPipelineCommandOutcome, AudioPipelineProcessStage,
+        AudioPipelineSamples, resampler::AudioResampler,
     },
-    thread::AudioPipelineThreadCommand,
 };
 
 pub struct AudioPipelineResamplerStage {
@@ -26,15 +25,14 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineRe
     fn handle_command(
         &mut self,
         configuration: &AudioTrackPipelineConfiguration,
-        command: &AudioPipelineThreadCommand,
-    ) -> Result<Option<AudioPipelineStageCommandOutcome>, AudioPipelineError> {
+        command: &AudioPipelineCommand,
+    ) -> Result<Option<AudioPipelineCommandOutcome>, AudioPipelineError> {
         match command {
-            AudioPipelineThreadCommand::Seek(_) | AudioPipelineThreadCommand::Stop => {
+            AudioPipelineCommand::Seek(_) | AudioPipelineCommand::Stop => {
                 self.rebuild_resampler(configuration)?;
 
                 Ok(None)
             }
-            _ => Ok(None),
         }
     }
 

@@ -77,7 +77,7 @@ pub trait PlaybackEngine {
         sample_buffer_consumer: Consumer<f32>,
         samples_played: Arc<AtomicU64>,
         track_start_timestamp: Arc<AtomicI64>,
-        decoder_seek_landing_timestamp: Arc<AtomicU64>,
+        samples_played_timestamp_offset: Arc<AtomicU64>,
         generation_counter: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError>;
     fn play_stream(&self) -> Result<(), PlaybackEngineError>;
@@ -114,7 +114,7 @@ impl PlaybackEngine for AudioEngine {
         mut sample_buffer_consumer: Consumer<f32>,
         samples_played: Arc<AtomicU64>,
         track_start_timestamp: Arc<AtomicI64>,
-        decoder_seek_landing_timestamp: Arc<AtomicU64>,
+        samples_played_timestamp_offset: Arc<AtomicU64>,
         generation_counter: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError> {
         let host = default_host();
@@ -137,7 +137,7 @@ impl PlaybackEngine for AudioEngine {
                     current_generation_counter = loaded_generation_counter;
 
                     let start_timestamp = samples_played.load(Ordering::Relaxed) as i64
-                        - decoder_seek_landing_timestamp.load(Ordering::Relaxed) as i64;
+                        - samples_played_timestamp_offset.load(Ordering::Relaxed) as i64;
 
                     track_start_timestamp.store(start_timestamp, Ordering::Relaxed);
 

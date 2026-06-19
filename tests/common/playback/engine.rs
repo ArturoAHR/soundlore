@@ -1,7 +1,10 @@
 use std::{
     cell::RefCell,
     rc::Rc,
-    sync::{Arc, atomic::AtomicU64},
+    sync::{
+        Arc,
+        atomic::{AtomicI64, AtomicU64},
+    },
 };
 
 use nameless_music_player_lib::playback::engine::{PlaybackEngine, PlaybackEngineError};
@@ -32,7 +35,9 @@ impl PlaybackEngine for TestEngine {
         &mut self,
         sample_buffer_consumer: rtrb::Consumer<f32>,
         _samples_played: Arc<AtomicU64>,
-        _samples_to_skip: Arc<AtomicU64>,
+        _track_start_timestamp: Arc<AtomicI64>,
+        _samples_played_timestamp_offset: Arc<AtomicU64>,
+        _generation_counter: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError> {
         self.sample_buffer_consumer = Some(sample_buffer_consumer);
 
@@ -59,12 +64,16 @@ impl PlaybackEngine for TestEngineContainer {
         &mut self,
         sample_buffer_consumer: Consumer<f32>,
         samples_played: Arc<AtomicU64>,
-        samples_to_skip: Arc<AtomicU64>,
+        track_start_timestamp: Arc<AtomicI64>,
+        samples_played_timestamp_offset: Arc<AtomicU64>,
+        generation_counter: Arc<AtomicU64>,
     ) -> Result<(u32, u16), PlaybackEngineError> {
         self.engine.borrow_mut().build_stream(
             sample_buffer_consumer,
             samples_played,
-            samples_to_skip,
+            track_start_timestamp,
+            samples_played_timestamp_offset,
+            generation_counter,
         )
     }
 

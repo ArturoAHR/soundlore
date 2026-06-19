@@ -4,14 +4,11 @@ use tracing::{instrument, trace, warn};
 
 use crate::{
     playback::pipeline::{
-        AudioPipelineError,
-        config::{AudioPipelineConfiguration, AudioTrackPipelineConfiguration},
-        stage::{
-            AudioPipelineSamples, AudioPipelineStageCommandOutcome, AudioTrackPipelineStage, channel_converter::stage::{
+        AudioPipelineCommand, AudioPipelineCommandOutcome, AudioPipelineError, config::{AudioPipelineConfiguration, AudioTrackPipelineConfiguration}, stage::{
+            AudioPipelineSamples, AudioTrackPipelineStage, channel_converter::stage::{
                 AudioPipelineChannelConverterStage, AudioPipelineChannelConverterStagePosition,
             }, decoder::{AudioDecoder, stage::AudioPipelineDecoderStage}, resampler::{AudioResampler, stage::AudioPipelineResamplerStage}
         },
-        thread::AudioPipelineThreadCommand,
     },
     track::models::Track,
 };
@@ -20,7 +17,7 @@ pub struct AudioTrackPipeline {
     pub status: AudioTrackPipelineStatus,
     stages: Vec<AudioTrackPipelineStage<AudioTrackPipelineConfiguration>>,
 
-    configuration: AudioTrackPipelineConfiguration,
+    pub configuration: AudioTrackPipelineConfiguration,
     frames_delivered: u64,
 }
 
@@ -85,8 +82,8 @@ impl AudioTrackPipeline {
     )]
     pub fn handle_command(
         &mut self,
-        command: &AudioPipelineThreadCommand,
-    ) -> Result<(), AudioPipelineError> {
+        command: &AudioPipelineCommand,
+    ) -> Result<Vec<AudioPipelineCommandOutcome>, AudioPipelineError> {
         let mut outcomes = Vec::new();
 
         for stage in &mut self.stages {
@@ -100,21 +97,21 @@ impl AudioTrackPipeline {
             }
         }
 
-        for outcome in outcomes {
+        for outcome in &outcomes {
             let Some(outcome) = outcome else {
                 continue;
             };
             
             match outcome {
-                AudioPipelineStageCommandOutcome::SeekedTo(new_timestamp) => {
-                    self.frames_delivered = new_timestamp;
+                AudioPipelineCommandOutcome::SeekedTo(new_timestamp) => {
+                    self.frames_delivered = *new_timestamp;
 
                     self.status = AudioTrackPipelineStatus::Ongoing;
                 }
             }
         }
 
-        Ok(())
+        Ok(outcomes.iter().cloned().filter_map(|outcome| outcome).collect())
     }
 
     #[instrument(

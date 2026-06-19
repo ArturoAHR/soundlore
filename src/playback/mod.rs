@@ -50,7 +50,7 @@ pub struct PlaybackController {
 
     samples_played: Arc<AtomicU64>,
     track_start_timestamp: Arc<AtomicI64>,
-    decoder_seek_landing_timestamp: Arc<AtomicU64>,
+    samples_played_timestamp_offset: Arc<AtomicU64>,
     generation_counter: Arc<AtomicU64>,
 }
 
@@ -82,16 +82,15 @@ impl PlaybackController {
         let samples_played = Arc::new(AtomicU64::new(0));
         let generation_counter = Arc::new(AtomicU64::new(0));
         let track_start_timestamp = Arc::new(AtomicI64::new(0));
-        let decoder_seek_landing_timestamp = Arc::new(AtomicU64::new(0));
+        let samples_played_timestamp_offset = Arc::new(AtomicU64::new(0));
 
         let (
             audio_pipeline_thread_handle,
             audio_pipeline_command_sender,
             audio_pipeline_event_receiver,
         ) = spawn_audio_pipeline_thread(
-            Arc::clone(&samples_played),
+            Arc::clone(&samples_played_timestamp_offset),
             Arc::clone(&generation_counter),
-            Arc::clone(&track_start_timestamp),
         );
 
         PlaybackController {
@@ -103,7 +102,7 @@ impl PlaybackController {
             samples_played: Arc::clone(&samples_played),
             generation_counter: Arc::clone(&generation_counter),
             track_start_timestamp: Arc::clone(&track_start_timestamp),
-            decoder_seek_landing_timestamp: Arc::clone(&decoder_seek_landing_timestamp),
+            samples_played_timestamp_offset: Arc::clone(&samples_played_timestamp_offset),
         }
     }
 
@@ -115,7 +114,7 @@ impl PlaybackController {
             sample_buffer_consumer,
             Arc::clone(&self.samples_played),
             Arc::clone(&self.track_start_timestamp),
-            Arc::clone(&self.decoder_seek_landing_timestamp),
+            Arc::clone(&self.samples_played_timestamp_offset),
             Arc::clone(&self.generation_counter),
         )?;
 

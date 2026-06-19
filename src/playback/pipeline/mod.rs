@@ -2,7 +2,7 @@ use std::{
     ops::ControlFlow,
     sync::{
         Arc,
-        atomic::{AtomicI64, AtomicU64},
+        atomic::{AtomicU64, Ordering},
     },
 };
 
@@ -63,15 +63,26 @@ pub struct AudioPipeline {
 
     configuration: AudioPipelineConfiguration,
 
-    samples_played: Arc<AtomicU64>,
-    samples_to_skip: Arc<AtomicU64>,
-    track_start_timestamp: Arc<AtomicI64>,
+    samples_played_timestamp_offset: Arc<AtomicU64>,
+    generation_counter: Arc<AtomicU64>,
 }
 
 pub enum AudioPipelineStatus {
     Idle,
     ProducingSamples,
     Paused,
+}
+
+#[derive(Debug)]
+pub enum AudioPipelineCommand {
+    // ChangeOutputFormat(AudioFormat),
+    Seek(u64),
+    Stop,
+}
+
+#[derive(Debug, Clone)]
+pub enum AudioPipelineCommandOutcome {
+    SeekedTo(u64),
 }
 
 #[derive(Debug, Clone)]
@@ -86,9 +97,8 @@ impl AudioPipeline {
         audio_sink: AudioSink,
         command_receiver: AudioPipelineCommandReceiver,
         track: Option<Track>,
-        samples_played: Arc<AtomicU64>,
-        samples_to_skip: Arc<AtomicU64>,
-        track_start_timestamp: Arc<AtomicI64>,
+        samples_played_timestamp_offset: Arc<AtomicU64>,
+        generation_counter: Arc<AtomicU64>,
     ) -> Self {
         let mut audio_pipeline = Self {
             audio_sink,
@@ -97,9 +107,8 @@ impl AudioPipeline {
             audio_track_pipelines: Vec::new(),
             status: AudioPipelineStatus::Idle,
 
-            samples_played,
-            samples_to_skip,
-            track_start_timestamp,
+            samples_played_timestamp_offset,
+            generation_counter,
         };
 
         if let Some(track) = track {
@@ -156,10 +165,7 @@ impl AudioPipeline {
         &mut self,
         command: AudioPipelineThreadCommand,
     ) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
-        if let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) {
-            audio_track_pipeline.handle_command(&command)?;
-        }
-
+        let mut audio_pipeline_command = None;
         match command {
             AudioPipelineThreadCommand::Play(track) => {
                 self.play_track(track)?;
@@ -172,26 +178,72 @@ impl AudioPipeline {
             }
             AudioPipelineThreadCommand::Stop => {
                 self.stop();
+
+                audio_pipeline_command = Some(AudioPipelineCommand::Stop);
             }
-            AudioPipelineThreadCommand::PlayNext => todo!(),
-            AudioPipelineThreadCommand::PlayPrevious => todo!(),
-            AudioPipelineThreadCommand::Seek(_) => {
+            AudioPipelineThreadCommand::PlayNext => {
+                warn!("Play Next command has been issued but it's not implemented yet.");
+            }
+            AudioPipelineThreadCommand::PlayPrevious => {
+                warn!("Play Previous command has been issued but it's not implemented yet.");
+            }
+            AudioPipelineThreadCommand::Seek(seek_timestamp) => {
                 self.status = AudioPipelineStatus::ProducingSamples;
 
-                self.audio_sink.clear();
+                audio_pipeline_command = Some(AudioPipelineCommand::Seek(seek_timestamp));
             }
-            AudioPipelineThreadCommand::ChangeNextTrack(_) => todo!(),
+            AudioPipelineThreadCommand::ChangeNextTrack(_) => {
+                warn!("Change Next Track command has been issued but it's not implemented yet.");
+            }
             AudioPipelineThreadCommand::ChangeOutput {
                 output,
                 audio_engine_producer,
             } => {
                 self.audio_sink = AudioSink::new(audio_engine_producer);
+
                 self.configuration.output = output;
             }
             AudioPipelineThreadCommand::Exit => return Ok(ControlFlow::Break(())),
         };
 
+        let mut outcomes = Vec::new();
+        if let (Some(audio_track_pipeline), Some(audio_pipeline_command)) = (
+            self.audio_track_pipelines.get_mut(0),
+            audio_pipeline_command,
+        ) {
+            outcomes.extend(audio_track_pipeline.handle_command(&audio_pipeline_command)?);
+        }
+
+        for outcome in outcomes {
+            match outcome {
+                AudioPipelineCommandOutcome::SeekedTo(new_decoder_timestamp) => {
+                    self.increase_generation_counter(new_decoder_timestamp);
+                }
+            }
+        }
+
         Ok(ControlFlow::Continue(()))
+    }
+
+    pub fn increase_generation_counter(&mut self, decoder_timestamp: u64) {
+        self.audio_sink.clear();
+
+        let mut timestamp_offset = 0;
+        if let Some(audio_track_pipeline) = self.audio_track_pipelines.get(0) {
+            let resample_ratio = self.configuration.output.sample_rate as f32
+                / audio_track_pipeline.configuration.track.sample_rate as f32;
+
+            let channel_ratio = self.configuration.output.channels as f32
+                / audio_track_pipeline.configuration.track.channels as f32;
+
+            timestamp_offset =
+                (decoder_timestamp as f32 * resample_ratio * channel_ratio).round() as u64;
+        }
+
+        self.samples_played_timestamp_offset
+            .store(timestamp_offset, Ordering::Relaxed);
+
+        self.generation_counter.fetch_add(1, Ordering::Release);
     }
 
     #[instrument(skip_all, err)]

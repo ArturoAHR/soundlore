@@ -1,9 +1,6 @@
 use std::{
     ops::ControlFlow,
-    sync::{
-        Arc,
-        atomic::{AtomicI64, AtomicU64},
-    },
+    sync::{Arc, atomic::AtomicU64},
     time::Duration,
 };
 
@@ -15,7 +12,7 @@ use crate::{
         constants::SAMPLE_BUFFER_CAPACITY,
         pipeline::{
             AudioFormat, AudioPipelineError, AudioPipelineStatus, builder::AudioPipelineBuilder,
-            sink::AudioSinkError, stage::decoder::AudioDecoderError, track,
+            sink::AudioSinkError, stage::decoder::AudioDecoderError,
         },
     },
     track::models::Track,
@@ -46,9 +43,8 @@ pub enum AudioPipelineThreadEvent {
 }
 
 pub fn spawn_audio_pipeline_thread(
-    samples_played: Arc<AtomicU64>,
-    samples_to_skip: Arc<AtomicU64>,
-    track_start_timestamp: Arc<AtomicI64>,
+    samples_played_timestamp_offset: Arc<AtomicU64>,
+    generation_counter: Arc<AtomicU64>,
 ) -> (
     std::thread::JoinHandle<()>,
     std::sync::mpsc::Sender<AudioPipelineThreadCommand>,
@@ -64,9 +60,8 @@ pub fn spawn_audio_pipeline_thread(
         let audio_pipeline_builder = AudioPipelineBuilder::new(
             command_receiver,
             event_sender,
-            samples_played,
-            track_start_timestamp,
-            samples_to_skip,
+            samples_played_timestamp_offset,
+            generation_counter,
         );
         let Ok(mut audio_pipeline) = audio_pipeline_builder.build() else {
             error!("Closing audio pipeline thread due to builder error");
@@ -96,6 +91,9 @@ pub fn spawn_audio_pipeline_thread(
                     std::thread::sleep(Duration::from_millis(
                         sleep_duration_milliseconds.ceil() as u64
                     ));
+                }
+                Err(AudioPipelineError::Sink(AudioSinkError::AwaitingBufferClear)) => {
+                    std::thread::sleep(Duration::from_millis(1));
                 }
                 Err(AudioPipelineError::Decoder(AudioDecoderError::RecoverableDecoderError(
                     error,

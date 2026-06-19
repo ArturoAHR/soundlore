@@ -1,4 +1,6 @@
-use crate::playback::pipeline::{AudioPipelineError, thread::AudioPipelineThreadCommand};
+use crate::playback::pipeline::{
+    AudioPipelineCommand, AudioPipelineCommandOutcome, AudioPipelineError,
+};
 
 pub mod channel_converter;
 pub mod decoder;
@@ -68,8 +70,8 @@ pub trait AudioPipelineBaseStage<Configuration> {
     fn handle_command(
         &mut self,
         _: &Configuration,
-        _: &AudioPipelineThreadCommand,
-    ) -> Result<Option<AudioPipelineStageCommandOutcome>, AudioPipelineError> {
+        _: &AudioPipelineCommand,
+    ) -> Result<Option<AudioPipelineCommandOutcome>, AudioPipelineError> {
         Ok(None)
     }
 }
@@ -107,9 +109,4 @@ pub trait AudioPipelineOutputStage<Configuration>: AudioPipelineBaseStage<Config
         configuration: &Configuration,
         samples: AudioPipelineSamples,
     ) -> Result<(), AudioPipelineError>;
-}
-
-/// Outcomes that can happen from a command and parents need to be aware about the information produced.
-pub enum AudioPipelineStageCommandOutcome {
-    SeekedTo(u64),
 }

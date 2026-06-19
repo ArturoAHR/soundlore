@@ -1,7 +1,4 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicI64, AtomicU64},
-};
+use std::sync::{Arc, atomic::AtomicU64};
 
 use rtrb::Producer;
 use thiserror::Error;
@@ -36,9 +33,8 @@ pub struct AudioPipelineBuilder {
     command_receiver: CommandReceiver,
     // TODO: Add initial playback configuration here (example: transition type or volume)
     // configuration: AudioPipelineConfiguration,
-    samples_played: Arc<AtomicU64>,
-    track_start_timestamp: Arc<AtomicI64>,
-    samples_to_skip: Arc<AtomicU64>,
+    samples_played_timestamp_offset: Arc<AtomicU64>,
+    generation_counter: Arc<AtomicU64>,
 }
 
 pub struct AudioPipelineOutput {
@@ -50,18 +46,16 @@ impl AudioPipelineBuilder {
     pub fn new(
         command_receiver: CommandReceiver,
         event_sender: EventSender,
-        samples_played: Arc<AtomicU64>,
-        track_start_timestamp: Arc<AtomicI64>,
-        samples_to_skip: Arc<AtomicU64>,
+        samples_played_timestamp_offset: Arc<AtomicU64>,
+        generation_counter: Arc<AtomicU64>,
     ) -> Self {
         Self {
             track: None,
             output: None,
             event_emitter: AudioPipelineEventEmitter::new(event_sender),
             command_receiver,
-            samples_played,
-            samples_to_skip,
-            track_start_timestamp,
+            samples_played_timestamp_offset,
+            generation_counter,
         }
     }
 
@@ -123,9 +117,8 @@ impl AudioPipelineBuilder {
             audio_sink,
             command_receiver,
             self.track,
-            self.samples_played,
-            self.samples_to_skip,
-            self.track_start_timestamp,
+            self.samples_played_timestamp_offset,
+            self.generation_counter,
         ))
     }
 }
