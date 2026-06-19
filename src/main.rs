@@ -28,7 +28,7 @@ fn main() -> iced::Result {
 
             MessageDialog::new()
                 .set_title("Nameless Music Player")
-                .set_description(format!("Something went wrong while initializing the app."))
+                .set_description("Something went wrong while initializing the app.".to_string())
                 .set_level(MessageLevel::Error)
                 .show();
 
