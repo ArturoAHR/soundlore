@@ -2526,37 +2526,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soundlore"
-version = "0.1.0"
-dependencies = [
- "cpal",
- "dirs",
- "dotenvy",
- "ffmpeg-sidecar",
- "futures",
- "iced",
- "iced_aw",
- "iced_test",
- "pretty_assertions",
- "rayon",
- "rfd",
- "rtrb",
- "rubato",
- "sea-query",
- "sea-query-sqlx",
- "serde",
- "sqlx",
- "symphonia",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
- "uuid",
- "walkdir",
-]
-
-[[package]]
 name = "ndk"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4181,6 +4150,37 @@ dependencies = [
  "web-sys",
  "windows-sys 0.61.2",
  "x11rb",
+]
+
+[[package]]
+name = "soundlore"
+version = "0.1.0"
+dependencies = [
+ "cpal",
+ "dirs",
+ "dotenvy",
+ "ffmpeg-sidecar",
+ "futures",
+ "iced",
+ "iced_aw",
+ "iced_test",
+ "pretty_assertions",
+ "rayon",
+ "rfd",
+ "rtrb",
+ "rubato",
+ "sea-query",
+ "sea-query-sqlx",
+ "serde",
+ "sqlx",
+ "symphonia",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "uuid",
+ "walkdir",
 ]
 
 [[package]]

@@ -249,7 +249,7 @@ impl AudioPipeline {
             match self.handle_command(command) {
                 Ok(ControlFlow::Continue(_)) => {}
                 Ok(ControlFlow::Break(_)) => return Ok(ControlFlow::Break(())),
-                Err(_) => {}
+                Err(error) => return Err(error),
             }
         }
 
