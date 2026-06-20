@@ -90,6 +90,8 @@ fn test_playback_controller_play(
     playback.playback_controller.play(mock_track).unwrap();
 
     loop {
+        playback.consume_samples_buffer();
+
         if playback.is_sample_buffer_empty() {
             if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event() {
                 match event {
@@ -101,8 +103,6 @@ fn test_playback_controller_play(
                 }
             }
         }
-
-        playback.consume_samples_buffer();
     }
 
     assert_sample_count(

@@ -133,17 +133,9 @@ impl AudioPipeline {
 
         self.status = AudioPipelineStatus::ProducingSamples;
 
+        self.increase_generation_counter(0);
+
         Ok(())
-    }
-
-    pub fn pause(&mut self) {
-        self.status = AudioPipelineStatus::Idle;
-    }
-
-    pub fn stop(&mut self) {
-        self.status = AudioPipelineStatus::Idle;
-
-        self.audio_sink.clear();
     }
 
     #[instrument(skip_all)]
@@ -174,13 +166,13 @@ impl AudioPipeline {
                 self.play_track(track)?;
             }
             AudioPipelineThreadCommand::Pause => {
-                self.pause();
+                self.status = AudioPipelineStatus::Idle;
             }
             AudioPipelineThreadCommand::Resume => {
                 self.resume();
             }
             AudioPipelineThreadCommand::Stop => {
-                self.stop();
+                self.status = AudioPipelineStatus::Idle;
 
                 audio_pipeline_command = Some(AudioPipelineCommand::Stop);
             }
