@@ -183,8 +183,6 @@ impl AudioPipeline {
                 warn!("Play Previous command has been issued but it's not implemented yet.");
             }
             AudioPipelineThreadCommand::Seek(seek_timestamp) => {
-                self.status = AudioPipelineStatus::ProducingSamples;
-
                 audio_pipeline_command = Some(AudioPipelineCommand::Seek(seek_timestamp));
             }
             AudioPipelineThreadCommand::ChangeNextTrack(_) => {

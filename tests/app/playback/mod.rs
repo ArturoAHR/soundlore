@@ -180,6 +180,8 @@ fn test_playback_controller_seek(
         .seek(total_track_frames as u64 / 2)
         .unwrap();
 
+    playback.playback_controller.resume().unwrap();
+
     std::thread::sleep(Duration::from_millis(10));
 
     loop {
