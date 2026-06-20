@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use nameless_music_player_lib::{
+use soundlore_lib::{
     app::{App, Message},
     playback::PlaybackController,
     ui::theme::Theme,

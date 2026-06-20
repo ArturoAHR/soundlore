@@ -1,14 +1,14 @@
 use std::process::exit;
 
 use iced_aw::ICED_AW_FONT_BYTES;
-use nameless_music_player_lib::{
+use rfd::{MessageDialog, MessageLevel};
+use soundlore_lib::{
     app::App,
     database::initialize_database,
     log::initialize_logging,
-    playback::{PlaybackController, engine::AudioEngine},
+    playback::{engine::AudioEngine, PlaybackController},
     ui::theme::Theme,
 };
-use rfd::{MessageDialog, MessageLevel};
 use tracing::{error, info};
 
 fn main() -> iced::Result {
@@ -27,7 +27,7 @@ fn main() -> iced::Result {
             error!("Failed to initialize database {:?}", error);
 
             MessageDialog::new()
-                .set_title("Nameless Music Player")
+                .set_title("Soundlore")
                 .set_description("Something went wrong while initializing the app.".to_string())
                 .set_level(MessageLevel::Error)
                 .show();

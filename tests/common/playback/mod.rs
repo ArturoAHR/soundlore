@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
 
-use nameless_music_player_lib::playback::PlaybackController;
+use soundlore_lib::playback::PlaybackController;
 
 use crate::common::{
     log::initialize_logging,

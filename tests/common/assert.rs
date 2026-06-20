@@ -1,5 +1,5 @@
-use nameless_music_player_lib::track::models::Track;
 use pretty_assertions::assert_eq;
+use soundlore_lib::track::models::Track;
 
 use crate::common::models::ExpectedTrack;
 

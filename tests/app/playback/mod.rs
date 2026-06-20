@@ -3,8 +3,8 @@ use std::{
     time::Duration,
 };
 
-use nameless_music_player_lib::playback::pipeline::thread::AudioPipelineThreadEvent;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use soundlore_lib::playback::pipeline::thread::AudioPipelineThreadEvent;
 
 use crate::{
     common::{

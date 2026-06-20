@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nameless_music_player_lib::track::{metadata::read_track_metadata, models::Track};
+use soundlore_lib::track::{metadata::read_track_metadata, models::Track};
 
 pub fn create_mock_track(track_path: PathBuf) -> Track {
     let track_properties = read_track_metadata(&track_path).unwrap();

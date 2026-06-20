@@ -4,10 +4,15 @@ use tracing::{instrument, trace, warn};
 
 use crate::{
     playback::pipeline::{
-        AudioPipelineCommand, AudioPipelineCommandOutcome, AudioPipelineError, config::{AudioPipelineConfiguration, AudioTrackPipelineConfiguration}, stage::{
-            AudioPipelineSamples, AudioTrackPipelineStage, channel_converter::stage::{
+        AudioPipelineCommand, AudioPipelineCommandOutcome, AudioPipelineError,
+        config::{AudioPipelineConfiguration, AudioTrackPipelineConfiguration},
+        stage::{
+            AudioPipelineSamples, AudioTrackPipelineStage,
+            channel_converter::stage::{
                 AudioPipelineChannelConverterStage, AudioPipelineChannelConverterStagePosition,
-            }, decoder::{AudioDecoder, stage::AudioPipelineDecoderStage}, resampler::{AudioResampler, stage::AudioPipelineResamplerStage}
+            },
+            decoder::{AudioDecoder, stage::AudioPipelineDecoderStage},
+            resampler::{AudioResampler, stage::AudioPipelineResamplerStage},
         },
     },
     track::models::Track,
@@ -72,8 +77,8 @@ impl AudioTrackPipeline {
         })
     }
 
-     #[instrument(
-        skip(self), 
+    #[instrument(
+        skip(self),
         level = "debug",
         fields(
             track = self.configuration.track.file_path
@@ -103,10 +108,11 @@ impl AudioTrackPipeline {
             let Some(outcome) = outcome else {
                 continue;
             };
-            
+
             match outcome {
                 AudioPipelineCommandOutcome::SeekedTo(new_timestamp) => {
-                    let resample_ratio = self.configuration.output.sample_rate as f32 / self.configuration.track.sample_rate as f32;
+                    let resample_ratio = self.configuration.output.sample_rate as f32
+                        / self.configuration.track.sample_rate as f32;
 
                     self.frames_decoded = *new_timestamp;
                     self.frames_delivered = (*new_timestamp as f32 * resample_ratio).round() as u64;
@@ -116,11 +122,15 @@ impl AudioTrackPipeline {
             }
         }
 
-        Ok(outcomes.iter().cloned().filter_map(|outcome| outcome).collect())
+        Ok(outcomes
+            .iter()
+            .cloned()
+            .filter_map(|outcome| outcome)
+            .collect())
     }
 
     #[instrument(
-        skip(self), 
+        skip(self),
         level = "debug",
         fields(
             track = self.configuration.track.file_path
@@ -142,7 +152,8 @@ impl AudioTrackPipeline {
                     if stage.is_enabled(&self.configuration) {
                         samples = stage.process_stage(&self.configuration)?;
 
-                        self.frames_decoded += samples.len() as u64 / self.configuration.track.channels as u64;
+                        self.frames_decoded +=
+                            samples.len() as u64 / self.configuration.track.channels as u64;
                     };
                 }
                 AudioTrackPipelineStage::Process(stage) => {

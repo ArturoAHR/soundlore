@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use iced::Task;
 use iced_test::runtime::{task::into_stream, Action};
-use nameless_music_player_lib::app::{App, Message};
+use soundlore_lib::app::{App, Message};
 
 pub async fn perform_task(app: &mut App, task: Task<Message>) {
     let mut pending_tasks = vec![task];

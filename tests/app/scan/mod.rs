@@ -1,4 +1,4 @@
-use nameless_music_player_lib::{
+use soundlore_lib::{
     app::{AppStatus, Message},
     track::models::{Track, TrackIden},
 };

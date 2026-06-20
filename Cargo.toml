@@ -1,7 +1,7 @@
 [package]
-name = "nameless-music-player"
+name = "soundlore"
 version = "0.1.0"
-description = "A Music Player App"
+description = "A fast local music library where you design your own tagging systems and every tag becomes a playlist you can mix."
 authors = ["ArturoAHR"]
 edition = "2024"
 
@@ -9,7 +9,7 @@ edition = "2024"
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "nameless_music_player_lib"
+name = "soundlore_lib"
 
 [dependencies]
 iced = { version = "0.14.0", features = ["tokio"] }

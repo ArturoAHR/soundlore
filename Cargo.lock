@@ -2526,7 +2526,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nameless-music-player"
+name = "soundlore"
 version = "0.1.0"
 dependencies = [
  "cpal",

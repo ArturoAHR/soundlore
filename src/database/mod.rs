@@ -32,7 +32,7 @@ pub fn get_database_path() -> String {
 
             panic!("Failed to get data directory");
         })
-        .join("nameless-music-player");
+        .join("soundlore");
 
     std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
 

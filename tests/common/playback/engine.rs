@@ -2,16 +2,16 @@ use std::{
     cell::RefCell,
     rc::Rc,
     sync::{
-        Arc,
         atomic::{AtomicI64, AtomicU64, Ordering},
+        Arc,
     },
 };
 
-use nameless_music_player_lib::playback::{
-    GenerationCounter,
-    engine::{PlaybackEngine, PlaybackEngineError},
-};
 use rtrb::Consumer;
+use soundlore_lib::playback::{
+    engine::{PlaybackEngine, PlaybackEngineError},
+    GenerationCounter,
+};
 
 pub struct TestEngine {
     pub sample_buffer_consumer: Option<Consumer<f32>>,

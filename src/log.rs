@@ -4,9 +4,7 @@ use tracing::error;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuard> {
-    let log_directory = dirs::data_local_dir()?
-        .join("nameless-music-player")
-        .join("logs");
+    let log_directory = dirs::data_local_dir()?.join("soundlore").join("logs");
     fs::create_dir_all(&log_directory).ok()?;
 
     let file_appender = tracing_appender::rolling::daily(&log_directory, "app.log");
@@ -38,9 +36,9 @@ pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuar
 fn get_filter() -> EnvFilter {
     tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         if cfg!(debug_assertions) {
-            "debug,nameless_music_player=trace,sqlx=warn,wgpu=warn,iced=info,naga=warn,winit=warn,cosmic_text=warn,sctk=warn".into()
+            "debug,soundlore=trace,sqlx=warn,wgpu=warn,iced=info,naga=warn,winit=warn,cosmic_text=warn,sctk=warn".into()
         } else {
-            "warn,nameless_music_player=info".into()
+            "warn,soundlore=info".into()
         }
     })
 }

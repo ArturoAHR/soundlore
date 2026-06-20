@@ -105,7 +105,7 @@ impl App {
     }
 
     pub fn title(&self) -> String {
-        String::from("Nameless Music Player")
+        String::from("Soundlore")
     }
 
     #[instrument(skip(self), level = "debug")]
