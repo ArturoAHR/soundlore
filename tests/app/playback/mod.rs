@@ -95,7 +95,7 @@ fn test_playback_controller_play(
                 match event {
                     Some(AudioPipelineThreadEvent::TrackFinished) => break,
                     _ => {
-                        thread::sleep(Duration::from_millis(100));
+                        thread::sleep(Duration::from_millis(10));
                         continue;
                     }
                 }
@@ -190,7 +190,7 @@ fn test_playback_controller_seek(
                 match event {
                     Some(AudioPipelineThreadEvent::TrackFinished) => break,
                     _ => {
-                        thread::sleep(Duration::from_millis(100));
+                        thread::sleep(Duration::from_millis(10));
                         continue;
                     }
                 }
