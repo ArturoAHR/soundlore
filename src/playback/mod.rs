@@ -1,4 +1,5 @@
 use std::{
+    cmp::max,
     sync::{
         Arc,
         atomic::{AtomicI64, AtomicU64, Ordering},
@@ -199,7 +200,7 @@ impl PlaybackController {
         let track_start_timestamp = self.track_start_timestamp.load(Ordering::Acquire);
         let samples_played = self.samples_played.load(Ordering::Relaxed);
 
-        return (samples_played as i64 - track_start_timestamp) as u64;
+        return max(0, samples_played as i64 - track_start_timestamp) as u64;
     }
 }
 
