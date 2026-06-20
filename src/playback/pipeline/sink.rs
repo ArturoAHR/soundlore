@@ -1,10 +1,13 @@
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    sync::{Arc, atomic::Ordering},
+};
 
 use rtrb::Producer;
 use thiserror::Error;
-use tracing::{debug, instrument};
+use tracing::instrument;
 
-use crate::playback::constants::SAMPLE_BUFFER_CAPACITY;
+use crate::playback::GenerationCounter;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioSinkError {
@@ -15,39 +18,35 @@ pub enum AudioSinkError {
 }
 
 pub struct AudioSink {
-    status: AudioSinkStatus,
-
     audio_engine_producer: Producer<f32>,
     sample_buffer: VecDeque<f32>,
-}
 
-#[derive(PartialEq)]
-pub enum AudioSinkStatus {
-    Writing,
-    Clearing,
+    generation_counter: Arc<GenerationCounter>,
 }
 
 impl AudioSink {
-    pub fn new(audio_engine_producer: Producer<f32>) -> Self {
+    pub fn new(
+        audio_engine_producer: Producer<f32>,
+        generation_counter: Arc<GenerationCounter>,
+    ) -> Self {
         Self {
             audio_engine_producer,
+            generation_counter,
 
             sample_buffer: VecDeque::new(),
-
-            status: AudioSinkStatus::Writing,
         }
     }
 
     #[instrument(skip(self), level = "debug")]
     pub fn write(&mut self) -> Result<(), AudioSinkError> {
-        if self.status == AudioSinkStatus::Clearing {
-            if self.audio_engine_producer.slots() != SAMPLE_BUFFER_CAPACITY {
-                return Err(AudioSinkError::AwaitingBufferClear);
-            }
+        let audio_engine_generation = self.generation_counter.audio_engine.load(Ordering::Acquire);
+        let audio_pipeline_generation = self
+            .generation_counter
+            .audio_pipeline
+            .load(Ordering::Relaxed);
 
-            debug!("Audio thread ring buffer was cleared, proceeding to write to producer.");
-
-            self.status = AudioSinkStatus::Writing;
+        if audio_engine_generation != audio_pipeline_generation {
+            return Err(AudioSinkError::AwaitingBufferClear);
         }
 
         while !self.sample_buffer.is_empty() {
@@ -76,7 +75,5 @@ impl AudioSink {
 
     pub fn clear(&mut self) {
         self.sample_buffer.clear();
-
-        self.status = AudioSinkStatus::Clearing;
     }
 }

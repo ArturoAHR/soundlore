@@ -107,6 +107,7 @@ impl AudioDecoder {
 
             packet_track_id: audio_track.id,
             status: AudioDecoderStatus::Decoding,
+
             demuxer,
             decoder,
         })
@@ -179,8 +180,6 @@ impl AudioDecoder {
         )?;
 
         self.decoder.reset();
-
-        self.status = AudioDecoderStatus::Decoding;
 
         Ok(seeked_to)
     }

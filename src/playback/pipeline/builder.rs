@@ -5,13 +5,16 @@ use thiserror::Error;
 use tracing::warn;
 
 use crate::{
-    playback::pipeline::{
-        AudioFormat, AudioPipeline,
-        command::{AudioPipelineCommandReceiver, CommandReceiver},
-        config::AudioPipelineConfiguration,
-        event::{AudioPipelineEventEmitter, EventSender},
-        sink::AudioSink,
-        thread::AudioPipelineThreadCommand,
+    playback::{
+        GenerationCounter,
+        pipeline::{
+            AudioFormat, AudioPipeline,
+            command::{AudioPipelineCommandReceiver, CommandReceiver},
+            config::AudioPipelineConfiguration,
+            event::{AudioPipelineEventEmitter, EventSender},
+            sink::AudioSink,
+            thread::AudioPipelineThreadCommand,
+        },
     },
     track::models::Track,
 };
@@ -34,7 +37,7 @@ pub struct AudioPipelineBuilder {
     // TODO: Add initial playback configuration here (example: transition type or volume)
     // configuration: AudioPipelineConfiguration,
     samples_played_timestamp_offset: Arc<AtomicU64>,
-    generation_counter: Arc<AtomicU64>,
+    generation_counter: Arc<GenerationCounter>,
 }
 
 pub struct AudioPipelineOutput {
@@ -47,7 +50,7 @@ impl AudioPipelineBuilder {
         command_receiver: CommandReceiver,
         event_sender: EventSender,
         samples_played_timestamp_offset: Arc<AtomicU64>,
-        generation_counter: Arc<AtomicU64>,
+        generation_counter: Arc<GenerationCounter>,
     ) -> Self {
         Self {
             track: None,
@@ -108,7 +111,10 @@ impl AudioPipelineBuilder {
             output: output.format,
         };
 
-        let audio_sink = AudioSink::new(output.audio_engine_producer);
+        let audio_sink = AudioSink::new(
+            output.audio_engine_producer,
+            Arc::clone(&self.generation_counter),
+        );
 
         let command_receiver = AudioPipelineCommandReceiver::new(self.command_receiver);
 

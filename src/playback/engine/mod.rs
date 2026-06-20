@@ -15,6 +15,8 @@ use rtrb::{Consumer, PopError};
 use thiserror::Error;
 use tracing::error;
 
+use crate::playback::GenerationCounter;
+
 pub mod device;
 
 #[derive(Debug, Error, Clone)]
@@ -78,7 +80,7 @@ pub trait PlaybackEngine {
         samples_played: Arc<AtomicU64>,
         track_start_timestamp: Arc<AtomicI64>,
         samples_played_timestamp_offset: Arc<AtomicU64>,
-        generation_counter: Arc<AtomicU64>,
+        generation_counter: Arc<GenerationCounter>,
     ) -> Result<(u32, u16), PlaybackEngineError>;
     fn play_stream(&self) -> Result<(), PlaybackEngineError>;
     fn pause_stream(&self) -> Result<(), PlaybackEngineError>;
@@ -115,7 +117,7 @@ impl PlaybackEngine for AudioEngine {
         samples_played: Arc<AtomicU64>,
         track_start_timestamp: Arc<AtomicI64>,
         samples_played_timestamp_offset: Arc<AtomicU64>,
-        generation_counter: Arc<AtomicU64>,
+        generation_counter: Arc<GenerationCounter>,
     ) -> Result<(u32, u16), PlaybackEngineError> {
         let host = default_host();
         let device = host
@@ -126,23 +128,26 @@ impl PlaybackEngine for AudioEngine {
         let sample_rate = config.sample_rate();
         let channels = config.channels();
 
-        let mut current_generation_counter = 0;
-
         let stream = device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &OutputCallbackInfo| {
-                let loaded_generation_counter = generation_counter.load(Ordering::Acquire);
+                let audio_pipeline_generation =
+                    generation_counter.audio_pipeline.load(Ordering::Acquire);
+                let audio_engine_generation =
+                    generation_counter.audio_engine.load(Ordering::Relaxed);
 
-                if current_generation_counter != loaded_generation_counter {
-                    current_generation_counter = loaded_generation_counter;
-
+                if audio_engine_generation != audio_pipeline_generation {
                     let start_timestamp = samples_played.load(Ordering::Relaxed) as i64
                         - samples_played_timestamp_offset.load(Ordering::Relaxed) as i64;
 
-                    track_start_timestamp.store(start_timestamp, Ordering::Relaxed);
+                    track_start_timestamp.store(start_timestamp, Ordering::Release);
 
                     // Clear ring buffer
                     while sample_buffer_consumer.pop().is_ok() {}
+
+                    generation_counter
+                        .audio_engine
+                        .store(audio_pipeline_generation, Ordering::Release);
                 }
 
                 let mut played = 0;

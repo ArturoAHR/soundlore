@@ -9,6 +9,7 @@ use tracing::{error, info_span, warn};
 
 use crate::{
     playback::{
+        GenerationCounter,
         constants::SAMPLE_BUFFER_CAPACITY,
         pipeline::{
             AudioFormat, AudioPipelineError, AudioPipelineStatus, builder::AudioPipelineBuilder,
@@ -44,7 +45,7 @@ pub enum AudioPipelineThreadEvent {
 
 pub fn spawn_audio_pipeline_thread(
     samples_played_timestamp_offset: Arc<AtomicU64>,
-    generation_counter: Arc<AtomicU64>,
+    generation_counter: Arc<GenerationCounter>,
 ) -> (
     std::thread::JoinHandle<()>,
     std::sync::mpsc::Sender<AudioPipelineThreadCommand>,

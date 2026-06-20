@@ -51,7 +51,12 @@ pub struct PlaybackController {
     samples_played: Arc<AtomicU64>,
     track_start_timestamp: Arc<AtomicI64>,
     samples_played_timestamp_offset: Arc<AtomicU64>,
-    generation_counter: Arc<AtomicU64>,
+    generation_counter: Arc<GenerationCounter>,
+}
+
+pub struct GenerationCounter {
+    pub audio_engine: AtomicU64,
+    pub audio_pipeline: AtomicU64,
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +85,10 @@ impl From<SendError<AudioPipelineThreadCommand>> for PlaybackControllerError {
 impl PlaybackController {
     pub fn new(playback_engine: Box<dyn PlaybackEngine>) -> Self {
         let samples_played = Arc::new(AtomicU64::new(0));
-        let generation_counter = Arc::new(AtomicU64::new(0));
+        let generation_counter = Arc::new(GenerationCounter {
+            audio_engine: AtomicU64::new(0),
+            audio_pipeline: AtomicU64::new(0),
+        });
         let track_start_timestamp = Arc::new(AtomicI64::new(0));
         let samples_played_timestamp_offset = Arc::new(AtomicU64::new(0));
 
@@ -187,9 +195,11 @@ impl PlaybackController {
         }
     }
 
-    pub fn current_track_samples_played(&self) -> i64 {
-        return self.samples_played.load(Ordering::Relaxed) as i64
-            - self.track_start_timestamp.load(Ordering::Relaxed);
+    pub fn current_track_samples_played(&self) -> u64 {
+        let track_start_timestamp = self.track_start_timestamp.load(Ordering::Acquire);
+        let samples_played = self.samples_played.load(Ordering::Relaxed);
+
+        return (samples_played as i64 - track_start_timestamp) as u64;
     }
 }
 

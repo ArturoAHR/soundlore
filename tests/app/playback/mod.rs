@@ -79,7 +79,6 @@ fn test_playback_controller_play(
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
 
-    let mut sample_count = 0;
     let total_output_samples = output_sample_rate as usize * output_channels as usize;
 
     let file_name = get_file_name(input_sample_rate, input_channels, &format);
@@ -90,12 +89,8 @@ fn test_playback_controller_play(
 
     playback.playback_controller.play(mock_track).unwrap();
 
-    let mut playback_engine = playback.playback_engine.borrow_mut();
-
     loop {
-        let sample_buffer_consumer = playback_engine.sample_buffer_consumer.as_mut().unwrap();
-
-        if sample_buffer_consumer.is_empty() {
+        if playback.is_sample_buffer_empty() {
             if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event() {
                 match event {
                     Some(AudioPipelineThreadEvent::TrackFinished) => break,
@@ -107,16 +102,15 @@ fn test_playback_controller_play(
             }
         }
 
-        let samples_contained = sample_buffer_consumer.slots();
-
-        let mut output_samples = vec![0.0; samples_contained];
-
-        sample_count += samples_contained;
-
-        let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
+        playback.consume_samples_buffer();
     }
 
-    assert_sample_count(sample_count, total_output_samples, &file_name, None);
+    assert_sample_count(
+        playback.sample_count(),
+        total_output_samples,
+        &file_name,
+        None,
+    );
 }
 
 #[test]
@@ -168,7 +162,6 @@ fn test_playback_controller_seek(
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
 
-    let mut sample_count = 0;
     let total_track_frames = input_sample_rate as usize;
     let total_output_samples = output_sample_rate as usize * output_channels as usize;
 
@@ -189,12 +182,10 @@ fn test_playback_controller_seek(
 
     std::thread::sleep(Duration::from_millis(10));
 
-    let mut playback_engine = playback.playback_engine.borrow_mut();
-
     loop {
-        let sample_buffer_consumer = playback_engine.sample_buffer_consumer.as_mut().unwrap();
+        playback.consume_samples_buffer();
 
-        if sample_buffer_consumer.is_empty() {
+        if playback.is_sample_buffer_empty() {
             if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event() {
                 match event {
                     Some(AudioPipelineThreadEvent::TrackFinished) => break,
@@ -205,18 +196,20 @@ fn test_playback_controller_seek(
                 }
             }
         }
-
-        let samples_contained = sample_buffer_consumer.slots();
-
-        let mut output_samples = vec![0.0; samples_contained];
-
-        sample_count += samples_contained;
-
-        let _ = sample_buffer_consumer.pop_entire_slice(&mut output_samples);
     }
 
     match format.as_ref() {
-        "mp3" => assert_sample_count(sample_count, total_output_samples / 2, &file_name, Some(15)), // 15% of tolerance for mp3
-        _ => assert_sample_count(sample_count, total_output_samples / 2, &file_name, Some(5)), // 5% of tolerance by default
+        "mp3" => assert_sample_count(
+            playback.sample_count(),
+            total_output_samples / 2,
+            &file_name,
+            Some(15),
+        ), // 15% of tolerance for mp3
+        _ => assert_sample_count(
+            playback.sample_count(),
+            total_output_samples / 2,
+            &file_name,
+            Some(5),
+        ), // 5% of tolerance by default
     };
 }

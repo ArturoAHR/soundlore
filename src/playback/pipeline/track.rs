@@ -18,6 +18,7 @@ pub struct AudioTrackPipeline {
     stages: Vec<AudioTrackPipelineStage<AudioTrackPipelineConfiguration>>,
 
     pub configuration: AudioTrackPipelineConfiguration,
+    frames_decoded: u64,
     frames_delivered: u64,
 }
 
@@ -67,6 +68,7 @@ impl AudioTrackPipeline {
             stages,
 
             frames_delivered: 0,
+            frames_decoded: 0,
         })
     }
 
@@ -104,7 +106,10 @@ impl AudioTrackPipeline {
             
             match outcome {
                 AudioPipelineCommandOutcome::SeekedTo(new_timestamp) => {
-                    self.frames_delivered = *new_timestamp;
+                    let resample_ratio = self.configuration.output.sample_rate as f32 / self.configuration.track.sample_rate as f32;
+
+                    self.frames_decoded = *new_timestamp;
+                    self.frames_delivered = (*new_timestamp as f32 * resample_ratio).round() as u64;
 
                     self.status = AudioTrackPipelineStatus::Ongoing;
                 }
@@ -136,6 +141,8 @@ impl AudioTrackPipeline {
                 AudioTrackPipelineStage::Source(stage) => {
                     if stage.is_enabled(&self.configuration) {
                         samples = stage.process_stage(&self.configuration)?;
+
+                        self.frames_decoded += samples.len() as u64 / self.configuration.track.channels as u64;
                     };
                 }
                 AudioTrackPipelineStage::Process(stage) => {

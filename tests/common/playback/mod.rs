@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
 
 use nameless_music_player_lib::playback::PlaybackController;
 
@@ -32,5 +32,25 @@ impl TestPlayback {
             playback_controller,
             playback_engine,
         }
+    }
+
+    pub fn consume_samples_buffer(&mut self) -> Vec<f32> {
+        let mut playback_engine = self.playback_engine.borrow_mut();
+
+        playback_engine.consume()
+    }
+
+    pub fn is_sample_buffer_empty(&self) -> bool {
+        let playback_engine = self.playback_engine.borrow();
+
+        let sample_buffer_consumer = playback_engine.sample_buffer_consumer.as_ref().unwrap();
+
+        sample_buffer_consumer.is_empty()
+    }
+
+    pub fn sample_count(&self) -> usize {
+        let playback_engine = self.playback_engine.borrow();
+
+        playback_engine.samples_played.load(Ordering::Acquire) as usize
     }
 }

@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use symphonia::core::formats::SeekMode;
 use tracing::{debug, instrument};
 
@@ -32,7 +34,7 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineDe
             AudioPipelineCommand::Seek(timestamp) => {
                 let seeked_to = self.decoder.seek(*timestamp, SeekMode::Coarse)?;
 
-                let new_timestamp = seeked_to.actual_ts.get() as u64;
+                let new_timestamp = max(0, seeked_to.actual_ts.get()) as u64;
 
                 debug!(
                     seek_timestamp = timestamp,

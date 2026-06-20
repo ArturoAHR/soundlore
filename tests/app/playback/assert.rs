@@ -18,7 +18,7 @@ pub fn assert_sample_count(
             ),
             "m4a" | "aac" => assert!(
                 sample_count >= expected_sample_count,
-                "Insufficient sample count for file: {file_name}",
+                "Insufficient sample count for file: {file_name}, expected at least {expected_sample_count} but got {sample_count}",
             ),
             _ => unreachable!(),
         }
@@ -38,7 +38,7 @@ pub fn assert_sample_count(
         ),
         "m4a" | "aac" => assert!(
             sample_count >= expected_sample_count_lower_end,
-            "Insufficient sample count for file: {file_name}",
+            "Insufficient sample count for file: {file_name}, expected at least {expected_sample_count_lower_end} but got {sample_count}",
         ),
         _ => unreachable!(),
     }

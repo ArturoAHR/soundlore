@@ -10,16 +10,19 @@ use thiserror::Error;
 use tracing::{error, instrument, warn};
 
 use crate::{
-    playback::pipeline::{
-        command::{AudioPipelineCommandReceiver, AudioPipelineCommandReceiverError},
-        config::AudioPipelineConfiguration,
-        sink::{AudioSink, AudioSinkError},
-        stage::{
-            channel_converter::AudioChannelConverterError, decoder::AudioDecoderError,
-            resampler::AudioResamplerError,
+    playback::{
+        GenerationCounter,
+        pipeline::{
+            command::{AudioPipelineCommandReceiver, AudioPipelineCommandReceiverError},
+            config::AudioPipelineConfiguration,
+            sink::{AudioSink, AudioSinkError},
+            stage::{
+                channel_converter::AudioChannelConverterError, decoder::AudioDecoderError,
+                resampler::AudioResamplerError,
+            },
+            thread::{AudioPipelineThreadCommand, AudioPipelineThreadEvent},
+            track::{AudioTrackPipeline, AudioTrackPipelineStatus},
         },
-        thread::{AudioPipelineThreadCommand, AudioPipelineThreadEvent},
-        track::{AudioTrackPipeline, AudioTrackPipelineStatus},
     },
     track::models::Track,
 };
@@ -64,7 +67,7 @@ pub struct AudioPipeline {
     configuration: AudioPipelineConfiguration,
 
     samples_played_timestamp_offset: Arc<AtomicU64>,
-    generation_counter: Arc<AtomicU64>,
+    generation_counter: Arc<GenerationCounter>,
 }
 
 pub enum AudioPipelineStatus {
@@ -98,7 +101,7 @@ impl AudioPipeline {
         command_receiver: AudioPipelineCommandReceiver,
         track: Option<Track>,
         samples_played_timestamp_offset: Arc<AtomicU64>,
-        generation_counter: Arc<AtomicU64>,
+        generation_counter: Arc<GenerationCounter>,
     ) -> Self {
         let mut audio_pipeline = Self {
             audio_sink,
@@ -199,7 +202,8 @@ impl AudioPipeline {
                 output,
                 audio_engine_producer,
             } => {
-                self.audio_sink = AudioSink::new(audio_engine_producer);
+                self.audio_sink =
+                    AudioSink::new(audio_engine_producer, Arc::clone(&self.generation_counter));
 
                 self.configuration.output = output;
             }
@@ -233,17 +237,18 @@ impl AudioPipeline {
             let resample_ratio = self.configuration.output.sample_rate as f32
                 / audio_track_pipeline.configuration.track.sample_rate as f32;
 
-            let channel_ratio = self.configuration.output.channels as f32
-                / audio_track_pipeline.configuration.track.channels as f32;
+            let output_channels = self.configuration.output.channels;
 
             timestamp_offset =
-                (decoder_timestamp as f32 * resample_ratio * channel_ratio).round() as u64;
+                (decoder_timestamp as f32 * resample_ratio).round() as u64 * output_channels as u64;
         }
 
         self.samples_played_timestamp_offset
             .store(timestamp_offset, Ordering::Relaxed);
 
-        self.generation_counter.fetch_add(1, Ordering::Release);
+        self.generation_counter
+            .audio_pipeline
+            .fetch_add(1, Ordering::Release);
     }
 
     #[instrument(skip_all, err)]
