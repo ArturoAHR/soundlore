@@ -176,8 +176,6 @@ impl PlaybackController {
     }
 
     pub fn seek(&mut self, timestamp: u64) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.play_stream()?;
-
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Seek(timestamp))?;
 
