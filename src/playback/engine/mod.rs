@@ -7,8 +7,9 @@ use std::{
 };
 
 use cpal::{
-    BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, PauseStreamError,
-    PlayStreamError, Stream, default_host,
+    BuildStreamError, DefaultStreamConfigError, Device, FromSample, OutputCallbackInfo,
+    PauseStreamError, PlayStreamError, SampleFormat, SizedSample, Stream, StreamConfig,
+    default_host,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use rtrb::{Consumer, PopError};
@@ -41,6 +42,9 @@ pub enum PlaybackEngineError {
 
     #[error("failed to consume next samples: {0}")]
     EmptyBufferError(Arc<PopError>),
+
+    #[error("unsupported output sample format")]
+    UnsupportedSampleFormat,
 }
 
 impl From<DefaultStreamConfigError> for PlaybackEngineError {
@@ -113,7 +117,7 @@ impl AudioEngine {
 impl PlaybackEngine for AudioEngine {
     fn build_stream(
         &mut self,
-        mut sample_buffer_consumer: Consumer<f32>,
+        sample_buffer_consumer: Consumer<f32>,
         samples_played: Arc<AtomicU64>,
         track_start_timestamp: Arc<AtomicI64>,
         samples_played_timestamp_offset: Arc<AtomicU64>,
@@ -128,44 +132,37 @@ impl PlaybackEngine for AudioEngine {
         let sample_rate = config.sample_rate();
         let channels = config.channels();
 
-        let stream = device.build_output_stream(
-            &config.into(),
-            move |data: &mut [f32], _: &OutputCallbackInfo| {
-                let audio_pipeline_generation =
-                    generation_counter.audio_pipeline.load(Ordering::Acquire);
-                let audio_engine_generation =
-                    generation_counter.audio_engine.load(Ordering::Relaxed);
+        let stream = match config.sample_format() {
+            SampleFormat::F32 => build_output_stream::<f32>(
+                device,
+                &config.into(),
+                sample_buffer_consumer,
+                samples_played,
+                track_start_timestamp,
+                samples_played_timestamp_offset,
+                generation_counter,
+            )?,
+            SampleFormat::I16 => build_output_stream::<i16>(
+                device,
+                &config.into(),
+                sample_buffer_consumer,
+                samples_played,
+                track_start_timestamp,
+                samples_played_timestamp_offset,
+                generation_counter,
+            )?,
+            SampleFormat::U16 => build_output_stream::<u16>(
+                device,
+                &config.into(),
+                sample_buffer_consumer,
+                samples_played,
+                track_start_timestamp,
+                samples_played_timestamp_offset,
+                generation_counter,
+            )?,
 
-                if audio_engine_generation != audio_pipeline_generation {
-                    let start_timestamp = samples_played.load(Ordering::Relaxed) as i64
-                        - samples_played_timestamp_offset.load(Ordering::Relaxed) as i64;
-
-                    track_start_timestamp.store(start_timestamp, Ordering::Release);
-
-                    // Clear ring buffer
-                    while sample_buffer_consumer.pop().is_ok() {}
-
-                    generation_counter
-                        .audio_engine
-                        .store(audio_pipeline_generation, Ordering::Release);
-                }
-
-                let mut played = 0;
-                for slot in data.iter_mut() {
-                    let Ok(sample) = sample_buffer_consumer.pop() else {
-                        *slot = 0.0;
-                        continue;
-                    };
-
-                    *slot = sample;
-                    played += 1;
-                }
-
-                samples_played.fetch_add(played, Ordering::Relaxed);
-            },
-            |error| error!("stream error: {error}"),
-            None,
-        )?;
+            _ => return Err(PlaybackEngineError::UnsupportedSampleFormat),
+        };
 
         self.stream = Some(stream);
 
@@ -195,4 +192,57 @@ impl PlaybackEngine for AudioEngine {
 
         Ok(())
     }
+}
+
+fn build_output_stream<T>(
+    device: Device,
+    config: &StreamConfig,
+    mut sample_buffer_consumer: Consumer<f32>,
+    samples_played: Arc<AtomicU64>,
+    track_start_timestamp: Arc<AtomicI64>,
+    samples_played_timestamp_offset: Arc<AtomicU64>,
+    generation_counter: Arc<GenerationCounter>,
+) -> Result<Stream, PlaybackEngineError>
+where
+    T: SizedSample + FromSample<f32>,
+{
+    let stream = device.build_output_stream(
+        &config,
+        move |data: &mut [T], _: &OutputCallbackInfo| {
+            let audio_pipeline_generation =
+                generation_counter.audio_pipeline.load(Ordering::Acquire);
+            let audio_engine_generation = generation_counter.audio_engine.load(Ordering::Relaxed);
+
+            if audio_engine_generation != audio_pipeline_generation {
+                let start_timestamp = samples_played.load(Ordering::Relaxed) as i64
+                    - samples_played_timestamp_offset.load(Ordering::Relaxed) as i64;
+
+                track_start_timestamp.store(start_timestamp, Ordering::Release);
+
+                // Clear ring buffer
+                while sample_buffer_consumer.pop().is_ok() {}
+
+                generation_counter
+                    .audio_engine
+                    .store(audio_pipeline_generation, Ordering::Release);
+            }
+
+            let mut played = 0;
+            for slot in data.iter_mut() {
+                let Ok(sample) = sample_buffer_consumer.pop() else {
+                    *slot = T::from_sample_(0.0);
+                    continue;
+                };
+
+                *slot = T::from_sample_(sample);
+                played += 1;
+            }
+
+            samples_played.fetch_add(played, Ordering::Relaxed);
+        },
+        |error| error!("stream error: {error}"),
+        None,
+    )?;
+
+    Ok(stream)
 }
