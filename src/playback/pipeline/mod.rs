@@ -1,10 +1,10 @@
 use std::{
-    ops::ControlFlow,
     path::Path,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
     },
+    time::Duration,
 };
 
 use thiserror::Error;
@@ -13,6 +13,7 @@ use tracing::{error, instrument, warn};
 use crate::{
     playback::{
         GenerationCounter,
+        constants::SAMPLE_BUFFER_CAPACITY,
         pipeline::{
             command::{AudioPipelineCommandReceiver, AudioPipelineCommandReceiverError},
             config::AudioPipelineConfiguration,
@@ -21,7 +22,9 @@ use crate::{
                 channel_converter::AudioChannelConverterError, decoder::AudioDecoderError,
                 resampler::AudioResamplerError,
             },
-            thread::{AudioPipelineThreadCommand, AudioPipelineThreadEvent},
+            thread::{
+                AudioPipelineProcessDirective, AudioPipelineThreadCommand, AudioPipelineThreadEvent,
+            },
             track::{AudioTrackPipeline, AudioTrackPipelineStatus},
         },
     },
@@ -41,11 +44,6 @@ pub mod track;
 pub enum AudioPipelineError {
     #[error("there are no more samples to decode for current track.")]
     AudioTrackPipelineFinished,
-
-    #[error(
-        "track decoding is finished, awaiting for audio thread to output remaining track samples."
-    )]
-    AwaitingEndOfTrack,
 
     #[error("audio pipeline command receiver error: {0}")]
     AudioPipelineCommandReceiver(#[from] AudioPipelineCommandReceiverError),
@@ -165,20 +163,19 @@ impl AudioPipeline {
             }
             AudioTrackPipelineStatus::Finished => {
                 if self.audio_sink.is_empty() && self.audio_sink.is_engine_buffer_empty() {
-                    //
+                    // TODO: Add track replay
                 } else {
                     self.set_status(AudioPipelineStatus::Active);
                 }
             }
         }
-        // TODO: Add track replay if the status of the audio track pipeline is `Finished`.
     }
 
     #[instrument(skip(self))]
     pub fn handle_command(
         &mut self,
         command: AudioPipelineThreadCommand,
-    ) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
+    ) -> Result<Option<AudioPipelineProcessDirective>, AudioPipelineError> {
         let mut audio_pipeline_command = None;
         match command {
             AudioPipelineThreadCommand::Play(track) => {
@@ -216,7 +213,9 @@ impl AudioPipeline {
 
                 self.configuration.output = output;
             }
-            AudioPipelineThreadCommand::Exit => return Ok(ControlFlow::Break(())),
+            AudioPipelineThreadCommand::Exit => {
+                return Ok(Some(AudioPipelineProcessDirective::Exit));
+            }
         };
 
         let mut outcomes = Vec::new();
@@ -235,7 +234,7 @@ impl AudioPipeline {
             }
         }
 
-        Ok(ControlFlow::Continue(()))
+        Ok(None)
     }
 
     pub fn set_status(&mut self, status: AudioPipelineStatus) {
@@ -292,23 +291,42 @@ impl AudioPipeline {
             })
         ),
     )]
-    pub fn process(&mut self) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
+    pub fn process(&mut self) -> Result<AudioPipelineProcessDirective, AudioPipelineError> {
         let command = self.command_receiver.receive(&self.status)?;
 
         if let Some(command) = command {
             match self.handle_command(command) {
-                Ok(ControlFlow::Continue(_)) => {}
-                Ok(ControlFlow::Break(_)) => return Ok(ControlFlow::Break(())),
+                Ok(Some(directive)) => return Ok(directive),
                 Err(error) => return Err(error),
+                _ => {}
             }
         }
 
-        self.audio_sink.write()?;
+        match self.audio_sink.write() {
+            Err(AudioSinkError::FullRingBuffer) => {
+                let output_format = &self.configuration.output;
+
+                let sleep_duration_milliseconds =
+                    ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
+                        / output_format.sample_rate as f32)
+                        * 0.5;
+
+                return Ok(AudioPipelineProcessDirective::Sleep(Duration::from_millis(
+                    sleep_duration_milliseconds.ceil() as u64,
+                )));
+            }
+            Err(AudioSinkError::AwaitingBufferClear) => {
+                return Ok(AudioPipelineProcessDirective::Sleep(Duration::from_millis(
+                    1,
+                )));
+            }
+            Ok(()) => {}
+        };
 
         let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
             self.set_status(AudioPipelineStatus::Idle);
 
-            return Ok(ControlFlow::Continue(()));
+            return Ok(AudioPipelineProcessDirective::Continue);
         };
 
         if audio_track_pipeline.status == AudioTrackPipelineStatus::Finished {
@@ -319,16 +337,18 @@ impl AudioPipeline {
 
                 self.set_status(AudioPipelineStatus::Idle);
 
-                return Ok(ControlFlow::Continue(()));
+                return Ok(AudioPipelineProcessDirective::Continue);
             }
 
-            return Err(AudioPipelineError::AwaitingEndOfTrack);
+            return Ok(AudioPipelineProcessDirective::Sleep(Duration::from_millis(
+                10,
+            )));
         }
 
         let samples = audio_track_pipeline.produce_samples()?;
 
         self.audio_sink.buffer(&samples.as_ref());
 
-        Ok(ControlFlow::Continue(()))
+        Ok(AudioPipelineProcessDirective::Continue)
     }
 }
