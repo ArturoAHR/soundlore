@@ -45,7 +45,7 @@ pub enum PlaybackControllerError {
 }
 
 pub struct PlaybackController {
-    status: PlaybackControllerStatus,
+    pub status: PlaybackControllerStatus,
 
     audio_pipeline_event_receiver: Receiver<AudioPipelineThreadEvent>,
     audio_pipeline_command_sender: Sender<AudioPipelineThreadCommand>,
@@ -59,6 +59,7 @@ pub struct PlaybackController {
     generation_counter: Arc<GenerationCounter>,
 }
 
+#[derive(PartialEq)]
 pub enum PlaybackControllerStatus {
     Playing,
     Stopped,
@@ -147,6 +148,8 @@ impl PlaybackController {
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Play(track))?;
 
+        self.status = PlaybackControllerStatus::Playing;
+
         Ok(())
     }
 
@@ -155,6 +158,8 @@ impl PlaybackController {
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Resume)?;
+
+        self.status = PlaybackControllerStatus::Playing;
 
         Ok(())
     }
@@ -165,6 +170,8 @@ impl PlaybackController {
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Pause)?;
 
+        self.status = PlaybackControllerStatus::Stopped;
+
         Ok(())
     }
 
@@ -173,6 +180,8 @@ impl PlaybackController {
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Stop)?;
+
+        self.status = PlaybackControllerStatus::Stopped;
 
         Ok(())
     }

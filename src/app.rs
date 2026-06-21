@@ -14,8 +14,8 @@ use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{
-        PlaybackController, PlaybackControllerError, engine::device::watch_default_device,
-        event::PlaybackControllerEvent,
+        PlaybackController, PlaybackControllerError, PlaybackControllerStatus,
+        engine::device::watch_default_device, event::PlaybackControllerEvent,
     },
     ui::{
         components::{
@@ -326,13 +326,16 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let audio_pipeline_event_poll_timer =
-            every(milliseconds(16)).map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent));
+        let mut subscriptions = vec![Subscription::run(watch_default_device)];
 
-        Subscription::batch(vec![
-            Subscription::run(watch_default_device),
-            audio_pipeline_event_poll_timer,
-        ])
+        if self.playback_controller.status == PlaybackControllerStatus::Playing {
+            subscriptions.push(
+                every(milliseconds(16))
+                    .map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent)),
+            )
+        }
+
+        Subscription::batch(subscriptions)
     }
 
     pub fn scale_factor(&self) -> f32 {
