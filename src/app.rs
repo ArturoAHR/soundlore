@@ -14,7 +14,8 @@ use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{
-        PlaybackController, engine::device::watch_default_device, event::PlaybackControllerEvent,
+        PlaybackController, PlaybackControllerError, engine::device::watch_default_device,
+        event::PlaybackControllerEvent,
     },
     ui::{
         components::{
@@ -76,6 +77,7 @@ pub enum Message {
 pub enum PlaybackMessage {
     PendingOutputDeviceChange,
     OutputDeviceChanged,
+    OutputDeviceChangeFailed(PlaybackControllerError),
     PollPlaybackEvent,
 }
 
@@ -262,8 +264,17 @@ impl App {
             }
             PlaybackMessage::PendingOutputDeviceChange => {
                 if let Err(error) = self.playback_controller.initialize_output() {
-                    error!("Failed to initialize playback output: {error}");
+                    return Task::done(Message::Playback(
+                        PlaybackMessage::OutputDeviceChangeFailed(error),
+                    ));
                 }
+
+                Task::done(Message::Playback(PlaybackMessage::OutputDeviceChanged))
+            }
+            PlaybackMessage::OutputDeviceChangeFailed(error) => {
+                error!("Failed to initialize playback output: {error}");
+
+                // TODO: Display error popup with user friendly message.
 
                 Task::none()
             }
