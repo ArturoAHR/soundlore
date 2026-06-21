@@ -3,8 +3,9 @@ use std::sync::mpsc::TryRecvError;
 use tracing::{error, instrument};
 
 use crate::playback::{
-    PlaybackController, PlaybackControllerError, engine::PlaybackEngineStatus,
-    error::get_audio_controller_error_message, pipeline::thread::AudioPipelineThreadEvent,
+    PlaybackController, PlaybackControllerError, PlaybackControllerStatus,
+    engine::PlaybackEngineStatus, error::get_audio_controller_error_message,
+    pipeline::thread::AudioPipelineThreadEvent,
 };
 
 #[derive(Debug, Clone)]
@@ -43,6 +44,8 @@ impl PlaybackController {
                     }
                 }
 
+                self.status = PlaybackControllerStatus::Playing;
+
                 Ok(Some(PlaybackControllerEvent::StartedPlayback))
             }
             AudioPipelineThreadEvent::StoppedAudioPipeline => {
@@ -53,6 +56,8 @@ impl PlaybackController {
                         );
                     }
                 }
+
+                self.status = PlaybackControllerStatus::Stopped;
 
                 Ok(Some(PlaybackControllerEvent::StoppedPlayback))
             }

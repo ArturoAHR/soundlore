@@ -45,6 +45,8 @@ pub enum PlaybackControllerError {
 }
 
 pub struct PlaybackController {
+    status: PlaybackControllerStatus,
+
     audio_pipeline_event_receiver: Receiver<AudioPipelineThreadEvent>,
     audio_pipeline_command_sender: Sender<AudioPipelineThreadCommand>,
     audio_pipeline_thread_handle: Option<JoinHandle<()>>,
@@ -55,6 +57,11 @@ pub struct PlaybackController {
     track_start_timestamp: Arc<AtomicI64>,
     samples_played_timestamp_offset: Arc<AtomicU64>,
     generation_counter: Arc<GenerationCounter>,
+}
+
+pub enum PlaybackControllerStatus {
+    Playing,
+    Stopped,
 }
 
 pub struct GenerationCounter {
@@ -96,6 +103,8 @@ impl PlaybackController {
         );
 
         PlaybackController {
+            status: PlaybackControllerStatus::Stopped,
+
             audio_pipeline_thread_handle: Some(audio_pipeline_thread_handle),
             audio_pipeline_command_sender,
             audio_pipeline_event_receiver,
