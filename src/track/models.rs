@@ -1,7 +1,7 @@
 use sea_query::enum_def;
 
 #[enum_def(table_name = "track")]
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Track {
     pub id: String,
 

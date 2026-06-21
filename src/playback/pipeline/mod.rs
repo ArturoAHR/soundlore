@@ -150,11 +150,11 @@ impl AudioPipeline {
     }
 
     #[instrument(skip_all)]
-    pub fn resume(&mut self) {
+    pub fn resume(&mut self) -> Result<(), AudioPipelineError> {
         let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
             warn!("Attempted to resume playback without a track to play.");
 
-            return;
+            return Ok(());
         };
 
         match audio_track_pipeline.status {
@@ -162,13 +162,20 @@ impl AudioPipeline {
                 self.set_status(AudioPipelineStatus::Active);
             }
             AudioTrackPipelineStatus::Finished => {
-                if self.audio_sink.is_empty() && self.audio_sink.is_engine_buffer_empty() {
-                    // TODO: Add track replay
+                if self.audio_sink.is_empty()
+                    && self.audio_sink.is_engine_buffer_empty()
+                    && self.status == AudioPipelineStatus::Idle
+                {
+                    let track = audio_track_pipeline.configuration.track.clone();
+
+                    self.play_track(track)?;
                 } else {
                     self.set_status(AudioPipelineStatus::Active);
                 }
             }
         }
+
+        return Ok(());
     }
 
     #[instrument(skip(self))]
@@ -185,7 +192,7 @@ impl AudioPipeline {
                 self.set_status(AudioPipelineStatus::Paused);
             }
             AudioPipelineThreadCommand::Resume => {
-                self.resume();
+                self.resume()?;
             }
             AudioPipelineThreadCommand::Stop => {
                 self.set_status(AudioPipelineStatus::Idle);
