@@ -2,15 +2,15 @@ use std::{
     cell::RefCell,
     rc::Rc,
     sync::{
-        atomic::{AtomicI64, AtomicU64, Ordering},
         Arc,
+        atomic::{AtomicI64, AtomicU64, Ordering},
     },
 };
 
 use rtrb::Consumer;
 use soundlore_lib::playback::{
-    engine::{PlaybackEngine, PlaybackEngineError},
     GenerationCounter,
+    engine::{PlaybackEngine, PlaybackEngineError, PlaybackEngineStatus},
 };
 
 pub struct TestEngine {
@@ -22,9 +22,11 @@ pub struct TestEngine {
     pub track_start_timestamp: Arc<AtomicI64>,
     pub samples_played_timestamp_offset: Arc<AtomicU64>,
     pub generation_counter: Arc<GenerationCounter>,
+    pub status: PlaybackEngineStatus,
 }
 
 pub struct TestEngineContainer {
+    pub status: PlaybackEngineStatus,
     pub engine: Rc<RefCell<TestEngine>>,
 }
 
@@ -34,6 +36,7 @@ impl TestEngine {
             output_sample_rate,
             output_channels,
             sample_buffer_consumer: None,
+            status: PlaybackEngineStatus::Playing,
 
             samples_played: Arc::new(AtomicU64::new(0)),
             samples_played_timestamp_offset: Arc::new(AtomicU64::new(0)),
@@ -107,18 +110,29 @@ impl PlaybackEngine for TestEngine {
         Ok((self.output_sample_rate, self.output_channels))
     }
 
-    fn play_stream(&self) -> Result<(), PlaybackEngineError> {
+    fn play_stream(&mut self) -> Result<(), PlaybackEngineError> {
+        self.status = PlaybackEngineStatus::Playing;
+
         Ok(())
     }
 
-    fn pause_stream(&self) -> Result<(), PlaybackEngineError> {
+    fn pause_stream(&mut self) -> Result<(), PlaybackEngineError> {
+        self.status = PlaybackEngineStatus::Paused;
+
         Ok(())
+    }
+
+    fn status(&self) -> &PlaybackEngineStatus {
+        &self.status
     }
 }
 
 impl TestEngineContainer {
     pub fn new(engine: Rc<RefCell<TestEngine>>) -> Self {
-        Self { engine }
+        Self {
+            engine,
+            status: PlaybackEngineStatus::Playing,
+        }
     }
 }
 
@@ -140,11 +154,23 @@ impl PlaybackEngine for TestEngineContainer {
         )
     }
 
-    fn pause_stream(&self) -> Result<(), PlaybackEngineError> {
-        self.engine.borrow().pause_stream()
+    fn pause_stream(&mut self) -> Result<(), PlaybackEngineError> {
+        let result = self.engine.borrow_mut().pause_stream();
+
+        self.status = self.engine.borrow().status().to_owned();
+
+        result
     }
 
-    fn play_stream(&self) -> Result<(), PlaybackEngineError> {
-        self.engine.borrow().play_stream()
+    fn play_stream(&mut self) -> Result<(), PlaybackEngineError> {
+        let result = self.engine.borrow_mut().play_stream();
+
+        self.status = self.engine.borrow().status().to_owned();
+
+        result
+    }
+
+    fn status(&self) -> &PlaybackEngineStatus {
+        &self.status
     }
 }
