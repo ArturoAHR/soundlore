@@ -7,18 +7,21 @@ use std::{
 };
 
 use cpal::{
-    BuildStreamError, DefaultStreamConfigError, Device, FromSample, OutputCallbackInfo,
-    PauseStreamError, PlayStreamError, SampleFormat, SizedSample, Stream, StreamConfig,
-    default_host,
-    traits::{DeviceTrait, HostTrait, StreamTrait},
+    BuildStreamError, DefaultStreamConfigError, PauseStreamError, PlayStreamError, SampleFormat,
+    Stream, default_host,
+    traits::{DeviceTrait, HostTrait},
 };
 use rtrb::{Consumer, PopError};
 use thiserror::Error;
-use tracing::{error, instrument};
+use tracing::instrument;
 
-use crate::playback::GenerationCounter;
+use crate::playback::{
+    GenerationCounter,
+    engine::thread::{AudioEngineStreamBuildArguments, build_output_stream},
+};
 
 pub mod device;
+pub mod thread;
 
 #[derive(Debug, Error, Clone)]
 pub enum PlaybackEngineError {
@@ -101,7 +104,6 @@ pub struct AudioEngine {
     stream: Option<Stream>,
 
     paused: Arc<AtomicBool>,
-
     status: PlaybackEngineStatus,
 }
 
@@ -110,9 +112,8 @@ impl AudioEngine {
         Self {
             stream: None,
 
-            paused: Arc::new(AtomicBool::new(false)),
-
-            status: PlaybackEngineStatus::Playing,
+            paused: Arc::new(AtomicBool::new(true)),
+            status: PlaybackEngineStatus::Paused,
         }
     }
 
@@ -151,6 +152,8 @@ impl PlaybackEngine for AudioEngine {
         let channels = config.channels();
 
         let build_arguments = AudioEngineStreamBuildArguments {
+            sample_buffer_consumer,
+            config: config.clone().into(),
             device,
             samples_played,
             track_start_timestamp,
@@ -160,15 +163,9 @@ impl PlaybackEngine for AudioEngine {
         };
 
         let stream = match config.sample_format() {
-            SampleFormat::F32 => {
-                build_output_stream::<f32>(sample_buffer_consumer, &config.into(), build_arguments)?
-            }
-            SampleFormat::I16 => {
-                build_output_stream::<i16>(sample_buffer_consumer, &config.into(), build_arguments)?
-            }
-            SampleFormat::U16 => {
-                build_output_stream::<u16>(sample_buffer_consumer, &config.into(), build_arguments)?
-            }
+            SampleFormat::F32 => build_output_stream::<f32>(build_arguments)?,
+            SampleFormat::I16 => build_output_stream::<i16>(build_arguments)?,
+            SampleFormat::U16 => build_output_stream::<u16>(build_arguments)?,
 
             _ => return Err(PlaybackEngineError::UnsupportedSampleFormat),
         };
@@ -182,30 +179,22 @@ impl PlaybackEngine for AudioEngine {
 
     #[instrument(skip_all, err, level = "debug")]
     fn play_stream(&mut self) -> Result<(), PlaybackEngineError> {
-        let Some(stream) = self.stream.as_ref() else {
+        if self.stream.is_none() {
             return Err(PlaybackEngineError::MissingStream);
         };
 
-        if self.status == PlaybackEngineStatus::Paused {
-            stream.play()?;
-
-            self.set_status(PlaybackEngineStatus::Playing);
-        }
+        self.set_status(PlaybackEngineStatus::Playing);
 
         Ok(())
     }
 
     #[instrument(skip_all, err, level = "debug")]
     fn pause_stream(&mut self) -> Result<(), PlaybackEngineError> {
-        let Some(stream) = self.stream.as_ref() else {
+        if self.stream.is_none() {
             return Err(PlaybackEngineError::MissingStream);
         };
 
-        if self.status == PlaybackEngineStatus::Playing {
-            stream.pause()?;
-
-            self.set_status(PlaybackEngineStatus::Paused);
-        }
+        self.set_status(PlaybackEngineStatus::Paused);
 
         Ok(())
     }
@@ -213,72 +202,4 @@ impl PlaybackEngine for AudioEngine {
     fn status(&self) -> &PlaybackEngineStatus {
         &self.status
     }
-}
-
-struct AudioEngineStreamBuildArguments {
-    pub device: Device,
-    pub samples_played: Arc<AtomicU64>,
-    pub track_start_timestamp: Arc<AtomicI64>,
-    pub samples_played_timestamp_offset: Arc<AtomicU64>,
-    pub generation_counter: Arc<GenerationCounter>,
-    pub paused: Arc<AtomicBool>,
-}
-
-fn build_output_stream<T>(
-    mut sample_buffer_consumer: Consumer<f32>,
-    config: &StreamConfig,
-    arguments: AudioEngineStreamBuildArguments,
-) -> Result<Stream, PlaybackEngineError>
-where
-    T: SizedSample + FromSample<f32>,
-{
-    let device = arguments.device;
-    let samples_played = arguments.samples_played;
-    let track_start_timestamp = arguments.track_start_timestamp;
-    let samples_played_timestamp_offset = arguments.samples_played_timestamp_offset;
-    let generation_counter = arguments.generation_counter;
-    let paused = arguments.paused;
-
-    let stream = device.build_output_stream(
-        &config,
-        move |data: &mut [T], _: &OutputCallbackInfo| {
-            let audio_pipeline_generation =
-                generation_counter.audio_pipeline.load(Ordering::Acquire);
-            let audio_engine_generation = generation_counter.audio_engine.load(Ordering::Relaxed);
-
-            if audio_engine_generation != audio_pipeline_generation {
-                let start_timestamp = samples_played.load(Ordering::Relaxed) as i64
-                    - samples_played_timestamp_offset.load(Ordering::Relaxed) as i64;
-
-                track_start_timestamp.store(start_timestamp, Ordering::Release);
-
-                // Clear ring buffer
-                while sample_buffer_consumer.pop().is_ok() {}
-
-                generation_counter
-                    .audio_engine
-                    .store(audio_pipeline_generation, Ordering::Release);
-            }
-
-            let mut played = 0;
-            for slot in data.iter_mut() {
-                if !paused.load(Ordering::Relaxed) {
-                    if let Ok(sample) = sample_buffer_consumer.pop() {
-                        *slot = T::from_sample_(sample);
-                        played += 1;
-
-                        continue;
-                    }
-                }
-
-                *slot = T::from_sample_(0.0);
-            }
-
-            samples_played.fetch_add(played, Ordering::Relaxed);
-        },
-        |error| error!("stream error: {error}"),
-        None,
-    )?;
-
-    Ok(stream)
 }

@@ -65,6 +65,7 @@ pub enum PlaybackControllerStatus {
     Stopped,
 }
 
+#[derive(Default)]
 pub struct GenerationCounter {
     pub audio_engine: AtomicU64,
     pub audio_pipeline: AtomicU64,
