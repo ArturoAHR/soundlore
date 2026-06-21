@@ -3,7 +3,7 @@ use std::{
     sync::{
         Arc,
         atomic::{AtomicI64, AtomicU64, Ordering},
-        mpsc::{Receiver, SendError, Sender, TryRecvError},
+        mpsc::{Receiver, SendError, Sender},
     },
     thread::JoinHandle,
 };
@@ -28,6 +28,8 @@ use crate::{
 
 pub mod constants;
 pub mod engine;
+pub mod error;
+pub mod event;
 pub mod pipeline;
 
 #[derive(Debug, Error, Clone)]
@@ -58,15 +60,6 @@ pub struct PlaybackController {
 pub struct GenerationCounter {
     pub audio_engine: AtomicU64,
     pub audio_pipeline: AtomicU64,
-}
-
-#[derive(Debug, Clone)]
-pub enum Event {
-    Initialized,
-    UnexpectedError(PlaybackControllerError),
-    PendingOutputDeviceChange,
-    OutputDeviceChanged,
-    AudioPipelineEventPollTick,
 }
 
 pub enum PlaybackControllerCommand {
@@ -180,18 +173,6 @@ impl PlaybackController {
             .send(AudioPipelineThreadCommand::Seek(timestamp))?;
 
         Ok(())
-    }
-
-    pub fn poll_audio_pipeline_event(
-        &self,
-    ) -> Result<Option<AudioPipelineThreadEvent>, PlaybackControllerError> {
-        match self.audio_pipeline_event_receiver.try_recv() {
-            Ok(event) => Ok(Some(event)),
-            Err(TryRecvError::Empty) => Ok(None),
-            Err(error) => Err(
-                PlaybackControllerError::AudioPipelineEventReceiveAttemptFailed(error.to_string()),
-            ),
-        }
     }
 
     pub fn current_track_samples_played(&self) -> u64 {

@@ -8,14 +8,13 @@ use iced::{
     time::{every, milliseconds},
     widget::{column, row},
 };
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 
 use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{
-        self, PlaybackController, engine::device::watch_default_device,
-        pipeline::thread::AudioPipelineThreadEvent,
+        PlaybackController, engine::device::watch_default_device, event::PlaybackControllerEvent,
     },
     ui::{
         components::{
@@ -70,7 +69,14 @@ pub enum Message {
     StatusBar(status_bar::Event),
     PlaybackBar(playback_bar::Event),
 
-    Playback(playback::Event),
+    Playback(PlaybackMessage),
+}
+
+#[derive(Debug, Clone)]
+pub enum PlaybackMessage {
+    PendingOutputDeviceChange,
+    OutputDeviceChanged,
+    PollPlaybackEvent,
 }
 
 impl App {
@@ -240,12 +246,12 @@ impl App {
         Task::batch([outcome_task, component_task])
     }
 
-    fn handle_playback(&mut self, event: playback::Event) -> Task<Message> {
-        match event {
-            playback::Event::AudioPipelineEventPollTick => {
-                while let Ok(Some(event)) = self.playback_controller.poll_audio_pipeline_event() {
+    fn handle_playback(&mut self, message: PlaybackMessage) -> Task<Message> {
+        match message {
+            PlaybackMessage::PollPlaybackEvent => {
+                while let Ok(Some(event)) = self.playback_controller.poll_event() {
                     match event {
-                        AudioPipelineThreadEvent::TrackFinished => {
+                        PlaybackControllerEvent::EndOfTrack => {
                             // TODO: Implement playing next track.
                         }
                         _ => {}
@@ -254,9 +260,11 @@ impl App {
 
                 Task::none()
             }
-            playback::Event::PendingOutputDeviceChange => {
+            PlaybackMessage::PendingOutputDeviceChange => {
                 // TODO: Add error handling for this task
-                let _ = self.playback_controller.initialize_output();
+                if let Err(error) = self.playback_controller.initialize_output() {
+                    error!("Failed to initialize playback output: {error}");
+                }
 
                 Task::none()
             }
@@ -308,8 +316,8 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let audio_pipeline_event_poll_timer = every(milliseconds(16))
-            .map(|_| Message::Playback(playback::Event::AudioPipelineEventPollTick));
+        let audio_pipeline_event_poll_timer =
+            every(milliseconds(16)).map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent));
 
         Subscription::batch(vec![
             Subscription::run(watch_default_device),

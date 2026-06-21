@@ -1,5 +1,6 @@
 use std::{
     ops::ControlFlow,
+    path::Path,
     sync::{Arc, atomic::AtomicU64},
     time::Duration,
 };
@@ -41,6 +42,10 @@ pub enum AudioPipelineThreadEvent {
     DecodingFinished,
     Exited,
     TrackFinished,
+    StartedAudioPipeline,
+    StoppedAudioPipeline,
+    ActiveTrackChanged { track_id: String },
+    UnexpectedError(AudioPipelineError),
 }
 
 pub fn spawn_audio_pipeline_thread(
@@ -96,15 +101,36 @@ pub fn spawn_audio_pipeline_thread(
                 Err(AudioPipelineError::Sink(AudioSinkError::AwaitingBufferClear)) => {
                     std::thread::sleep(Duration::from_millis(1));
                 }
+                Err(AudioPipelineError::AwaitingEndOfTrack) => {
+                    std::thread::sleep(Duration::from_millis(10));
+                }
                 Err(AudioPipelineError::Decoder(AudioDecoderError::RecoverableDecoderError(
                     error,
                 ))) => {
                     warn!("recoverable audio pipeline error: {error}");
                 }
                 Err(error) => {
-                    audio_pipeline.status = AudioPipelineStatus::Idle;
+                    let current_track =
+                        audio_pipeline
+                            .audio_track_pipelines
+                            .get(0)
+                            .map(|audio_track_pipeline| {
+                                Path::new(&audio_track_pipeline.configuration.track.file_path)
+                                    .file_name()
+                                    .unwrap_or(
+                                        audio_track_pipeline.configuration.track.file_path.as_ref(),
+                                    )
+                                    .to_owned()
+                            });
 
-                    error!("audio pipeline error: {error}");
+                    audio_pipeline.set_status(AudioPipelineStatus::Paused);
+
+                    error!(current_track = ?current_track, "audio pipeline error: {error}");
+
+                    audio_pipeline
+                        .configuration
+                        .event_emitter
+                        .emit(AudioPipelineThreadEvent::UnexpectedError(error));
                 }
             }
         }

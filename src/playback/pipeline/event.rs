@@ -1,4 +1,4 @@
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::playback::pipeline::thread::AudioPipelineThreadEvent;
 
@@ -14,6 +14,7 @@ impl AudioPipelineEventEmitter {
         Self { event_sender }
     }
 
+    #[instrument(skip(self), ret, level = "debug")]
     pub fn emit(&self, event: AudioPipelineThreadEvent) {
         match self.event_sender.send(event) {
             Ok(_) => {}

@@ -27,9 +27,10 @@ pub struct AudioTrackPipeline {
     frames_delivered: u64,
 }
 
+#[derive(PartialEq)]
 pub enum AudioTrackPipelineStatus {
     Ready,
-    Ongoing,
+    ProducingSamples,
     Finished,
 }
 
@@ -117,7 +118,7 @@ impl AudioTrackPipeline {
                     self.frames_decoded = *new_timestamp;
                     self.frames_delivered = (*new_timestamp as f32 * resample_ratio).round() as u64;
 
-                    self.status = AudioTrackPipelineStatus::Ongoing;
+                    self.status = AudioTrackPipelineStatus::ProducingSamples;
                 }
             }
         }

@@ -7,7 +7,7 @@ use rtrb::Producer;
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::playback::GenerationCounter;
+use crate::playback::{GenerationCounter, constants::SAMPLE_BUFFER_CAPACITY};
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioSinkError {
@@ -67,6 +67,10 @@ impl AudioSink {
 
     pub fn is_empty(&self) -> bool {
         self.sample_buffer.is_empty()
+    }
+
+    pub fn is_engine_buffer_empty(&self) -> bool {
+        self.audio_engine_producer.slots() == SAMPLE_BUFFER_CAPACITY
     }
 
     pub fn buffer(&mut self, samples: &[f32]) {

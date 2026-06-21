@@ -26,7 +26,10 @@ impl AudioPipelineCommandReceiver {
         &self,
         status: &AudioPipelineStatus,
     ) -> Result<Option<AudioPipelineThreadCommand>, AudioPipelineCommandReceiverError> {
-        if matches!(status, AudioPipelineStatus::Idle) {
+        if matches!(
+            status,
+            AudioPipelineStatus::Idle | AudioPipelineStatus::Paused
+        ) {
             let command = self
                 .command_receiver
                 .recv()

@@ -1,4 +1,4 @@
-use iced::{widget::text, Element, Renderer, Task};
+use iced::{Element, Renderer, Task, widget::text};
 use tracing::instrument;
 
 use crate::ui::theme::Theme;

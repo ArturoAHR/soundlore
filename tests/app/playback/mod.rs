@@ -4,7 +4,7 @@ use std::{
 };
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use soundlore_lib::playback::pipeline::thread::AudioPipelineThreadEvent;
+use soundlore_lib::playback::event::PlaybackControllerEvent;
 
 use crate::{
     common::{
@@ -93,9 +93,9 @@ fn test_playback_controller_play(
         playback.consume_samples_buffer();
 
         if playback.is_sample_buffer_empty() {
-            if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event() {
+            if let Ok(event) = playback.playback_controller.poll_event() {
                 match event {
-                    Some(AudioPipelineThreadEvent::TrackFinished) => break,
+                    Some(PlaybackControllerEvent::EndOfTrack) => break,
                     _ => {
                         thread::sleep(Duration::from_millis(10));
                         continue;
@@ -188,9 +188,9 @@ fn test_playback_controller_seek(
         playback.consume_samples_buffer();
 
         if playback.is_sample_buffer_empty() {
-            if let Ok(event) = playback.playback_controller.poll_audio_pipeline_event() {
+            if let Ok(event) = playback.playback_controller.poll_event() {
                 match event {
-                    Some(AudioPipelineThreadEvent::TrackFinished) => break,
+                    Some(PlaybackControllerEvent::EndOfTrack) => break,
                     _ => {
                         thread::sleep(Duration::from_millis(10));
                         continue;

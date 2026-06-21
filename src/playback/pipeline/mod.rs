@@ -1,5 +1,6 @@
 use std::{
     ops::ControlFlow,
+    path::Path,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -38,8 +39,13 @@ pub mod track;
 
 #[derive(Debug, Error, Clone)]
 pub enum AudioPipelineError {
-    #[error("There are no more samples to decode for current track.")]
+    #[error("there are no more samples to decode for current track.")]
     AudioTrackPipelineFinished,
+
+    #[error(
+        "track decoding is finished, awaiting for audio thread to output remaining track samples."
+    )]
+    AwaitingEndOfTrack,
 
     #[error("audio pipeline command receiver error: {0}")]
     AudioPipelineCommandReceiver(#[from] AudioPipelineCommandReceiverError),
@@ -70,9 +76,10 @@ pub struct AudioPipeline {
     generation_counter: Arc<GenerationCounter>,
 }
 
+#[derive(PartialEq)]
 pub enum AudioPipelineStatus {
     Idle,
-    ProducingSamples,
+    Active,
     Paused,
 }
 
@@ -127,11 +134,17 @@ impl AudioPipeline {
 
     #[instrument(skip_all)]
     pub fn play_track(&mut self, track: Track) -> Result<(), AudioPipelineError> {
+        let track_id = track.id.clone();
+
         let audio_track_pipeline = AudioTrackPipeline::build(track, self.configuration.clone())?;
 
         self.audio_track_pipelines = vec![audio_track_pipeline];
 
-        self.status = AudioPipelineStatus::ProducingSamples;
+        self.configuration
+            .event_emitter
+            .emit(AudioPipelineThreadEvent::ActiveTrackChanged { track_id });
+
+        self.set_status(AudioPipelineStatus::Active);
 
         self.increase_generation_counter(0);
 
@@ -146,11 +159,17 @@ impl AudioPipeline {
             return;
         };
 
-        if matches!(
-            audio_track_pipeline.status,
-            AudioTrackPipelineStatus::Ongoing | AudioTrackPipelineStatus::Ready
-        ) {
-            self.status = AudioPipelineStatus::ProducingSamples;
+        match audio_track_pipeline.status {
+            AudioTrackPipelineStatus::ProducingSamples | AudioTrackPipelineStatus::Ready => {
+                self.set_status(AudioPipelineStatus::Active);
+            }
+            AudioTrackPipelineStatus::Finished => {
+                if self.audio_sink.is_empty() && self.audio_sink.is_engine_buffer_empty() {
+                    //
+                } else {
+                    self.set_status(AudioPipelineStatus::Active);
+                }
+            }
         }
         // TODO: Add track replay if the status of the audio track pipeline is `Finished`.
     }
@@ -166,13 +185,13 @@ impl AudioPipeline {
                 self.play_track(track)?;
             }
             AudioPipelineThreadCommand::Pause => {
-                self.status = AudioPipelineStatus::Idle;
+                self.set_status(AudioPipelineStatus::Paused);
             }
             AudioPipelineThreadCommand::Resume => {
                 self.resume();
             }
             AudioPipelineThreadCommand::Stop => {
-                self.status = AudioPipelineStatus::Idle;
+                self.set_status(AudioPipelineStatus::Idle);
 
                 audio_pipeline_command = Some(AudioPipelineCommand::Stop);
             }
@@ -219,7 +238,28 @@ impl AudioPipeline {
         Ok(ControlFlow::Continue(()))
     }
 
-    pub fn increase_generation_counter(&mut self, decoder_timestamp: u64) {
+    pub fn set_status(&mut self, status: AudioPipelineStatus) {
+        if self.status == status {
+            return;
+        }
+
+        self.status = status;
+
+        match self.status {
+            AudioPipelineStatus::Idle | AudioPipelineStatus::Paused => {
+                self.configuration
+                    .event_emitter
+                    .emit(AudioPipelineThreadEvent::StoppedAudioPipeline);
+            }
+            AudioPipelineStatus::Active => {
+                self.configuration
+                    .event_emitter
+                    .emit(AudioPipelineThreadEvent::StartedAudioPipeline);
+            }
+        }
+    }
+
+    fn increase_generation_counter(&mut self, decoder_timestamp: u64) {
         self.audio_sink.clear();
 
         let mut timestamp_offset = 0;
@@ -241,7 +281,17 @@ impl AudioPipeline {
             .fetch_add(1, Ordering::Release);
     }
 
-    #[instrument(skip_all, err)]
+    #[instrument(skip_all, level = "trace", fields(
+        current_track = self
+            .audio_track_pipelines
+            .get(0)
+            .map(|audio_track_pipeline| {
+                Path::new(&audio_track_pipeline.configuration.track.file_path)
+                    .file_name()
+                    .unwrap_or(audio_track_pipeline.configuration.track.file_path.as_ref()).to_str()
+            })
+        ),
+    )]
     pub fn process(&mut self) -> Result<ControlFlow<(), ()>, AudioPipelineError> {
         let command = self.command_receiver.receive(&self.status)?;
 
@@ -256,24 +306,23 @@ impl AudioPipeline {
         self.audio_sink.write()?;
 
         let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
-            self.status = AudioPipelineStatus::Idle;
+            self.set_status(AudioPipelineStatus::Idle);
 
             return Ok(ControlFlow::Continue(()));
         };
 
-        if self.audio_sink.is_empty()
-            && matches!(
-                audio_track_pipeline.status,
-                AudioTrackPipelineStatus::Finished
-            )
-        {
-            self.configuration
-                .event_emitter
-                .emit(AudioPipelineThreadEvent::TrackFinished);
+        if audio_track_pipeline.status == AudioTrackPipelineStatus::Finished {
+            if self.audio_sink.is_empty() && self.audio_sink.is_engine_buffer_empty() {
+                self.configuration
+                    .event_emitter
+                    .emit(AudioPipelineThreadEvent::TrackFinished);
 
-            self.status = AudioPipelineStatus::Idle;
+                self.set_status(AudioPipelineStatus::Idle);
 
-            return Ok(ControlFlow::Continue(()));
+                return Ok(ControlFlow::Continue(()));
+            }
+
+            return Err(AudioPipelineError::AwaitingEndOfTrack);
         }
 
         let samples = audio_track_pipeline.produce_samples()?;
