@@ -261,7 +261,6 @@ impl App {
                 Task::none()
             }
             PlaybackMessage::PendingOutputDeviceChange => {
-                // TODO: Add error handling for this task
                 if let Err(error) = self.playback_controller.initialize_output() {
                     error!("Failed to initialize playback output: {error}");
                 }
