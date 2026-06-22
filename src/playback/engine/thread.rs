@@ -96,7 +96,8 @@ impl AudioEngineDataProcessor {
         for slot in data.iter_mut() {
             if !paused {
                 if let Ok(sample) = self.sample_buffer_consumer.pop() {
-                    *slot = T::from_sample_(sample);
+                    // TODO: Remove this once we have volume built
+                    *slot = T::from_sample_(sample * 0.10);
                     samples_played += 1;
 
                     continue;
