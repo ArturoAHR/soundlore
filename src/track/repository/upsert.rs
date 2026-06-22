@@ -10,7 +10,7 @@ use crate::track::models::{TrackIden, TrackProperties};
 
 #[instrument(skip(pool, tracks), fields(track_count = tracks.len()))]
 pub async fn upsert_tracks_batch(
-    pool: &SqlitePool,
+    pool: SqlitePool,
     tracks: &[TrackProperties],
 ) -> Result<(), AppError> {
     let mut transaction = pool.begin().await?;
