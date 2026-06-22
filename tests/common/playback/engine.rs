@@ -110,13 +110,13 @@ impl PlaybackEngine for TestEngine {
         Ok((self.output_sample_rate, self.output_channels))
     }
 
-    fn play_stream(&mut self) -> Result<(), PlaybackEngineError> {
+    fn pause(&mut self) -> Result<(), PlaybackEngineError> {
         self.status = PlaybackEngineStatus::Playing;
 
         Ok(())
     }
 
-    fn pause_stream(&mut self) -> Result<(), PlaybackEngineError> {
+    fn play(&mut self) -> Result<(), PlaybackEngineError> {
         self.status = PlaybackEngineStatus::Paused;
 
         Ok(())
@@ -154,16 +154,16 @@ impl PlaybackEngine for TestEngineContainer {
         )
     }
 
-    fn pause_stream(&mut self) -> Result<(), PlaybackEngineError> {
-        let result = self.engine.borrow_mut().pause_stream();
+    fn play(&mut self) -> Result<(), PlaybackEngineError> {
+        let result = self.engine.borrow_mut().play();
 
         self.status = self.engine.borrow().status().to_owned();
 
         result
     }
 
-    fn play_stream(&mut self) -> Result<(), PlaybackEngineError> {
-        let result = self.engine.borrow_mut().play_stream();
+    fn pause(&mut self) -> Result<(), PlaybackEngineError> {
+        let result = self.engine.borrow_mut().pause();
 
         self.status = self.engine.borrow().status().to_owned();
 

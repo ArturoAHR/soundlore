@@ -89,8 +89,8 @@ pub trait PlaybackEngine {
         samples_played_timestamp_offset: Arc<AtomicU64>,
         generation_counter: Arc<GenerationCounter>,
     ) -> Result<(u32, u16), PlaybackEngineError>;
-    fn play_stream(&mut self) -> Result<(), PlaybackEngineError>;
-    fn pause_stream(&mut self) -> Result<(), PlaybackEngineError>;
+    fn pause(&mut self) -> Result<(), PlaybackEngineError>;
+    fn play(&mut self) -> Result<(), PlaybackEngineError>;
     fn status(&self) -> &PlaybackEngineStatus;
 }
 
@@ -172,13 +172,13 @@ impl PlaybackEngine for AudioEngine {
 
         self.stream = Some(stream);
 
-        self.pause_stream()?;
+        self.play()?;
 
         Ok((sample_rate, channels))
     }
 
     #[instrument(skip_all, err, level = "debug")]
-    fn play_stream(&mut self) -> Result<(), PlaybackEngineError> {
+    fn pause(&mut self) -> Result<(), PlaybackEngineError> {
         if self.stream.is_none() {
             return Err(PlaybackEngineError::MissingStream);
         };
@@ -189,7 +189,7 @@ impl PlaybackEngine for AudioEngine {
     }
 
     #[instrument(skip_all, err, level = "debug")]
-    fn pause_stream(&mut self) -> Result<(), PlaybackEngineError> {
+    fn play(&mut self) -> Result<(), PlaybackEngineError> {
         if self.stream.is_none() {
             return Err(PlaybackEngineError::MissingStream);
         };

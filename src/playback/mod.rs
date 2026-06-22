@@ -10,7 +10,7 @@ use std::{
 
 use rtrb::RingBuffer;
 use thiserror::Error;
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{
     playback::{
@@ -46,6 +46,7 @@ pub enum PlaybackControllerError {
 
 pub struct PlaybackController {
     pub status: PlaybackControllerStatus,
+    pub output_format: Option<AudioFormat>,
 
     audio_pipeline_event_receiver: Receiver<AudioPipelineThreadEvent>,
     audio_pipeline_command_sender: Sender<AudioPipelineThreadCommand>,
@@ -106,6 +107,7 @@ impl PlaybackController {
 
         PlaybackController {
             status: PlaybackControllerStatus::Stopped,
+            output_format: None,
 
             audio_pipeline_thread_handle: Some(audio_pipeline_thread_handle),
             audio_pipeline_command_sender,
@@ -119,6 +121,7 @@ impl PlaybackController {
         }
     }
 
+    #[instrument(skip(self))]
     pub fn initialize_output(&mut self) -> Result<(), PlaybackControllerError> {
         let (sample_buffer_producer, sample_buffer_consumer) =
             RingBuffer::new(SAMPLE_BUFFER_CAPACITY);
@@ -130,6 +133,11 @@ impl PlaybackController {
             Arc::clone(&self.samples_played_timestamp_offset),
             Arc::clone(&self.generation_counter),
         )?;
+
+        self.output_format = Some(AudioFormat {
+            sample_rate,
+            channels,
+        });
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::ChangeOutput {
@@ -143,8 +151,9 @@ impl PlaybackController {
         Ok(())
     }
 
+    #[instrument(skip(self), err)]
     pub fn play(&mut self, track: Track) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.play_stream()?;
+        self.playback_engine.pause()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Play(track))?;
@@ -154,8 +163,9 @@ impl PlaybackController {
         Ok(())
     }
 
+    #[instrument(skip(self), err)]
     pub fn resume(&mut self) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.play_stream()?;
+        self.playback_engine.pause()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Resume)?;
@@ -165,8 +175,9 @@ impl PlaybackController {
         Ok(())
     }
 
+    #[instrument(skip(self), err)]
     pub fn pause(&mut self) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.pause_stream()?;
+        self.playback_engine.play()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Pause)?;
@@ -176,8 +187,9 @@ impl PlaybackController {
         Ok(())
     }
 
+    #[instrument(skip(self), err)]
     pub fn stop(&mut self) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.pause_stream()?;
+        self.playback_engine.play()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Stop)?;
@@ -187,6 +199,7 @@ impl PlaybackController {
         Ok(())
     }
 
+    #[instrument(skip(self), err)]
     pub fn seek(&mut self, timestamp: u64) -> Result<(), PlaybackControllerError> {
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Seek(timestamp))?;
