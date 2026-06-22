@@ -60,7 +60,7 @@ pub struct PlaybackController {
     generation_counter: Arc<GenerationCounter>,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum PlaybackControllerStatus {
     Playing,
     Stopped,

@@ -1,7 +1,7 @@
 use std::{error::Error, fs, io::stderr};
 
 use tracing::error;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuard> {
     let log_directory = dirs::data_local_dir()?.join("soundlore").join("logs");
@@ -36,7 +36,7 @@ pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuar
 fn get_filter() -> EnvFilter {
     tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         if cfg!(debug_assertions) {
-            "debug,soundlore=trace,sqlx=warn,wgpu=warn,iced=info,naga=warn,winit=warn,cosmic_text=warn,sctk=warn".into()
+            "debug,soundlore=debug,sqlx=warn,wgpu=warn,iced=info,naga=warn,winit=warn,cosmic_text=warn,sctk=warn".into()
         } else {
             "warn,soundlore=info".into()
         }

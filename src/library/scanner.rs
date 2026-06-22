@@ -10,7 +10,7 @@ use crate::track::repository::upsert_tracks_batch;
 
 #[instrument(skip_all, fields(directory_count = directories.len()))]
 pub async fn scan_files_in_directory(
-    pool: &SqlitePool,
+    pool: SqlitePool,
     directories: Vec<PathBuf>,
 ) -> Result<(), AppError> {
     info!(?directories, "Scanning files in directories");

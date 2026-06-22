@@ -11,18 +11,20 @@ use iced::{
 use tracing::{error, info, instrument};
 
 use crate::{
+    app::Message::LoadTracks,
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{
         PlaybackController, PlaybackControllerError, PlaybackControllerStatus,
         engine::device::watch_default_device, event::PlaybackControllerEvent,
     },
+    track::{models::Track, repository::get_tracks},
     ui::{
         components::{
             explorer_pane::{self, ExplorerPane},
             main_pane::{self, MainPane},
             navigation_bar::{self, NavigationBar},
-            playback_bar::{self, PlaybackBar},
+            playback_bar::{self, Event::PlaybackProgressed, PlaybackBar},
             queue_pane::{self, QueuePane},
             status_bar::{self, StatusBar},
             track_information_pane::{self, TrackInformationPane},
@@ -31,11 +33,15 @@ use crate::{
     },
 };
 
+pub use crate::outcome::Outcome;
+
 pub struct App {
     pub pool: SqlitePool,
     pub ui_scale: f32,
     pub theme: Theme,
     pub status: AppStatus,
+    pub current_playing_track: Option<Track>,
+    pub tracks: Vec<Track>,
 
     pub playback_controller: PlaybackController,
 
@@ -59,6 +65,8 @@ pub enum AppStatus {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    LoadTracks,
+    LoadedTracks(Result<Vec<Track>, AppError>),
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
 
@@ -97,6 +105,8 @@ impl App {
                 theme,
                 ui_scale,
                 status: AppStatus::Idle,
+                tracks: Vec::new(),
+                current_playing_track: None,
 
                 playback_controller,
 
@@ -106,9 +116,9 @@ impl App {
                 queue_pane: QueuePane {},
                 track_information_pane: TrackInformationPane {},
                 status_bar: StatusBar {},
-                playback_bar: PlaybackBar {},
+                playback_bar: PlaybackBar::new(),
             },
-            Task::none(),
+            Task::done(Message::LoadTracks),
         )
     }
 
@@ -119,20 +129,43 @@ impl App {
     #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::LoadTracks => {
+                let pool = self.pool.clone();
+
+                Task::perform(async move { get_tracks(pool).await }, Message::LoadedTracks)
+            }
+            Message::LoadedTracks(tracks) => match tracks {
+                Ok(tracks) => {
+                    self.tracks = tracks;
+                    self.current_playing_track = self.tracks.get(0).cloned();
+
+                    let _ = self
+                        .playback_controller
+                        .play(self.tracks.get(0).cloned().unwrap());
+
+                    Task::none()
+                }
+                Err(_) => Task::none(),
+            },
             Message::ScanDirectory(Some(directories)) => {
                 let pool = self.pool.clone();
                 self.status = AppStatus::AddingTracks;
 
                 Task::perform(
-                    async move { scan_files_in_directory(&pool, directories).await },
+                    async move { scan_files_in_directory(pool, directories).await },
                     Message::ScannedDirectory,
                 )
             }
             Message::ScanDirectory(None) => Task::none(),
-            Message::ScannedDirectory(_) => {
+            Message::ScannedDirectory(scan_result) => {
+                let task = match scan_result {
+                    Ok(_) => Task::done(LoadTracks),
+                    Err(_) => Task::none(),
+                };
+
                 self.status = AppStatus::FinishedAddingTracks;
 
-                Task::none()
+                task
             }
             Message::NavigationBar(event) => self.handle_navigation_bar(event),
             Message::ExplorerPane(event) => self.handle_explorer_pane(event),
@@ -235,19 +268,6 @@ impl App {
         Task::batch([outcome_task, component_task])
     }
 
-    fn handle_playback_bar(&mut self, event: playback_bar::Event) -> Task<Message> {
-        let (task, outcome) = self.playback_bar.update(event);
-        let component_task = task.map(Message::PlaybackBar);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-
-        let outcome_task = match outcome {};
-
-        Task::batch([outcome_task, component_task])
-    }
-
     fn handle_playback(&mut self, message: PlaybackMessage) -> Task<Message> {
         match message {
             PlaybackMessage::PollPlaybackEvent => {
@@ -260,7 +280,20 @@ impl App {
                     }
                 }
 
-                Task::none()
+                let Some(track) = self.current_playing_track.as_ref() else {
+                    return Task::none();
+                };
+
+                let Some(output_format) = self.playback_controller.output_format.as_ref() else {
+                    return Task::none();
+                };
+
+                let current_position = self.playback_controller.current_track_samples_played()
+                    as f64
+                    * (track.sample_rate as f64 / output_format.sample_rate as f64)
+                    / output_format.channels as f64;
+
+                Task::done(Message::PlaybackBar(PlaybackProgressed(current_position)))
             }
             PlaybackMessage::PendingOutputDeviceChange => {
                 if let Err(error) = self.playback_controller.initialize_output() {
@@ -309,7 +342,7 @@ impl App {
 
         let playback_bar = self
             .playback_bar
-            .view(&self.theme)
+            .view(&self.theme, &self.current_playing_track)
             .map(Message::PlaybackBar);
 
         column![

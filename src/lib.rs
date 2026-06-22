@@ -5,6 +5,7 @@ pub mod error;
 pub mod file;
 pub mod library;
 pub mod log;
+pub mod outcome;
 pub mod playback;
 pub mod track;
 pub mod ui;
