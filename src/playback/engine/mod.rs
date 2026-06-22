@@ -9,7 +9,7 @@ use std::{
 use cpal::{
     BuildStreamError, DefaultStreamConfigError, PauseStreamError, PlayStreamError, SampleFormat,
     Stream, default_host,
-    traits::{DeviceTrait, HostTrait},
+    traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use rtrb::{Consumer, PopError};
 use thiserror::Error;
@@ -170,9 +170,9 @@ impl PlaybackEngine for AudioEngine {
             _ => return Err(PlaybackEngineError::UnsupportedSampleFormat),
         };
 
-        self.stream = Some(stream);
+        stream.play()?;
 
-        self.play()?;
+        self.stream = Some(stream);
 
         Ok((sample_rate, channels))
     }
