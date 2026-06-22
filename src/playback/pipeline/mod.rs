@@ -270,13 +270,13 @@ impl AudioPipeline {
 
         let mut timestamp_offset = 0;
         if let Some(audio_track_pipeline) = self.audio_track_pipelines.get(0) {
-            let resample_ratio = self.configuration.output.sample_rate as f32
-                / audio_track_pipeline.configuration.track.sample_rate as f32;
+            let resample_ratio = self.configuration.output.sample_rate as f64
+                / audio_track_pipeline.configuration.track.sample_rate as f64;
 
             let output_channels = self.configuration.output.channels;
 
             timestamp_offset =
-                (decoder_timestamp as f32 * resample_ratio).round() as u64 * output_channels as u64;
+                (decoder_timestamp as f64 * resample_ratio).round() as u64 * output_channels as u64;
         }
 
         self.samples_played_timestamp_offset
