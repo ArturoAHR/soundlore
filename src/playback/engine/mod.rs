@@ -117,7 +117,7 @@ impl AudioEngine {
         }
     }
 
-    #[instrument(skip(self), ret, level = "trace")]
+    #[instrument(skip_all, ret, level = "trace", fields(current_status = ?self.status, status = ?status))]
     fn set_status(&mut self, status: PlaybackEngineStatus) {
         if self.status == status {
             return;
