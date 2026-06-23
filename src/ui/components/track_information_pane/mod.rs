@@ -1,4 +1,4 @@
-use iced::{widget::text, Element, Renderer, Task};
+use iced::{Element, Renderer, Task, widget::text};
 use tracing::instrument;
 
 use crate::ui::theme::Theme;
@@ -18,7 +18,7 @@ impl TrackInformationPane {
         (Task::none(), None)
     }
 
-    pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(&'a self, _theme: &Theme) -> Element<'a, Event, Theme, Renderer> {
         text("Track Information Pane").into()
     }
 }

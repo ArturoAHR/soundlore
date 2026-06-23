@@ -1,6 +1,6 @@
 use iced::{
     Element, Renderer, Task,
-    widget::{Column, button, column, text},
+    widget::{Column, button, text},
 };
 use tracing::instrument;
 

@@ -1,4 +1,4 @@
-use iced::{widget::text, Element, Renderer, Task};
+use iced::{Element, Renderer, Task, widget::text};
 use tracing::instrument;
 
 use crate::{app::AppStatus, ui::theme::Theme};
@@ -20,7 +20,7 @@ impl StatusBar {
 
     pub fn view<'a>(
         &'a self,
-        theme: &Theme,
+        _theme: &Theme,
         status: &AppStatus,
     ) -> Element<'a, Event, Theme, Renderer> {
         let status_label = match status {
