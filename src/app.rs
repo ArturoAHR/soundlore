@@ -24,7 +24,7 @@ use crate::{
             explorer_pane::{self, ExplorerPane},
             main_pane::{self, MainPane},
             navigation_bar::{self, NavigationBar},
-            playback_bar::{self, Event::PlaybackProgressed, PlaybackBar},
+            playback_bar::{self, PlaybackBar},
             queue_pane::{self, QueuePane},
             status_bar::{self, StatusBar},
             track_information_pane::{self, TrackInformationPane},
@@ -213,19 +213,6 @@ impl App {
         Task::batch([outcome_task, component_task])
     }
 
-    fn handle_main_pane(&mut self, event: main_pane::Event) -> Task<Message> {
-        let (task, outcome) = self.main_pane.update(event);
-        let component_task = task.map(Message::MainPane);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-
-        let outcome_task = match outcome {};
-
-        Task::batch([outcome_task, component_task])
-    }
-
     fn handle_queue_pane(&mut self, event: queue_pane::Event) -> Task<Message> {
         let (task, outcome) = self.queue_pane.update(event);
         let component_task = task.map(Message::QueuePane);
@@ -293,7 +280,9 @@ impl App {
                     * (track.sample_rate as f64 / output_format.sample_rate as f64)
                     / output_format.channels as f64;
 
-                Task::done(Message::PlaybackBar(PlaybackProgressed(current_position)))
+                Task::done(Message::PlaybackBar(
+                    playback_bar::Event::PlaybackProgressed(current_position),
+                ))
             }
             PlaybackMessage::PendingOutputDeviceChange => {
                 if let Err(error) = self.playback_controller.initialize_output() {
@@ -326,7 +315,10 @@ impl App {
             .view(&self.theme)
             .map(Message::ExplorerPane);
 
-        let main_pane = self.main_pane.view(&self.theme).map(Message::MainPane);
+        let main_pane = self
+            .main_pane
+            .view(&self.theme, &self.tracks)
+            .map(Message::MainPane);
 
         let queue_pane = self.queue_pane.view(&self.theme).map(Message::QueuePane);
 

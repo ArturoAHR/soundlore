@@ -5,6 +5,7 @@ use crate::{
     app::{App, Message},
     error::AppError,
     playback::PlaybackControllerStatus,
+    track::models::Track,
 };
 
 #[derive(Debug, Clone)]
@@ -17,6 +18,7 @@ pub enum PlaybackOutcome {
     Resume,
     Pause,
     Stop,
+    Play(Track),
     Seek {
         timestamp: u64,
         post_seek_status: PlaybackControllerStatus,
@@ -66,6 +68,13 @@ impl App {
                     PlaybackControllerStatus::Playing => self.playback_controller.resume()?,
                     PlaybackControllerStatus::Stopped => self.playback_controller.pause()?,
                 }
+
+                Ok(Task::none())
+            }
+            PlaybackOutcome::Play(track) => {
+                self.playback_controller.play(track.clone())?;
+
+                self.current_playing_track = Some(track);
 
                 Ok(Task::none())
             }

@@ -89,7 +89,7 @@ impl PlaybackBar {
 
     pub fn view<'a>(
         &'a self,
-        theme: &Theme,
+        _theme: &Theme,
         track: &Option<Track>,
     ) -> Element<'a, Event, Theme, Renderer> {
         let mut total_frames = 1.0;
