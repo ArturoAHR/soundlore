@@ -5,7 +5,7 @@ use std::{
 };
 
 use rtrb::Producer;
-use tracing::{error, info_span, warn};
+use tracing::{error, info_span, trace, warn};
 
 use crate::{
     playback::{
@@ -108,6 +108,8 @@ fn audio_pipeline_thread_process(
                 break;
             }
             Ok(AudioPipelineProcessDirective::Sleep(duration)) => {
+                trace!("sleeping {:?}", duration);
+
                 std::thread::sleep(duration);
             }
             Err(AudioPipelineError::Decoder(AudioDecoderError::RecoverableDecoderError(error))) => {
