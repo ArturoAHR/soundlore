@@ -6,7 +6,7 @@ use soundlore_lib::{
     app::App,
     database::initialize_database,
     log::initialize_logging,
-    playback::{engine::AudioEngine, PlaybackController},
+    playback::{PlaybackController, engine::AudioEngine},
     ui::theme::Theme,
 };
 use tracing::{error, info};
@@ -35,10 +35,6 @@ fn main() -> iced::Result {
             exit(1);
         }
     };
-
-    let mut playback_controller = PlaybackController::new(Box::new(AudioEngine::new()));
-
-    playback_controller.initialize_output().unwrap();
 
     iced::application(
         move || {
