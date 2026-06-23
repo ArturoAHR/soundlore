@@ -1,5 +1,6 @@
 use std::process::exit;
 
+use iced::{Size, window};
 use iced_aw::ICED_AW_FONT_BYTES;
 use rfd::{MessageDialog, MessageLevel};
 use soundlore_lib::{
@@ -51,7 +52,11 @@ fn main() -> iced::Result {
     .theme(App::theme)
     .subscription(App::subscription)
     .scale_factor(|app: &App| app.scale_factor())
-    .window_size((1024.0, 768.0))
+    .window(window::Settings {
+        maximized: true,
+        size: Size::new(1024.0, 768.0),
+        ..Default::default()
+    })
     .font(ICED_AW_FONT_BYTES)
     .font(include_bytes!("../fonts/music-player-icons.ttf"))
     .run()
