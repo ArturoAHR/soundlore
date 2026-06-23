@@ -137,11 +137,6 @@ impl App {
             Message::LoadedTracks(tracks) => match tracks {
                 Ok(tracks) => {
                     self.tracks = tracks;
-                    self.current_playing_track = self.tracks.get(0).cloned();
-
-                    let _ = self
-                        .playback_controller
-                        .play(self.tracks.get(0).cloned().unwrap());
 
                     Task::none()
                 }
