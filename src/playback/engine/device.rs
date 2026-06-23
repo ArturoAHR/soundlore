@@ -10,7 +10,7 @@ use iced::{
 };
 use tracing::{error, instrument};
 
-use crate::app::{Message, PlaybackMessage};
+use crate::{app::Message, playback::handler::PlaybackMessage};
 
 #[instrument]
 pub fn watch_default_device() -> impl Stream<Item = Message> {

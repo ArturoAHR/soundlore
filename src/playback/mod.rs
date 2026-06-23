@@ -30,6 +30,7 @@ pub mod constants;
 pub mod engine;
 pub mod error;
 pub mod event;
+pub mod handler;
 pub mod pipeline;
 
 #[derive(Debug, Error, Clone)]
