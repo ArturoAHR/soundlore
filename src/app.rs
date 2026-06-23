@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use rfd::AsyncFileDialog;
 use sqlx::SqlitePool;
@@ -119,7 +119,16 @@ impl App {
         String::from("Soundlore")
     }
 
-    #[instrument(skip(self), level = "debug")]
+    #[instrument(skip(self), level = "debug",
+        fields(
+            current_track = self.current_playing_track.as_ref().map(|track| {
+                Path::new(&track.file_path)
+                    .file_name()
+                    .unwrap_or(track.file_path.as_ref())
+                    .to_str()
+            })
+        )
+    )]
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::LoadTracks => {
@@ -292,12 +301,9 @@ impl App {
     pub fn subscription(&self) -> Subscription<Message> {
         let mut subscriptions = vec![Subscription::run(watch_default_device)];
 
-        if self.playback_controller.status == PlaybackControllerStatus::Playing {
-            subscriptions.push(
-                every(milliseconds(16))
-                    .map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent)),
-            )
-        }
+        subscriptions.push(
+            every(milliseconds(16)).map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent)),
+        );
 
         Subscription::batch(subscriptions)
     }
