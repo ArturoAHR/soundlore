@@ -1,12 +1,9 @@
-use iced::{
-    Element, Renderer, Task,
-    widget::{slider, text},
-};
+use iced::{Element, Renderer, Task, widget::slider};
 use tracing::instrument;
 
 use crate::{
     outcome::PlaybackOutcome,
-    playback::{PlaybackController, PlaybackControllerStatus},
+    playback::PlaybackControllerStatus,
     track::models::Track,
     ui::{components::playback_bar::PlaybackBarStatus::Playing, theme::Theme},
 };
@@ -16,6 +13,7 @@ pub mod handler;
 #[derive(Debug)]
 pub struct PlaybackBar {
     current_position: f64,
+    pub seek_generation_threshold: u64,
 
     status: PlaybackBarStatus,
 }
@@ -38,11 +36,24 @@ pub enum Outcome {
     Playback(PlaybackOutcome),
 }
 
+#[derive(Debug)]
+pub struct PlaybackBarViewContext<'a> {
+    pub theme: &'a Theme,
+    pub current_playing_track: &'a Option<Track>,
+}
+
+#[derive(Debug)]
+pub struct PlaybackBarUpdateContext<'a> {
+    pub playback_controller_status: &'a PlaybackControllerStatus,
+    pub playback_engine_generation: u64,
+}
+
 impl PlaybackBar {
     pub fn new() -> Self {
         Self {
             status: Playing,
             current_position: 0.0,
+            seek_generation_threshold: 0,
         }
     }
 
@@ -50,13 +61,15 @@ impl PlaybackBar {
     pub fn update(
         &mut self,
         event: Event,
-        playback_controller_status: &PlaybackControllerStatus,
+        ctx: PlaybackBarUpdateContext,
     ) -> (Task<Event>, Option<Outcome>) {
         match event {
             Event::Scrubbed(position) => {
                 self.current_position = position;
 
-                let outcome = match playback_controller_status {
+                self.seek_generation_threshold = ctx.playback_engine_generation;
+
+                let outcome = match ctx.playback_controller_status {
                     PlaybackControllerStatus::Playing => {
                         Some(Outcome::Playback(PlaybackOutcome::Pause))
                     }
@@ -87,15 +100,11 @@ impl PlaybackBar {
         }
     }
 
-    pub fn view<'a>(
-        &'a self,
-        _theme: &Theme,
-        track: &Option<Track>,
-    ) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(&'a self, ctx: PlaybackBarViewContext) -> Element<'a, Event, Theme, Renderer> {
         let mut total_frames = 1.0;
         let mut current_position = 0.0;
 
-        if let Some(track) = track {
+        if let Some(track) = ctx.current_playing_track {
             total_frames = track.frames as f64;
             current_position = self.current_position;
         }

@@ -208,11 +208,21 @@ impl PlaybackController {
         Ok(())
     }
 
-    pub fn current_track_samples_played(&self) -> u64 {
+    pub fn get_current_track_samples_played(&self) -> u64 {
         let track_start_timestamp = self.track_start_timestamp.load(Ordering::Acquire);
         let samples_played = self.samples_played.load(Ordering::Relaxed);
 
         return max(0, samples_played as i64 - track_start_timestamp) as u64;
+    }
+
+    pub fn get_audio_pipeline_generation(&self) -> u64 {
+        self.generation_counter
+            .audio_pipeline
+            .load(Ordering::Relaxed)
+    }
+
+    pub fn get_audio_engine_generation(&self) -> u64 {
+        self.generation_counter.audio_engine.load(Ordering::Relaxed)
     }
 }
 

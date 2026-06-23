@@ -3,7 +3,7 @@ use tracing::error;
 
 use crate::{
     app::{App, Message},
-    playback::{PlaybackControllerError, event::PlaybackControllerEvent},
+    playback::{PlaybackControllerError, PlaybackControllerStatus, event::PlaybackControllerEvent},
     ui::components::playback_bar,
 };
 
@@ -28,6 +28,10 @@ impl App {
                     }
                 }
 
+                if self.playback_controller.status == PlaybackControllerStatus::Stopped {
+                    return Task::none();
+                }
+
                 let Some(track) = self.current_playing_track.as_ref() else {
                     return Task::none();
                 };
@@ -36,7 +40,14 @@ impl App {
                     return Task::none();
                 };
 
-                let current_position = self.playback_controller.current_track_samples_played()
+                let audio_engine_generation =
+                    self.playback_controller.get_audio_engine_generation();
+
+                if audio_engine_generation <= self.playback_bar.seek_generation_threshold {
+                    return Task::none();
+                }
+
+                let current_position = self.playback_controller.get_current_track_samples_played()
                     as f64
                     * (track.sample_rate as f64 / output_format.sample_rate as f64)
                     / output_format.channels as f64;

@@ -25,7 +25,7 @@ use crate::{
             explorer_pane::{self, ExplorerPane},
             main_pane::{self, MainPane},
             navigation_bar::{self, NavigationBar},
-            playback_bar::{self, PlaybackBar},
+            playback_bar::{self, PlaybackBar, PlaybackBarViewContext},
             queue_pane::{self, QueuePane},
             status_bar::{self, StatusBar},
             track_information_pane::{self, TrackInformationPane},
@@ -280,9 +280,14 @@ impl App {
             .view(&self.theme, &self.status)
             .map(Message::StatusBar);
 
+        let playback_bar_context = PlaybackBarViewContext {
+            current_playing_track: &self.current_playing_track,
+            theme: &self.theme,
+        };
+
         let playback_bar = self
             .playback_bar
-            .view(&self.theme, &self.current_playing_track)
+            .view(playback_bar_context)
             .map(Message::PlaybackBar);
 
         column![

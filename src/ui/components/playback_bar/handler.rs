@@ -2,14 +2,17 @@ use iced::Task;
 
 use crate::{
     app::{self, App, Message},
-    ui::components::playback_bar::{Event, Outcome},
+    ui::components::playback_bar::{Event, Outcome, PlaybackBarUpdateContext},
 };
 
 impl App {
     pub fn handle_playback_bar(&mut self, event: Event) -> Task<Message> {
-        let (task, outcome) = self
-            .playback_bar
-            .update(event, &self.playback_controller.status);
+        let playback_bar_context = PlaybackBarUpdateContext {
+            playback_controller_status: &self.playback_controller.status,
+            playback_engine_generation: self.playback_controller.get_audio_engine_generation(),
+        };
+
+        let (task, outcome) = self.playback_bar.update(event, playback_bar_context);
         let component_task = task.map(Message::PlaybackBar);
 
         let Some(outcome) = outcome else {
