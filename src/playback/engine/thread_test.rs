@@ -113,7 +113,8 @@ fn should_consume_samples_from_buffer() {
 
     data.iter().for_each(|sample| {
         assert_eq!(
-            *sample, 1.0,
+            *sample,
+            1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with sound."
         )
     });
@@ -135,7 +136,8 @@ fn should_consume_samples_from_partially_filled_buffer() {
     data.iter().enumerate().for_each(|(index, sample)| {
         if index < DEFAULT_OUTPUT_DATA_SIZE / 2 {
             assert_eq!(
-                *sample, 1.0,
+                *sample,
+                1.0 * OUTPUT_VOLUME_MULTIPLIER,
                 "Output buffer wasn't filled correctly with sound at position {index}."
             )
         } else {
@@ -163,7 +165,8 @@ fn should_continuously_consume_samples_from_buffer() {
 
         data.iter().for_each(|sample| {
             assert_eq!(
-                *sample, 1.0,
+                *sample,
+                1.0 * OUTPUT_VOLUME_MULTIPLIER,
                 "Output buffer wasn't filled correctly with sound."
             )
         });
@@ -251,7 +254,8 @@ fn should_consume_buffer_after_pause() {
 
     data.iter().for_each(|sample| {
         assert_eq!(
-            *sample, 1.0,
+            *sample,
+            1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with sound."
         )
     });
@@ -319,7 +323,8 @@ fn should_consume_buffer_after_generation_counter_increase_clear() {
 
     data.iter().for_each(|sample| {
         assert_eq!(
-            *sample, 1.0,
+            *sample,
+            1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with sound."
         )
     });
@@ -419,7 +424,8 @@ fn should_set_track_started_timestamp_with_offset_after_clearing() {
 
     data.iter().for_each(|sample| {
         assert_eq!(
-            *sample, 1.0,
+            *sample,
+            1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with silence."
         )
     });

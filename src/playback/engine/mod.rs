@@ -20,6 +20,7 @@ use crate::playback::{
     engine::thread::{AudioEngineStreamBuildArguments, build_output_stream},
 };
 
+pub mod constants;
 pub mod device;
 pub mod thread;
 

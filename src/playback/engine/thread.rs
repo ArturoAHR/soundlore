@@ -9,7 +9,10 @@ use cpal::{
 use rtrb::Consumer;
 use tracing::error;
 
-use crate::playback::{GenerationCounter, engine::PlaybackEngineError};
+use crate::playback::{
+    GenerationCounter,
+    engine::{PlaybackEngineError, constants::OUTPUT_VOLUME_MULTIPLIER},
+};
 
 #[cfg(test)]
 #[path = "thread_test.rs"]
@@ -97,7 +100,7 @@ impl AudioEngineDataProcessor {
             if !paused {
                 if let Ok(sample) = self.sample_buffer_consumer.pop() {
                     // TODO: Remove this once we have volume built
-                    *slot = T::from_sample_(sample * 0.10);
+                    *slot = T::from_sample_(sample * OUTPUT_VOLUME_MULTIPLIER);
                     samples_played += 1;
 
                     continue;
