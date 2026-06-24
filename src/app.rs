@@ -1,6 +1,5 @@
 use std::path::{Path, PathBuf};
 
-use rfd::AsyncFileDialog;
 use sqlx::SqlitePool;
 
 use iced::{
@@ -8,16 +7,14 @@ use iced::{
     time::{every, milliseconds},
     widget::{column, row},
 };
-use tracing::{error, info, instrument};
+use tracing::{info, instrument};
 
 use crate::{
     app::Message::LoadTracks,
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{
-        PlaybackController, PlaybackControllerError, PlaybackControllerStatus,
-        engine::device::watch_default_device, event::PlaybackControllerEvent,
-        handler::PlaybackMessage,
+        PlaybackController, engine::device::watch_default_device, handler::PlaybackMessage,
     },
     track::{models::Track, repository::get_tracks},
     ui::{
@@ -173,83 +170,6 @@ impl App {
             Message::PlaybackBar(event) => self.handle_playback_bar(event),
             Message::Playback(event) => self.handle_playback(event),
         }
-    }
-
-    fn handle_navigation_bar(&mut self, event: navigation_bar::Event) -> Task<Message> {
-        let (task, outcome) = self.navigation_bar.update(event);
-        let component_task = task.map(Message::NavigationBar);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-        let outcome_task = match outcome {
-            navigation_bar::Outcome::OpenSelectDirectoryDialog => Task::perform(
-                async {
-                    AsyncFileDialog::new()
-                        .pick_folders()
-                        .await
-                        .map(|handles| handles.iter().map(|handle| handle.path().into()).collect())
-                },
-                Message::ScanDirectory,
-            ),
-        };
-
-        Task::batch([outcome_task, component_task])
-    }
-
-    fn handle_explorer_pane(&mut self, event: explorer_pane::Event) -> Task<Message> {
-        let (task, outcome) = self.explorer_pane.update(event);
-        let component_task = task.map(Message::ExplorerPane);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-
-        let outcome_task = match outcome {};
-
-        Task::batch([outcome_task, component_task])
-    }
-
-    fn handle_queue_pane(&mut self, event: queue_pane::Event) -> Task<Message> {
-        let (task, outcome) = self.queue_pane.update(event);
-        let component_task = task.map(Message::QueuePane);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-
-        let outcome_task = match outcome {};
-
-        Task::batch([outcome_task, component_task])
-    }
-
-    fn handle_track_information_pane(
-        &mut self,
-        event: track_information_pane::Event,
-    ) -> Task<Message> {
-        let (task, outcome) = self.track_information_pane.update(event);
-        let component_task = task.map(Message::TrackInformationPane);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-
-        let outcome_task = match outcome {};
-
-        Task::batch([outcome_task, component_task])
-    }
-
-    fn handle_status_bar(&mut self, event: status_bar::Event) -> Task<Message> {
-        let (task, outcome) = self.status_bar.update(event);
-        let component_task = task.map(Message::StatusBar);
-
-        let Some(outcome) = outcome else {
-            return component_task;
-        };
-
-        let outcome_task = match outcome {};
-
-        Task::batch([outcome_task, component_task])
     }
 
     pub fn view(&self) -> Element<'_, Message, Theme> {

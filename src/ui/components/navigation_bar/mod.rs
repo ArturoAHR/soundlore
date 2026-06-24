@@ -1,10 +1,11 @@
-use iced::{widget::row, Element, Renderer, Task};
+use iced::{Element, Renderer, Task, widget::row};
 use tracing::instrument;
 
 use crate::ui::{
     components::navigation_bar::navigation_bar_menu::navigation_bar_menu, theme::Theme,
 };
 
+pub mod handler;
 pub mod navigation_bar_menu;
 
 #[derive(Debug)]
@@ -22,10 +23,10 @@ pub enum Outcome {
 
 impl NavigationBar {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Option<Outcome>) {
+    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
         match event {
             Event::SelectedScanDirectoryOption => {
-                (Task::none(), Some(Outcome::OpenSelectDirectoryDialog))
+                (Task::none(), vec![Outcome::OpenSelectDirectoryDialog])
             }
         }
     }

@@ -62,26 +62,24 @@ impl PlaybackBar {
         &mut self,
         event: Event,
         ctx: PlaybackBarUpdateContext,
-    ) -> (Task<Event>, Option<Outcome>) {
+    ) -> (Task<Event>, Vec<Outcome>) {
         match event {
             Event::Scrubbed(position) => {
                 self.current_position = position;
 
                 self.seek_generation_threshold = ctx.playback_engine_generation;
 
-                let outcome = match ctx.playback_controller_status {
-                    PlaybackControllerStatus::Playing => {
-                        Some(Outcome::Playback(PlaybackOutcome::Pause))
-                    }
-                    PlaybackControllerStatus::Stopped => None,
+                let mut outcomes = Vec::new();
+                if PlaybackControllerStatus::Playing == *ctx.playback_controller_status {
+                    outcomes.push(Outcome::Playback(PlaybackOutcome::Pause));
                 };
 
-                (Task::none(), outcome)
+                (Task::none(), outcomes)
             }
             Event::PlaybackProgressed(position) => {
                 self.current_position = position;
 
-                (Task::none(), None)
+                (Task::none(), Vec::new())
             }
             Event::Seeked => {
                 let pre_seek_status = match self.status {
@@ -91,10 +89,10 @@ impl PlaybackBar {
 
                 (
                     Task::none(),
-                    Some(Outcome::Playback(PlaybackOutcome::Seek {
+                    vec![Outcome::Playback(PlaybackOutcome::Seek {
                         timestamp: self.current_position.round() as u64,
                         post_seek_status: pre_seek_status,
-                    })),
+                    })],
                 )
             }
         }

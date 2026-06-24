@@ -23,11 +23,11 @@ pub enum Outcome {
 
 impl MainPane {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Option<Outcome>) {
+    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
         match event {
             Event::TrackSelected(track) => (
                 Task::none(),
-                Some(Outcome::Playback(PlaybackOutcome::Play(track))),
+                vec![Outcome::Playback(PlaybackOutcome::Play(track))],
             ),
         }
     }

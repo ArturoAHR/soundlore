@@ -7,19 +7,25 @@ use crate::{
 
 impl App {
     pub fn handle_main_pane(&mut self, event: Event) -> Task<Message> {
-        let (task, outcome) = self.main_pane.update(event);
+        let (task, outcomes) = self.main_pane.update(event);
         let component_task = task.map(Message::MainPane);
 
-        let Some(outcome) = outcome else {
+        if outcomes.len() == 0 {
             return component_task;
         };
 
-        let outcome = match outcome {
-            Outcome::Playback(outcome) => app::Outcome::Playback(outcome),
-        };
+        let mut tasks = vec![component_task];
 
-        let outcome_task = self.handle_outcome(outcome);
+        for outcome in outcomes {
+            let outcome = match outcome {
+                Outcome::Playback(playback_outcome) => app::Outcome::Playback(playback_outcome),
+            };
 
-        Task::batch([outcome_task, component_task])
+            let outcome_task = self.handle_outcome(outcome);
+
+            tasks.push(outcome_task);
+        }
+
+        Task::batch(tasks)
     }
 }

@@ -3,6 +3,8 @@ use tracing::instrument;
 
 use crate::{app::AppStatus, ui::theme::Theme};
 
+pub mod handler;
+
 #[derive(Debug)]
 pub struct StatusBar {}
 
@@ -14,8 +16,8 @@ pub enum Outcome {}
 
 impl StatusBar {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Option<Outcome>) {
-        (Task::none(), None)
+    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
+        (Task::none(), vec![])
     }
 
     pub fn view<'a>(

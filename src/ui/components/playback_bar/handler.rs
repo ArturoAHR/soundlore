@@ -12,19 +12,25 @@ impl App {
             playback_engine_generation: self.playback_controller.get_audio_engine_generation(),
         };
 
-        let (task, outcome) = self.playback_bar.update(event, playback_bar_context);
+        let (task, outcomes) = self.playback_bar.update(event, playback_bar_context);
         let component_task = task.map(Message::PlaybackBar);
 
-        let Some(outcome) = outcome else {
+        if outcomes.len() == 0 {
             return component_task;
         };
 
-        let outcome = match outcome {
-            Outcome::Playback(playback_outcome) => app::Outcome::Playback(playback_outcome),
-        };
+        let mut tasks = vec![component_task];
 
-        let outcome_task = self.handle_outcome(outcome);
+        for outcome in outcomes {
+            let outcome = match outcome {
+                Outcome::Playback(playback_outcome) => app::Outcome::Playback(playback_outcome),
+            };
 
-        Task::batch([outcome_task, component_task])
+            let outcome_task = self.handle_outcome(outcome);
+
+            tasks.push(outcome_task);
+        }
+
+        Task::batch(tasks)
     }
 }
