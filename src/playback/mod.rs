@@ -154,7 +154,7 @@ impl PlaybackController {
 
     #[instrument(skip(self), err)]
     pub fn play(&mut self, track: Track) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.pause()?;
+        self.playback_engine.play()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Play(track))?;
@@ -166,7 +166,7 @@ impl PlaybackController {
 
     #[instrument(skip(self), err)]
     pub fn resume(&mut self) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.pause()?;
+        self.playback_engine.play()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Resume)?;
@@ -178,7 +178,7 @@ impl PlaybackController {
 
     #[instrument(skip(self), err)]
     pub fn pause(&mut self) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.play()?;
+        self.playback_engine.pause()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Pause)?;
@@ -190,7 +190,7 @@ impl PlaybackController {
 
     #[instrument(skip(self), err)]
     pub fn stop(&mut self) -> Result<(), PlaybackControllerError> {
-        self.playback_engine.play()?;
+        self.playback_engine.pause()?;
 
         self.audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Stop)?;
