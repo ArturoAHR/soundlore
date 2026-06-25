@@ -2,8 +2,9 @@ use iced::Task;
 use tracing::instrument;
 
 use crate::{
-    app::{App, Message},
+    app::{App, Event},
     error::AppError,
+    message::Message,
     playback::PlaybackControllerStatus,
     track::models::Track,
 };
@@ -26,9 +27,11 @@ pub enum PlaybackOutcome {
 }
 
 impl App {
-    pub fn handle_outcome(&mut self, outcome: Outcome) -> Task<Message> {
-        let outcome_task = match outcome {
-            Outcome::Playback(outcome) => self.handle_playback_outcome(outcome),
+    pub fn handle_outcome(&mut self, outcome: Message<Outcome>) -> Task<Message<Event>> {
+        let outcome_task = match outcome.payload {
+            Outcome::Playback(ref playback_outcome) => {
+                self.handle_playback_outcome(outcome.new_from(playback_outcome.clone()))
+            }
         };
 
         match outcome_task {
@@ -40,9 +43,9 @@ impl App {
     #[instrument(skip(self))]
     fn handle_playback_outcome(
         &mut self,
-        outcome: PlaybackOutcome,
-    ) -> Result<Task<Message>, AppError> {
-        match outcome {
+        outcome: Message<PlaybackOutcome>,
+    ) -> Result<Task<Message<Event>>, AppError> {
+        match outcome.payload {
             PlaybackOutcome::Resume => {
                 self.playback_controller.resume()?;
 

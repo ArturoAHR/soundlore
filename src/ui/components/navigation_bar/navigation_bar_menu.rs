@@ -1,17 +1,20 @@
-use iced::{widget::button, Element, Renderer};
+use iced::{Element, Renderer, widget::button};
 
-use crate::ui::{
-    components::navigation_bar::Event,
-    theme::Theme,
-    widgets::{
-        icons::{self, icon},
-        menu::{
-            dropdown_menu, dropdown_menu_grouping_option, dropdown_menu_option, dropdown_toggle,
+use crate::{
+    message::Message,
+    ui::{
+        components::navigation_bar::Event,
+        theme::Theme,
+        widgets::{
+            icons::{self, icon},
+            menu::{
+                dropdown_menu, dropdown_menu_grouping_option, dropdown_menu_option, dropdown_toggle,
+            },
         },
     },
 };
 
-pub fn navigation_bar_menu<'a>(theme: &Theme) -> Element<'a, Event, Theme, Renderer> {
+pub fn navigation_bar_menu<'a>(theme: &Theme) -> Element<'a, Message<Event>, Theme, Renderer> {
     let dropdown = dropdown_toggle(
         theme,
         button(icon(icons::MENU)),
@@ -28,7 +31,7 @@ pub fn navigation_bar_menu<'a>(theme: &Theme) -> Element<'a, Event, Theme, Rende
                             dropdown_menu_option(
                                 theme,
                                 "Scan folder for new files",
-                                Some(Event::SelectedScanDirectoryOption),
+                                Some(Message::new(Event::SelectedScanDirectoryOption)),
                             ),
                         ],
                     ),

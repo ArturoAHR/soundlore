@@ -1,9 +1,9 @@
-use soundlore_lib::{
-    app::{AppStatus, Message},
-    track::models::{Track, TrackIden},
-};
 use sea_query::{Asterisk, Query, SqliteQueryBuilder};
 use sea_query_sqlx::SqlxBinder;
+use soundlore_lib::{
+    app::{AppStatus, Event},
+    track::models::{Track, TrackIden},
+};
 
 use crate::{
     common::{app::TestApp, assert::assert_tracks, file::AUDIO_FILE_FIXTURES_PATH},
@@ -21,10 +21,10 @@ async fn scans_successfully_all_supported_formats() {
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
 
-    app.dispatch_message(Message::ScanDirectory(Some(vec![audio_file_fixtures_path
-        .all_formats
-        .clone()])))
-        .await;
+    app.dispatch_message(Event::ScanDirectory(Some(vec![
+        audio_file_fixtures_path.all_formats.clone(),
+    ])))
+    .await;
 
     let (sql, values) = Query::select()
         .column(Asterisk)
@@ -50,10 +50,10 @@ async fn scans_successfully_tracks_with_varying_metadata() {
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
 
-    app.dispatch_message(Message::ScanDirectory(Some(vec![audio_file_fixtures_path
-        .metadata_variants
-        .clone()])))
-        .await;
+    app.dispatch_message(Event::ScanDirectory(Some(vec![
+        audio_file_fixtures_path.metadata_variants.clone(),
+    ])))
+    .await;
 
     let (sql, values) = Query::select()
         .column(Asterisk)
@@ -79,10 +79,10 @@ async fn scans_successfully_corrupt_tracks() {
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
 
-    app.dispatch_message(Message::ScanDirectory(Some(vec![audio_file_fixtures_path
-        .corrupt
-        .clone()])))
-        .await;
+    app.dispatch_message(Event::ScanDirectory(Some(vec![
+        audio_file_fixtures_path.corrupt.clone(),
+    ])))
+    .await;
 
     let (sql, values) = Query::select()
         .column(Asterisk)
@@ -108,10 +108,10 @@ async fn scans_successfully_partially_corrupt_tracks() {
 
     let audio_file_fixtures_path = &*AUDIO_FILE_FIXTURES_PATH;
 
-    app.dispatch_message(Message::ScanDirectory(Some(vec![audio_file_fixtures_path
-        .partially_corrupt
-        .clone()])))
-        .await;
+    app.dispatch_message(Event::ScanDirectory(Some(vec![
+        audio_file_fixtures_path.partially_corrupt.clone(),
+    ])))
+    .await;
 
     let (sql, values) = Query::select()
         .column(Asterisk)

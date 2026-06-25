@@ -1,7 +1,7 @@
 use iced::{Element, Renderer, Task, widget::text};
 use tracing::instrument;
 
-use crate::{app::AppStatus, ui::theme::Theme};
+use crate::{app::AppStatus, message::Message, ui::theme::Theme};
 
 pub mod handler;
 
@@ -25,11 +25,17 @@ pub struct StatusBarUpdateContext {}
 
 impl StatusBar {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
+    pub fn update(
+        &mut self,
+        event: Message<Event>,
+    ) -> (Task<Message<Event>>, Vec<Message<Outcome>>) {
         (Task::none(), vec![])
     }
 
-    pub fn view<'a>(&'a self, ctx: StatusBarViewContext) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(
+        &'a self,
+        ctx: StatusBarViewContext,
+    ) -> Element<'a, Message<Event>, Theme, Renderer> {
         let status_label = match ctx.status {
             AppStatus::Idle => "",
             AppStatus::AddingTracks => "Adding tracks",

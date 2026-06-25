@@ -2,13 +2,14 @@ use iced::Task;
 use tracing::error;
 
 use crate::{
-    app::{App, Message},
+    app::{self, App},
+    message::Message,
     playback::{PlaybackControllerError, PlaybackControllerStatus, event::PlaybackControllerEvent},
     ui::components::playback_bar,
 };
 
 #[derive(Debug, Clone)]
-pub enum PlaybackMessage {
+pub enum Event {
     PendingOutputDeviceChange,
     OutputDeviceChanged,
     OutputDeviceChangeFailed(PlaybackControllerError),
@@ -16,9 +17,9 @@ pub enum PlaybackMessage {
 }
 
 impl App {
-    pub fn handle_playback(&mut self, message: PlaybackMessage) -> Task<Message> {
-        match message {
-            PlaybackMessage::PollPlaybackEvent => {
+    pub fn handle_playback(&mut self, message: Message<Event>) -> Task<Message<app::Event>> {
+        match message.payload {
+            Event::PollPlaybackEvent => {
                 while let Ok(Some(event)) = self.playback_controller.poll_event() {
                     match event {
                         PlaybackControllerEvent::EndOfTrack => {
@@ -52,20 +53,21 @@ impl App {
                     * (track.sample_rate as f64 / output_format.sample_rate as f64)
                     / output_format.channels as f64;
 
-                Task::done(Message::PlaybackBar(
+                Task::done(message.new_from(app::Event::PlaybackBar(
                     playback_bar::Event::PlaybackProgressed(current_position),
-                ))
+                )))
             }
-            PlaybackMessage::PendingOutputDeviceChange => {
+            Event::PendingOutputDeviceChange => {
                 if let Err(error) = self.playback_controller.initialize_output() {
-                    return Task::done(Message::Playback(
-                        PlaybackMessage::OutputDeviceChangeFailed(error),
-                    ));
+                    return Task::done(
+                        message
+                            .new_from(app::Event::Playback(Event::OutputDeviceChangeFailed(error))),
+                    );
                 }
 
-                Task::done(Message::Playback(PlaybackMessage::OutputDeviceChanged))
+                Task::done(message.new_from(app::Event::Playback(Event::OutputDeviceChanged)))
             }
-            PlaybackMessage::OutputDeviceChangeFailed(error) => {
+            Event::OutputDeviceChangeFailed(error) => {
                 error!("Failed to initialize playback output: {error}");
 
                 // TODO: Display error popup with user friendly message.

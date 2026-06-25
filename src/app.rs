@@ -10,12 +10,11 @@ use iced::{
 use tracing::{info, instrument};
 
 use crate::{
-    app::Message::LoadTracks,
+    app::Event::LoadTracks,
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback::{
-        PlaybackController, engine::device::watch_default_device, handler::PlaybackMessage,
-    },
+    message::Message,
+    playback::{self, PlaybackController, engine::device::watch_default_device},
     track::{models::Track, repository::get_tracks},
     ui::{
         components::{
@@ -62,7 +61,7 @@ pub enum AppStatus {
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {
+pub enum Event {
     LoadTracks,
     LoadedTracks(Result<Vec<Track>, AppError>),
     ScanDirectory(Option<Vec<PathBuf>>),
@@ -76,7 +75,7 @@ pub enum Message {
     StatusBar(status_bar::Event),
     PlaybackBar(playback_bar::Event),
 
-    Playback(PlaybackMessage),
+    Playback(playback::Event),
 }
 
 impl App {
@@ -86,7 +85,7 @@ impl App {
         theme: Theme,
         ui_scale: f32,
         playback_controller: PlaybackController,
-    ) -> (Self, Task<Message>) {
+    ) -> (Self, Task<Message<Event>>) {
         info!("Setting up App instance.");
 
         (
@@ -108,7 +107,7 @@ impl App {
                 status_bar: StatusBar {},
                 playback_bar: PlaybackBar::new(),
             },
-            Task::done(Message::LoadTracks),
+            Task::done(Message::new(Event::LoadTracks)),
         )
     }
 
@@ -126,14 +125,14 @@ impl App {
             })
         )
     )]
-    pub fn update(&mut self, message: Message) -> Task<Message> {
-        match message {
-            Message::LoadTracks => {
+    pub fn update(&mut self, message: Message<Event>) -> Task<Message<Event>> {
+        match message.payload {
+            Event::LoadTracks => {
                 let pool = self.pool.clone();
 
-                Task::perform(async move { get_tracks(pool).await }, Message::LoadedTracks)
+                message.task_from(async move { get_tracks(pool).await }, Event::LoadedTracks)
             }
-            Message::LoadedTracks(tracks) => match tracks {
+            Event::LoadedTracks(tracks) => match tracks {
                 Ok(tracks) => {
                     self.tracks = tracks;
 
@@ -141,19 +140,20 @@ impl App {
                 }
                 Err(_) => Task::none(),
             },
-            Message::ScanDirectory(Some(directories)) => {
+            Event::ScanDirectory(Some(ref directories)) => {
                 let pool = self.pool.clone();
                 self.status = AppStatus::AddingTracks;
 
-                Task::perform(
+                let directories = directories.clone();
+                message.task_from(
                     async move { scan_files_in_directory(pool, directories).await },
-                    Message::ScannedDirectory,
+                    Event::ScannedDirectory,
                 )
             }
-            Message::ScanDirectory(None) => Task::none(),
-            Message::ScannedDirectory(scan_result) => {
+            Event::ScanDirectory(None) => Task::none(),
+            Event::ScannedDirectory(ref scan_result) => {
                 let task = match scan_result {
-                    Ok(_) => Task::done(LoadTracks),
+                    Ok(_) => Task::done(message.new_from(LoadTracks)),
                     Err(_) => Task::none(),
                 };
 
@@ -161,25 +161,33 @@ impl App {
 
                 task
             }
-            Message::NavigationBar(event) => self.handle_navigation_bar(event),
-            Message::ExplorerPane(event) => self.handle_explorer_pane(event),
-            Message::MainPane(event) => self.handle_main_pane(event),
-            Message::QueuePane(event) => self.handle_queue_pane(event),
-            Message::TrackInformationPane(event) => self.handle_track_information_pane(event),
-            Message::StatusBar(event) => self.handle_status_bar(event),
-            Message::PlaybackBar(event) => self.handle_playback_bar(event),
-            Message::Playback(event) => self.handle_playback(event),
+            Event::NavigationBar(ref event) => {
+                self.handle_navigation_bar(message.new_from(event.clone()))
+            }
+            Event::ExplorerPane(ref event) => {
+                self.handle_explorer_pane(message.new_from(event.clone()))
+            }
+            Event::MainPane(ref event) => self.handle_main_pane(message.new_from(event.clone())),
+            Event::QueuePane(ref event) => self.handle_queue_pane(message.new_from(event.clone())),
+            Event::TrackInformationPane(ref event) => {
+                self.handle_track_information_pane(message.new_from(event.clone()))
+            }
+            Event::StatusBar(ref event) => self.handle_status_bar(message.new_from(event.clone())),
+            Event::PlaybackBar(ref event) => {
+                self.handle_playback_bar(message.new_from(event.clone()))
+            }
+            Event::Playback(ref event) => self.handle_playback(message.new_from(event.clone())),
         }
     }
 
-    pub fn view(&self) -> Element<'_, Message, Theme> {
+    pub fn view(&self) -> Element<'_, Message<Event>, Theme> {
         let navigation_bar = self.view_navigation_bar();
 
         let explorer_pane = self.view_explorer_pane();
 
         let main_pane = self.view_main_pane();
 
-        let queue_pane = self.queue_pane.view(&self.theme).map(Message::QueuePane);
+        let queue_pane = self.view_queue_pane();
 
         let track_information_pane = self.view_track_information_pane();
 
@@ -200,11 +208,12 @@ impl App {
         .into()
     }
 
-    pub fn subscription(&self) -> Subscription<Message> {
+    pub fn subscription(&self) -> Subscription<Message<Event>> {
         let mut subscriptions = vec![Subscription::run(watch_default_device)];
 
         subscriptions.push(
-            every(milliseconds(16)).map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent)),
+            every(milliseconds(16))
+                .map(|_| Message::new(Event::Playback(playback::Event::PollPlaybackEvent))),
         );
 
         Subscription::batch(subscriptions)

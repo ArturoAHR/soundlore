@@ -2,7 +2,7 @@ use iced::Task;
 
 use crate::config::MESSAGE_EVENT_TTL;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Message<Payload: Send + Sync + 'static> {
     pub payload: Payload,
     ttl: i32,
@@ -24,10 +24,21 @@ impl<Payload: Send + Sync + 'static> Message<Payload> {
         move |value: A| Self::new(f(value))
     }
 
+    pub fn wrap_payload<'a, A>(f: impl Fn(A) -> Payload + 'a) -> impl Fn(Message<A>) -> Self + 'a
+    where
+        A: Send + Sync,
+    {
+        move |message: Message<A>| Message::new_with_ttl(f(message.payload), message.ttl)
+    }
+
     pub fn new_from<T>(&self, payload: T) -> Message<T>
     where
         T: Send + Sync + 'static,
     {
+        if self.ttl == 0 {
+            panic!("Message TTL exceeded")
+        }
+
         Message {
             ttl: self.ttl - 1,
             payload,

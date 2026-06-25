@@ -61,10 +61,10 @@ impl PlaybackBar {
     #[instrument(skip(self), level = "debug")]
     pub fn update(
         &mut self,
-        event: Event,
+        event: Message<Event>,
         ctx: PlaybackBarUpdateContext,
-    ) -> (Task<Event>, Vec<Outcome>) {
-        match event {
+    ) -> (Task<Message<Event>>, Vec<Message<Outcome>>) {
+        match event.payload {
             Event::Scrubbed(position) => {
                 self.current_position = position;
 
@@ -72,7 +72,7 @@ impl PlaybackBar {
 
                 let mut outcomes = Vec::new();
                 if PlaybackControllerStatus::Playing == *ctx.playback_controller_status {
-                    outcomes.push(Outcome::Playback(PlaybackOutcome::Pause));
+                    outcomes.push(event.new_from(Outcome::Playback(PlaybackOutcome::Pause)));
                 };
 
                 (Task::none(), outcomes)
@@ -90,10 +90,10 @@ impl PlaybackBar {
 
                 (
                     Task::none(),
-                    vec![Outcome::Playback(PlaybackOutcome::Seek {
+                    vec![event.new_from(Outcome::Playback(PlaybackOutcome::Seek {
                         timestamp: self.current_position.round() as u64,
                         post_seek_status: pre_seek_status,
-                    })],
+                    }))],
                 )
             }
         }

@@ -33,6 +33,8 @@ pub mod event;
 pub mod handler;
 pub mod pipeline;
 
+pub use handler::*;
+
 #[derive(Debug, Error, Clone)]
 pub enum PlaybackControllerError {
     #[error("failed to send command to pipeline: {0}")]

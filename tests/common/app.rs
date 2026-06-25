@@ -1,7 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
 use soundlore_lib::{
-    app::{App, Message},
+    app::{App, Event},
+    message::Message,
     playback::PlaybackController,
     ui::theme::Theme,
 };
@@ -39,8 +40,8 @@ impl TestApp {
         Self { app, pool }
     }
 
-    pub async fn dispatch_message(&mut self, message: Message) {
-        let task = self.app.update(message);
+    pub async fn dispatch_message(&mut self, message: Event) {
+        let task = self.app.update(Message::new(message));
 
         perform_task(&mut self.app, task).await;
     }

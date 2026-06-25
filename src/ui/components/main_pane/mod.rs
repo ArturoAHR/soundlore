@@ -4,7 +4,7 @@ use iced::{
 };
 use tracing::instrument;
 
-use crate::{outcome::PlaybackOutcome, track::models::Track, ui::theme::Theme};
+use crate::{message::Message, outcome::PlaybackOutcome, track::models::Track, ui::theme::Theme};
 
 pub mod handler;
 
@@ -32,17 +32,23 @@ pub struct MainPaneUpdateContext {}
 
 impl MainPane {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
-        match event {
-            Event::TrackSelected(track) => (
+    pub fn update(
+        &mut self,
+        event: Message<Event>,
+    ) -> (Task<Message<Event>>, Vec<Message<Outcome>>) {
+        match event.payload {
+            Event::TrackSelected(ref track) => (
                 Task::none(),
-                vec![Outcome::Playback(PlaybackOutcome::Play(track))],
+                vec![event.new_from(Outcome::Playback(PlaybackOutcome::Play(track.clone())))],
             ),
         }
     }
 
-    pub fn view<'a>(&'a self, ctx: MainPaneViewContext) -> Element<'a, Event, Theme, Renderer> {
-        let track_rows: Vec<Element<Event, Theme, Renderer>> = ctx
+    pub fn view<'a>(
+        &'a self,
+        ctx: MainPaneViewContext,
+    ) -> Element<'a, Message<Event>, Theme, Renderer> {
+        let track_rows: Vec<Element<Message<Event>, Theme, Renderer>> = ctx
             .tracks
             .iter()
             .map(|track| {
@@ -51,7 +57,7 @@ impl MainPane {
                     track.artist.clone().unwrap_or("Unknown".to_owned()),
                     track.title.clone().unwrap_or("Untitled".to_owned())
                 )))
-                .on_press(Event::TrackSelected(track.to_owned()))
+                .on_press(Message::new(Event::TrackSelected(track.to_owned())))
                 .into()
             })
             .collect();
