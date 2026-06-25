@@ -14,18 +14,23 @@ pub enum Event {}
 #[derive(Debug, Clone)]
 pub enum Outcome {}
 
+#[derive(Debug)]
+pub struct StatusBarViewContext<'a> {
+    pub theme: &'a Theme,
+    pub status: &'a AppStatus,
+}
+
+#[derive(Debug)]
+pub struct StatusBarUpdateContext {}
+
 impl StatusBar {
     #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
         (Task::none(), vec![])
     }
 
-    pub fn view<'a>(
-        &'a self,
-        _theme: &Theme,
-        status: &AppStatus,
-    ) -> Element<'a, Event, Theme, Renderer> {
-        let status_label = match status {
+    pub fn view<'a>(&'a self, ctx: StatusBarViewContext) -> Element<'a, Event, Theme, Renderer> {
+        let status_label = match ctx.status {
             AppStatus::Idle => "",
             AppStatus::AddingTracks => "Adding tracks",
             AppStatus::FinishedAddingTracks => "Finished adding tracks",

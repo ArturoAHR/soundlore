@@ -22,7 +22,7 @@ use crate::{
             explorer_pane::{self, ExplorerPane},
             main_pane::{self, MainPane},
             navigation_bar::{self, NavigationBar},
-            playback_bar::{self, PlaybackBar, PlaybackBarViewContext},
+            playback_bar::{self, PlaybackBar},
             queue_pane::{self, QueuePane},
             status_bar::{self, StatusBar},
             track_information_pane::{self, TrackInformationPane},
@@ -173,42 +173,19 @@ impl App {
     }
 
     pub fn view(&self) -> Element<'_, Message, Theme> {
-        let navigation_bar = self
-            .navigation_bar
-            .view(&self.theme)
-            .map(Message::NavigationBar);
+        let navigation_bar = self.view_navigation_bar();
 
-        let explorer_pane = self
-            .explorer_pane
-            .view(&self.theme)
-            .map(Message::ExplorerPane);
+        let explorer_pane = self.view_explorer_pane();
 
-        let main_pane = self
-            .main_pane
-            .view(&self.theme, &self.tracks)
-            .map(Message::MainPane);
+        let main_pane = self.view_main_pane();
 
         let queue_pane = self.queue_pane.view(&self.theme).map(Message::QueuePane);
 
-        let track_information_pane = self
-            .track_information_pane
-            .view(&self.theme)
-            .map(Message::TrackInformationPane);
+        let track_information_pane = self.view_track_information_pane();
 
-        let status_bar = self
-            .status_bar
-            .view(&self.theme, &self.status)
-            .map(Message::StatusBar);
+        let status_bar = self.view_status_bar();
 
-        let playback_bar_context = PlaybackBarViewContext {
-            current_playing_track: &self.current_playing_track,
-            theme: &self.theme,
-        };
-
-        let playback_bar = self
-            .playback_bar
-            .view(playback_bar_context)
-            .map(Message::PlaybackBar);
+        let playback_bar = self.view_playback_bar();
 
         column![
             navigation_bar,

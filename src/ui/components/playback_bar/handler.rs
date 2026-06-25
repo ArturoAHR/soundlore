@@ -1,11 +1,25 @@
-use iced::Task;
+use iced::{Element, Renderer, Task};
 
 use crate::{
     app::{self, App, Message},
-    ui::components::playback_bar::{Event, Outcome, PlaybackBarUpdateContext},
+    ui::{
+        components::playback_bar::{
+            Event, Outcome, PlaybackBarUpdateContext, PlaybackBarViewContext,
+        },
+        theme::Theme,
+    },
 };
 
 impl App {
+    pub fn view_playback_bar(&self) -> Element<'_, Message, Theme, Renderer> {
+        let context = PlaybackBarViewContext {
+            current_playing_track: &self.current_playing_track,
+            theme: &self.theme,
+        };
+
+        self.playback_bar.view(context).map(Message::PlaybackBar)
+    }
+
     pub fn handle_playback_bar(&mut self, event: Event) -> Task<Message> {
         let playback_bar_context = PlaybackBarUpdateContext {
             playback_controller_status: &self.playback_controller.status,

@@ -1,11 +1,17 @@
-use iced::Task;
+use iced::{Element, Renderer, Task};
 
 use crate::{
     app::{App, Message},
-    ui::components::explorer_pane::Event,
+    ui::{components::explorer_pane::Event, theme::Theme},
 };
 
 impl App {
+    pub fn view_explorer_pane(&self) -> Element<'_, Message, Theme, Renderer> {
+        self.explorer_pane
+            .view(&self.theme)
+            .map(Message::ExplorerPane)
+    }
+
     pub fn handle_explorer_pane(&mut self, event: Event) -> Task<Message> {
         let (task, outcomes) = self.explorer_pane.update(event);
         let component_task = task.map(Message::ExplorerPane);

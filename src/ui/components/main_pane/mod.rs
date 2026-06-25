@@ -21,6 +21,15 @@ pub enum Outcome {
     Playback(PlaybackOutcome),
 }
 
+#[derive(Debug)]
+pub struct MainPaneViewContext<'a> {
+    pub theme: &'a Theme,
+    pub tracks: &'a Vec<Track>,
+}
+
+#[derive(Debug)]
+pub struct MainPaneUpdateContext {}
+
 impl MainPane {
     #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
@@ -32,12 +41,9 @@ impl MainPane {
         }
     }
 
-    pub fn view<'a>(
-        &'a self,
-        _theme: &Theme,
-        tracks: &Vec<Track>,
-    ) -> Element<'a, Event, Theme, Renderer> {
-        let track_rows: Vec<Element<Event, Theme, Renderer>> = tracks
+    pub fn view<'a>(&'a self, ctx: MainPaneViewContext) -> Element<'a, Event, Theme, Renderer> {
+        let track_rows: Vec<Element<Event, Theme, Renderer>> = ctx
+            .tracks
             .iter()
             .map(|track| {
                 button(text(format!(

@@ -1,12 +1,21 @@
-use iced::Task;
+use iced::{Element, Renderer, Task};
 use rfd::AsyncFileDialog;
 
 use crate::{
     app::{App, Message},
-    ui::components::navigation_bar::{Event, Outcome},
+    ui::{
+        components::navigation_bar::{Event, Outcome},
+        theme::Theme,
+    },
 };
 
 impl App {
+    pub fn view_navigation_bar(&self) -> Element<'_, Message, Theme, Renderer> {
+        self.navigation_bar
+            .view(&self.theme)
+            .map(Message::NavigationBar)
+    }
+
     pub fn handle_navigation_bar(&mut self, event: Event) -> Task<Message> {
         let (task, outcomes) = self.navigation_bar.update(event);
         let component_task = task.map(Message::NavigationBar);
