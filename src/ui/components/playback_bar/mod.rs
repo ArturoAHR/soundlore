@@ -142,7 +142,7 @@ impl PlaybackBar {
 
         let play_button = match self.status {
             PlaybackBarStatus::Paused => button(icon(icons::PLAY)).on_press(Event::Resume),
-            PlaybackBarStatus::Playing => button(icon(icons::STOP)).on_press(Event::Pause),
+            PlaybackBarStatus::Playing => button(icon(icons::PAUSE)).on_press(Event::Pause),
         };
 
         container(row![

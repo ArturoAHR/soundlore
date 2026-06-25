@@ -1,12 +1,13 @@
 use iced::{
-    widget::{text, text::Catalog},
     Element, Font,
+    widget::{text, text::Catalog},
 };
 
 // music-player-icons.ttf
 pub const LOADING: char = '\u{E830}';
 pub const PLAY: char = '\u{E805}';
-pub const STOP: char = '\u{E804}';
+pub const PAUSE: char = '\u{E804}';
+pub const STOP: char = '\u{E807}';
 pub const PLAY_NEXT: char = '\u{E802}';
 pub const PLAY_PREVIOUS: char = '\u{E803}';
 pub const LOOP_TRACKLIST: char = '\u{E809}';
