@@ -2,6 +2,7 @@ use iced::{Element, Renderer, Task, widget::slider};
 use tracing::instrument;
 
 use crate::{
+    message::Message,
     outcome::PlaybackOutcome,
     playback::PlaybackControllerStatus,
     track::models::Track,
@@ -98,7 +99,10 @@ impl PlaybackBar {
         }
     }
 
-    pub fn view<'a>(&'a self, ctx: PlaybackBarViewContext) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(
+        &'a self,
+        ctx: PlaybackBarViewContext,
+    ) -> Element<'a, Message<Event>, Theme, Renderer> {
         let mut total_frames = 1.0;
         let mut current_position = 0.0;
 
@@ -107,8 +111,12 @@ impl PlaybackBar {
             current_position = self.current_position;
         }
 
-        slider(0.0..=total_frames, current_position, Event::Scrubbed)
-            .on_release(Event::Seeked)
-            .into()
+        slider(
+            0.0..=total_frames,
+            current_position,
+            Message::from_payload(Event::Scrubbed),
+        )
+        .on_release(Message::new(Event::Seeked))
+        .into()
     }
 }
