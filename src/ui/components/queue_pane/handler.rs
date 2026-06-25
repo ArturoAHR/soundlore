@@ -1,11 +1,15 @@
-use iced::Task;
+use iced::{Element, Renderer, Task};
 
 use crate::{
     app::{App, Message},
-    ui::components::queue_pane::Event,
+    ui::{components::queue_pane::Event, theme::Theme},
 };
 
 impl App {
+    pub fn view_queue_pane(&self) -> Element<'_, Message, Theme, Renderer> {
+        self.queue_pane.view(&self.theme).map(Message::QueuePane)
+    }
+
     pub fn handle_queue_pane(&mut self, event: Event) -> Task<Message> {
         let (task, outcomes) = self.queue_pane.update(event);
         let component_task = task.map(Message::QueuePane);

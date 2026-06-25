@@ -1,11 +1,17 @@
-use iced::Task;
+use iced::{Element, Renderer, Task};
 
 use crate::{
     app::{App, Message},
-    ui::components::track_information_pane::Event,
+    ui::{components::track_information_pane::Event, theme::Theme},
 };
 
 impl App {
+    pub fn view_track_information_pane(&self) -> Element<'_, Message, Theme, Renderer> {
+        self.track_information_pane
+            .view(&self.theme)
+            .map(Message::TrackInformationPane)
+    }
+
     pub fn handle_track_information_pane(&mut self, event: Event) -> Task<Message> {
         let (task, outcomes) = self.track_information_pane.update(event);
         let component_task = task.map(Message::TrackInformationPane);
