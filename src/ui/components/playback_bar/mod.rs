@@ -1,11 +1,17 @@
-use iced::{Element, Renderer, Task, widget::slider};
+use iced::{
+    Element, Renderer, Task,
+    widget::{button, container, row, slider},
+};
 use tracing::instrument;
 
 use crate::{
     outcome::PlaybackOutcome,
     playback::PlaybackControllerStatus,
     track::models::Track,
-    ui::{components::playback_bar::PlaybackBarStatus::Playing, theme::Theme},
+    ui::{
+        theme::Theme,
+        widgets::icons::{self, icon},
+    },
 };
 
 pub mod handler;
@@ -26,6 +32,8 @@ pub enum PlaybackBarStatus {
 
 #[derive(Debug, Clone)]
 pub enum Event {
+    Pause,
+    Resume,
     Scrubbed(f64),
     Seeked,
     PlaybackProgressed(f64),
@@ -51,11 +59,18 @@ pub struct PlaybackBarUpdateContext<'a> {
 impl PlaybackBar {
     pub fn new() -> Self {
         Self {
-            status: Playing,
+            status: PlaybackBarStatus::Playing,
             current_position: 0.0,
             seek_generation_threshold: 0,
         }
     }
+
+    // fn toggle_pause(&mut self) {
+    //     self.status = match self.status {
+    //         PlaybackBarStatus::Paused => PlaybackBarStatus::Playing,
+    //         PlaybackBarStatus::Playing => PlaybackBarStatus::Paused,
+    //     };
+    // }
 
     #[instrument(skip(self), level = "debug")]
     pub fn update(
@@ -95,6 +110,24 @@ impl PlaybackBar {
                     })],
                 )
             }
+            Event::Resume => {
+                // TODO: Move this to a reaction to a notification
+                self.status = PlaybackBarStatus::Playing;
+
+                (
+                    Task::none(),
+                    vec![Outcome::Playback(PlaybackOutcome::Resume)],
+                )
+            }
+            Event::Pause => {
+                // TODO: Move this to a reaction to a notification
+                self.status = PlaybackBarStatus::Paused;
+
+                (
+                    Task::none(),
+                    vec![Outcome::Playback(PlaybackOutcome::Pause)],
+                )
+            }
         }
     }
 
@@ -107,8 +140,15 @@ impl PlaybackBar {
             current_position = self.current_position;
         }
 
-        slider(0.0..=total_frames, current_position, Event::Scrubbed)
-            .on_release(Event::Seeked)
-            .into()
+        let play_button = match self.status {
+            PlaybackBarStatus::Paused => button(icon(icons::PLAY)).on_press(Event::Resume),
+            PlaybackBarStatus::Playing => button(icon(icons::STOP)).on_press(Event::Pause),
+        };
+
+        container(row![
+            play_button,
+            slider(0.0..=total_frames, current_position, Event::Scrubbed).on_release(Event::Seeked)
+        ])
+        .into()
     }
 }
