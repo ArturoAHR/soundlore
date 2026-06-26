@@ -1,26 +1,26 @@
 use iced::{Element, Renderer, Task};
 
 use crate::{
-    app::{self, App, Message},
+    app::{self, App},
     ui::{
-        components::main_pane::{Event, MainPaneViewContext, Outcome},
+        components::main_pane::{MainPaneViewContext, Message, Outcome},
         theme::Theme,
     },
 };
 
 impl App {
-    pub fn view_main_pane(&self) -> Element<'_, Message, Theme, Renderer> {
+    pub fn view_main_pane(&self) -> Element<'_, app::Message, Theme, Renderer> {
         let context = MainPaneViewContext {
             theme: &self.theme,
             tracks: &self.tracks,
         };
 
-        self.main_pane.view(context).map(Message::MainPane)
+        self.main_pane.view(context).map(app::Message::MainPane)
     }
 
-    pub fn handle_main_pane(&mut self, event: Event) -> Task<Message> {
+    pub fn handle_main_pane(&mut self, event: Message) -> Task<app::Message> {
         let (task, outcomes) = self.main_pane.update(event);
-        let component_task = task.map(Message::MainPane);
+        let component_task = task.map(app::Message::MainPane);
 
         if outcomes.len() == 0 {
             return component_task;

@@ -9,7 +9,7 @@ pub mod handler;
 pub struct StatusBar {}
 
 #[derive(Debug, Clone)]
-pub enum Event {}
+pub enum Message {}
 
 #[derive(Debug, Clone)]
 pub enum Outcome {}
@@ -25,11 +25,11 @@ pub struct StatusBarUpdateContext {}
 
 impl StatusBar {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
+    pub fn update(&mut self, event: Message) -> (Task<Message>, Vec<Outcome>) {
         (Task::none(), vec![])
     }
 
-    pub fn view<'a>(&'a self, ctx: StatusBarViewContext) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(&'a self, ctx: StatusBarViewContext) -> Element<'a, Message, Theme, Renderer> {
         let status_label = match ctx.status {
             AppStatus::Idle => "",
             AppStatus::AddingTracks => "Adding tracks",

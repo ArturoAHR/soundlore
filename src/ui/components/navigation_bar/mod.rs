@@ -12,7 +12,7 @@ pub mod navigation_bar_menu;
 pub struct NavigationBar {}
 
 #[derive(Debug, Clone)]
-pub enum Event {
+pub enum Message {
     SelectedScanDirectoryOption,
 }
 
@@ -23,15 +23,15 @@ pub enum Outcome {
 
 impl NavigationBar {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
+    pub fn update(&mut self, event: Message) -> (Task<Message>, Vec<Outcome>) {
         match event {
-            Event::SelectedScanDirectoryOption => {
+            Message::SelectedScanDirectoryOption => {
                 (Task::none(), vec![Outcome::OpenSelectDirectoryDialog])
             }
         }
     }
 
-    pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Message, Theme, Renderer> {
         row![navigation_bar_menu(theme)].into()
     }
 }

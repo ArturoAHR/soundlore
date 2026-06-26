@@ -1,33 +1,35 @@
 use iced::{Element, Renderer, Task};
 
 use crate::{
-    app::{self, App, Message},
+    app::{self, App},
     ui::{
         components::playback_bar::{
-            Event, Outcome, PlaybackBarUpdateContext, PlaybackBarViewContext,
+            Message, Outcome, PlaybackBarUpdateContext, PlaybackBarViewContext,
         },
         theme::Theme,
     },
 };
 
 impl App {
-    pub fn view_playback_bar(&self) -> Element<'_, Message, Theme, Renderer> {
+    pub fn view_playback_bar(&self) -> Element<'_, app::Message, Theme, Renderer> {
         let context = PlaybackBarViewContext {
             current_playing_track: &self.current_playing_track,
             theme: &self.theme,
         };
 
-        self.playback_bar.view(context).map(Message::PlaybackBar)
+        self.playback_bar
+            .view(context)
+            .map(app::Message::PlaybackBar)
     }
 
-    pub fn handle_playback_bar(&mut self, event: Event) -> Task<Message> {
+    pub fn handle_playback_bar(&mut self, event: Message) -> Task<app::Message> {
         let playback_bar_context = PlaybackBarUpdateContext {
             playback_controller_status: &self.playback_controller.status,
             playback_engine_generation: self.playback_controller.get_audio_engine_generation(),
         };
 
         let (task, outcomes) = self.playback_bar.update(event, playback_bar_context);
-        let component_task = task.map(Message::PlaybackBar);
+        let component_task = task.map(app::Message::PlaybackBar);
 
         if outcomes.len() == 0 {
             return component_task;

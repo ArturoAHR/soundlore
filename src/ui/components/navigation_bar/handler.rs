@@ -2,23 +2,23 @@ use iced::{Element, Renderer, Task};
 use rfd::AsyncFileDialog;
 
 use crate::{
-    app::{App, Message},
+    app::{self, App},
     ui::{
-        components::navigation_bar::{Event, Outcome},
+        components::navigation_bar::{Message, Outcome},
         theme::Theme,
     },
 };
 
 impl App {
-    pub fn view_navigation_bar(&self) -> Element<'_, Message, Theme, Renderer> {
+    pub fn view_navigation_bar(&self) -> Element<'_, app::Message, Theme, Renderer> {
         self.navigation_bar
             .view(&self.theme)
-            .map(Message::NavigationBar)
+            .map(app::Message::NavigationBar)
     }
 
-    pub fn handle_navigation_bar(&mut self, event: Event) -> Task<Message> {
+    pub fn handle_navigation_bar(&mut self, event: Message) -> Task<app::Message> {
         let (task, outcomes) = self.navigation_bar.update(event);
-        let component_task = task.map(Message::NavigationBar);
+        let component_task = task.map(app::Message::NavigationBar);
 
         if outcomes.len() == 0 {
             return component_task;
@@ -33,7 +33,7 @@ impl App {
                             handles.iter().map(|handle| handle.path().into()).collect()
                         })
                     },
-                    Message::ScanDirectory,
+                    app::Message::ScanDirectory,
                 ),
             };
             tasks.push(outcome_task);

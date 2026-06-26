@@ -12,7 +12,7 @@ pub mod handler;
 pub struct MainPane {}
 
 #[derive(Debug, Clone)]
-pub enum Event {
+pub enum Message {
     TrackSelected(Track),
 }
 
@@ -32,17 +32,17 @@ pub struct MainPaneUpdateContext {}
 
 impl MainPane {
     #[instrument(skip(self), level = "debug")]
-    pub fn update(&mut self, event: Event) -> (Task<Event>, Vec<Outcome>) {
+    pub fn update(&mut self, event: Message) -> (Task<Message>, Vec<Outcome>) {
         match event {
-            Event::TrackSelected(track) => (
+            Message::TrackSelected(track) => (
                 Task::none(),
                 vec![Outcome::Playback(PlaybackOutcome::Play(track))],
             ),
         }
     }
 
-    pub fn view<'a>(&'a self, ctx: MainPaneViewContext) -> Element<'a, Event, Theme, Renderer> {
-        let track_rows: Vec<Element<Event, Theme, Renderer>> = ctx
+    pub fn view<'a>(&'a self, ctx: MainPaneViewContext) -> Element<'a, Message, Theme, Renderer> {
+        let track_rows: Vec<Element<Message, Theme, Renderer>> = ctx
             .tracks
             .iter()
             .map(|track| {
@@ -51,7 +51,7 @@ impl MainPane {
                     track.artist.clone().unwrap_or("Unknown".to_owned()),
                     track.title.clone().unwrap_or("Untitled".to_owned())
                 )))
-                .on_press(Event::TrackSelected(track.to_owned()))
+                .on_press(Message::TrackSelected(track.to_owned()))
                 .into()
             })
             .collect();

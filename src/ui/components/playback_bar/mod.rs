@@ -31,7 +31,7 @@ pub enum PlaybackBarStatus {
 }
 
 #[derive(Debug, Clone)]
-pub enum Event {
+pub enum Message {
     Pause,
     Resume,
     Scrubbed(f64),
@@ -65,21 +65,14 @@ impl PlaybackBar {
         }
     }
 
-    // fn toggle_pause(&mut self) {
-    //     self.status = match self.status {
-    //         PlaybackBarStatus::Paused => PlaybackBarStatus::Playing,
-    //         PlaybackBarStatus::Playing => PlaybackBarStatus::Paused,
-    //     };
-    // }
-
     #[instrument(skip(self), level = "debug")]
     pub fn update(
         &mut self,
-        event: Event,
+        event: Message,
         ctx: PlaybackBarUpdateContext,
-    ) -> (Task<Event>, Vec<Outcome>) {
+    ) -> (Task<Message>, Vec<Outcome>) {
         match event {
-            Event::Scrubbed(position) => {
+            Message::Scrubbed(position) => {
                 self.current_position = position;
 
                 self.seek_generation_threshold = ctx.playback_engine_generation;
@@ -91,12 +84,12 @@ impl PlaybackBar {
 
                 (Task::none(), outcomes)
             }
-            Event::PlaybackProgressed(position) => {
+            Message::PlaybackProgressed(position) => {
                 self.current_position = position;
 
                 (Task::none(), Vec::new())
             }
-            Event::Seeked => {
+            Message::Seeked => {
                 let pre_seek_status = match self.status {
                     PlaybackBarStatus::Playing => PlaybackControllerStatus::Playing,
                     PlaybackBarStatus::Paused => PlaybackControllerStatus::Stopped,
@@ -110,7 +103,7 @@ impl PlaybackBar {
                     })],
                 )
             }
-            Event::Resume => {
+            Message::Resume => {
                 // TODO: Move this to a reaction to a notification
                 self.status = PlaybackBarStatus::Playing;
 
@@ -119,7 +112,7 @@ impl PlaybackBar {
                     vec![Outcome::Playback(PlaybackOutcome::Resume)],
                 )
             }
-            Event::Pause => {
+            Message::Pause => {
                 // TODO: Move this to a reaction to a notification
                 self.status = PlaybackBarStatus::Paused;
 
@@ -131,7 +124,10 @@ impl PlaybackBar {
         }
     }
 
-    pub fn view<'a>(&'a self, ctx: PlaybackBarViewContext) -> Element<'a, Event, Theme, Renderer> {
+    pub fn view<'a>(
+        &'a self,
+        ctx: PlaybackBarViewContext,
+    ) -> Element<'a, Message, Theme, Renderer> {
         let mut total_frames = 1.0;
         let mut current_position = 0.0;
 
@@ -141,13 +137,14 @@ impl PlaybackBar {
         }
 
         let play_button = match self.status {
-            PlaybackBarStatus::Paused => button(icon(icons::PLAY)).on_press(Event::Resume),
-            PlaybackBarStatus::Playing => button(icon(icons::PAUSE)).on_press(Event::Pause),
+            PlaybackBarStatus::Paused => button(icon(icons::PLAY)).on_press(Message::Resume),
+            PlaybackBarStatus::Playing => button(icon(icons::PAUSE)).on_press(Message::Pause),
         };
 
         container(row![
             play_button,
-            slider(0.0..=total_frames, current_position, Event::Scrubbed).on_release(Event::Seeked)
+            slider(0.0..=total_frames, current_position, Message::Scrubbed)
+                .on_release(Message::Seeked)
         ])
         .into()
     }

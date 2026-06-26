@@ -1,20 +1,20 @@
 use iced::{Element, Renderer, Task};
 
 use crate::{
-    app::{App, Message},
-    ui::{components::explorer_pane::Event, theme::Theme},
+    app::{self, App},
+    ui::{components::explorer_pane::Message, theme::Theme},
 };
 
 impl App {
-    pub fn view_explorer_pane(&self) -> Element<'_, Message, Theme, Renderer> {
+    pub fn view_explorer_pane(&self) -> Element<'_, app::Message, Theme, Renderer> {
         self.explorer_pane
             .view(&self.theme)
-            .map(Message::ExplorerPane)
+            .map(app::Message::ExplorerPane)
     }
 
-    pub fn handle_explorer_pane(&mut self, event: Event) -> Task<Message> {
+    pub fn handle_explorer_pane(&mut self, event: Message) -> Task<app::Message> {
         let (task, outcomes) = self.explorer_pane.update(event);
-        let component_task = task.map(Message::ExplorerPane);
+        let component_task = task.map(app::Message::ExplorerPane);
 
         if outcomes.len() == 0 {
             return component_task;

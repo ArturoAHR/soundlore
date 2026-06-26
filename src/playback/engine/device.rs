@@ -10,10 +10,10 @@ use iced::{
 };
 use tracing::{error, instrument};
 
-use crate::{app::Message, playback::handler::PlaybackMessage};
+use crate::{app, playback::Message};
 
 #[instrument]
-pub fn watch_default_device() -> impl Stream<Item = Message> {
+pub fn watch_default_device() -> impl Stream<Item = app::Message> {
     stream::channel(10, async |mut output| {
         let mut current_device_id = (async || {
             loop {
@@ -36,9 +36,7 @@ pub fn watch_default_device() -> impl Stream<Item = Message> {
 
             if current_device_id != new_device_id {
                 if let Err(error) = output
-                    .send(Message::Playback(
-                        PlaybackMessage::PendingOutputDeviceChange,
-                    ))
+                    .send(app::Message::Playback(Message::PendingOutputDeviceChange))
                     .await
                 {
                     error!("Failed to send event: {error}");

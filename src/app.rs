@@ -13,9 +13,7 @@ use crate::{
     app::Message::LoadTracks,
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback::{
-        PlaybackController, engine::device::watch_default_device, handler::PlaybackMessage,
-    },
+    playback::{self, PlaybackController, engine::device::watch_default_device},
     track::{models::Track, repository::get_tracks},
     ui::{
         components::{
@@ -68,15 +66,15 @@ pub enum Message {
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
 
-    NavigationBar(navigation_bar::Event),
-    ExplorerPane(explorer_pane::Event),
-    MainPane(main_pane::Event),
-    QueuePane(queue_pane::Event),
-    TrackInformationPane(track_information_pane::Event),
-    StatusBar(status_bar::Event),
-    PlaybackBar(playback_bar::Event),
+    NavigationBar(navigation_bar::Message),
+    ExplorerPane(explorer_pane::Message),
+    MainPane(main_pane::Message),
+    QueuePane(queue_pane::Message),
+    TrackInformationPane(track_information_pane::Message),
+    StatusBar(status_bar::Message),
+    PlaybackBar(playback_bar::Message),
 
-    Playback(PlaybackMessage),
+    Playback(playback::Message),
 }
 
 impl App {
@@ -204,7 +202,8 @@ impl App {
         let mut subscriptions = vec![Subscription::run(watch_default_device)];
 
         subscriptions.push(
-            every(milliseconds(16)).map(|_| Message::Playback(PlaybackMessage::PollPlaybackEvent)),
+            every(milliseconds(16))
+                .map(|_| Message::Playback(playback::Message::PollPlaybackEvent)),
         );
 
         Subscription::batch(subscriptions)

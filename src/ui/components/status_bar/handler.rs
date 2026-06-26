@@ -1,26 +1,26 @@
 use iced::{Element, Renderer, Task};
 
 use crate::{
-    app::{App, Message},
+    app::{self, App},
     ui::{
-        components::status_bar::{Event, StatusBarViewContext},
+        components::status_bar::{Message, StatusBarViewContext},
         theme::Theme,
     },
 };
 
 impl App {
-    pub fn view_status_bar(&self) -> Element<'_, Message, Theme, Renderer> {
+    pub fn view_status_bar(&self) -> Element<'_, app::Message, Theme, Renderer> {
         let context = StatusBarViewContext {
             status: &self.status,
             theme: &self.theme,
         };
 
-        self.status_bar.view(context).map(Message::StatusBar)
+        self.status_bar.view(context).map(app::Message::StatusBar)
     }
 
-    pub fn handle_status_bar(&mut self, event: Event) -> Task<Message> {
+    pub fn handle_status_bar(&mut self, event: Message) -> Task<app::Message> {
         let (task, outcomes) = self.status_bar.update(event);
-        let component_task = task.map(Message::StatusBar);
+        let component_task = task.map(app::Message::StatusBar);
 
         if outcomes.len() == 0 {
             return component_task;

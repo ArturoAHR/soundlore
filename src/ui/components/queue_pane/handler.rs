@@ -1,18 +1,20 @@
 use iced::{Element, Renderer, Task};
 
 use crate::{
-    app::{App, Message},
-    ui::{components::queue_pane::Event, theme::Theme},
+    app::{self, App},
+    ui::{components::queue_pane::Message, theme::Theme},
 };
 
 impl App {
-    pub fn view_queue_pane(&self) -> Element<'_, Message, Theme, Renderer> {
-        self.queue_pane.view(&self.theme).map(Message::QueuePane)
+    pub fn view_queue_pane(&self) -> Element<'_, app::Message, Theme, Renderer> {
+        self.queue_pane
+            .view(&self.theme)
+            .map(app::Message::QueuePane)
     }
 
-    pub fn handle_queue_pane(&mut self, event: Event) -> Task<Message> {
+    pub fn handle_queue_pane(&mut self, event: Message) -> Task<app::Message> {
         let (task, outcomes) = self.queue_pane.update(event);
-        let component_task = task.map(Message::QueuePane);
+        let component_task = task.map(app::Message::QueuePane);
 
         if outcomes.len() == 0 {
             return component_task;
