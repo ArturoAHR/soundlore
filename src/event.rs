@@ -9,6 +9,9 @@ use crate::{
 pub enum Event {
     AttemptedPlayingTrack,
     ActiveTrackChanged(Option<Track>),
+    StartedPlayback,
+    StoppedPlayback,
+    EndOfTrack,
 }
 
 impl App {

@@ -20,7 +20,7 @@ pub mod handler;
 #[derive(Debug)]
 pub struct PlaybackBar {
     current_position: f64,
-    pub seek_generation_threshold: u64,
+    pub current_position_generation_threshold: u64,
 
     status: PlaybackBarStatus,
 }
@@ -57,12 +57,17 @@ pub struct PlaybackBarUpdateContext<'a> {
     pub playback_engine_generation: u64,
 }
 
+#[derive(Debug)]
+pub struct PlaybackBarEventContext {
+    pub playback_engine_generation: u64,
+}
+
 impl PlaybackBar {
     pub fn new() -> Self {
         Self {
             status: PlaybackBarStatus::Playing,
             current_position: 0.0,
-            seek_generation_threshold: 0,
+            current_position_generation_threshold: 0,
         }
     }
 
@@ -76,7 +81,7 @@ impl PlaybackBar {
             Message::Scrubbed(position) => {
                 self.current_position = position;
 
-                self.seek_generation_threshold = ctx.playback_engine_generation;
+                self.current_position_generation_threshold = ctx.playback_engine_generation;
 
                 let mut outcomes = Vec::new();
                 if PlaybackControllerStatus::Playing == *ctx.playback_controller_status {
@@ -105,7 +110,6 @@ impl PlaybackBar {
                 )
             }
             Message::Resume => {
-                // TODO: Move this to a reaction to a notification
                 self.status = PlaybackBarStatus::Playing;
 
                 (
@@ -114,7 +118,6 @@ impl PlaybackBar {
                 )
             }
             Message::Pause => {
-                // TODO: Move this to a reaction to a notification
                 self.status = PlaybackBarStatus::Paused;
 
                 (
@@ -126,8 +129,17 @@ impl PlaybackBar {
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub fn on_event(&mut self, _event: &Event) -> Task<Message> {
-        Task::none()
+    pub fn on_event(&mut self, event: &Event, ctx: PlaybackBarEventContext) -> Task<Message> {
+        let task = Task::none();
+
+        match event {
+            Event::AttemptedPlayingTrack => {
+                self.current_position_generation_threshold = ctx.playback_engine_generation
+            }
+            _ => {}
+        }
+
+        task
     }
 
     pub fn view<'a>(

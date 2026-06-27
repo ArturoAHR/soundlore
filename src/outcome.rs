@@ -4,6 +4,7 @@ use tracing::instrument;
 use crate::{
     app::{App, Message},
     error::AppError,
+    event::Event::AttemptedPlayingTrack,
     playback::PlaybackControllerStatus,
     track::models::Track,
 };
@@ -72,11 +73,13 @@ impl App {
                 Ok(Task::none())
             }
             PlaybackOutcome::Play(track) => {
+                let event_tasks = self.broadcast(AttemptedPlayingTrack);
+
                 self.playback_controller.play(track.clone())?;
 
                 self.current_playing_track = Some(track);
 
-                Ok(Task::none())
+                Ok(event_tasks)
             }
         }
     }

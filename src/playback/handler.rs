@@ -43,7 +43,9 @@ impl App {
                 let audio_engine_generation =
                     self.playback_controller.get_audio_engine_generation();
 
-                if audio_engine_generation <= self.playback_bar.seek_generation_threshold {
+                if audio_engine_generation
+                    <= self.playback_bar.current_position_generation_threshold
+                {
                     return Task::none();
                 }
 

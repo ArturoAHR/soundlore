@@ -5,7 +5,8 @@ use crate::{
     event::Event,
     ui::{
         components::playback_bar::{
-            Message, Outcome, PlaybackBarUpdateContext, PlaybackBarViewContext,
+            Message, Outcome, PlaybackBarEventContext, PlaybackBarUpdateContext,
+            PlaybackBarViewContext,
         },
         theme::Theme,
     },
@@ -52,8 +53,12 @@ impl App {
     }
 
     pub fn notify_playback_bar(&mut self, event: &Event) -> Task<app::Message> {
+        let context = PlaybackBarEventContext {
+            playback_engine_generation: self.playback_controller.get_audio_engine_generation(),
+        };
+
         self.playback_bar
-            .on_event(event)
+            .on_event(event, context)
             .map(app::Message::PlaybackBar)
     }
 }
