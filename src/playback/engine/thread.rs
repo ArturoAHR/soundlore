@@ -4,10 +4,11 @@ use std::sync::{
 };
 
 use cpal::{
-    Device, FromSample, OutputCallbackInfo, SizedSample, Stream, StreamConfig, traits::DeviceTrait,
+    Device, FromSample, OutputCallbackInfo, SizedSample, Stream, StreamConfig,
+    traits::{DeviceTrait, StreamTrait},
 };
 use rtrb::Consumer;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::playback::{
     GenerationCounter,
@@ -55,6 +56,13 @@ where
         |error| error!("stream error: {error}"),
         None,
     )?;
+
+    if let Err(error) = stream.play() {
+        warn!(
+            error = %error,
+            "Failed to start playing with created output stream, this could be due to the output device not supporting the command and may not affect playback."
+        );
+    }
 
     Ok(stream)
 }
