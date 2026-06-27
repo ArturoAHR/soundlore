@@ -118,7 +118,7 @@ impl AudioEngine {
         }
     }
 
-    #[instrument(skip_all, ret, level = "trace", fields(current_status = ?self.status, status = ?status))]
+    #[instrument(skip_all, ret, level = "debug", fields(current_status = ?self.status, status = ?status))]
     fn set_status(&mut self, status: PlaybackEngineStatus) {
         if self.status == status {
             return;
@@ -184,7 +184,7 @@ impl PlaybackEngine for AudioEngine {
             return Err(PlaybackEngineError::MissingStream);
         };
 
-        self.set_status(PlaybackEngineStatus::Playing);
+        self.set_status(PlaybackEngineStatus::Paused);
 
         Ok(())
     }
@@ -195,7 +195,7 @@ impl PlaybackEngine for AudioEngine {
             return Err(PlaybackEngineError::MissingStream);
         };
 
-        self.set_status(PlaybackEngineStatus::Paused);
+        self.set_status(PlaybackEngineStatus::Playing);
 
         Ok(())
     }
