@@ -5,7 +5,7 @@ use tracing::{error, info, instrument, warn};
 
 use crate::error::AppError;
 use crate::file::utils::find_track_files;
-use crate::track::metadata::read_track_metadata;
+use crate::track::file::read_track_properties;
 use crate::track::repository::upsert_tracks_batch;
 
 #[instrument(skip_all, fields(directory_count = directories.len()))]
@@ -42,7 +42,7 @@ pub async fn scan_files_in_directory(
 
     for track_file_path in track_file_paths {
         let track_metadata_thread_task = tokio::task::spawn_blocking(move || {
-            (read_track_metadata(&track_file_path), track_file_path)
+            (read_track_properties(&track_file_path), track_file_path)
         });
 
         read_track_metadata_thread_tasks.push(track_metadata_thread_task)

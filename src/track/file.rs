@@ -64,7 +64,7 @@ impl From<SymphoniaError> for TrackPropertiesReadError {
 
 #[instrument]
 // TODO: Improve duration extraction by running background decode to ascertain exact sample count.
-pub fn read_track_metadata(path: &Path) -> Result<TrackProperties, TrackPropertiesReadError> {
+pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackPropertiesReadError> {
     let file = File::open(path)?;
     let file_size_bytes = file.metadata()?.len() as i64;
 

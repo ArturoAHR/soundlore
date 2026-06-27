@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use soundlore_lib::track::{metadata::read_track_metadata, models::Track};
+use soundlore_lib::track::{file::read_track_properties, models::Track};
 
 pub fn create_mock_track(track_path: PathBuf) -> Track {
-    let track_properties = read_track_metadata(&track_path).unwrap();
+    let track_properties = read_track_properties(&track_path).unwrap();
 
     Track {
         id: "36a7839f-15d5-44dd-9971-0696236370e9".to_owned(),

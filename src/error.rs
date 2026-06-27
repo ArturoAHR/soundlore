@@ -7,7 +7,7 @@ use tokio::task::JoinError;
 
 use crate::{
     playback::{PlaybackControllerError, pipeline::AudioPipelineError},
-    track::metadata::TrackPropertiesReadError,
+    track::file::TrackPropertiesReadError,
 };
 
 #[derive(Debug, Error, Clone)]
