@@ -38,13 +38,18 @@ pub async fn scan_files_in_directory(
     let candidate_track_count = track_file_paths.len();
     let mut processed_tracks = vec![];
 
-    for track_file_path in track_file_paths {
-        let track_metadata_thread_result = tokio::task::spawn_blocking(move || {
-            (read_track_metadata(&track_file_path), track_file_path)
-        })
-        .await;
+    let mut read_track_metadata_thread_tasks = Vec::new();
 
-        match track_metadata_thread_result {
+    for track_file_path in track_file_paths {
+        let track_metadata_thread_task = tokio::task::spawn_blocking(move || {
+            (read_track_metadata(&track_file_path), track_file_path)
+        });
+
+        read_track_metadata_thread_tasks.push(track_metadata_thread_task)
+    }
+
+    for read_track_metadata_thread_task in read_track_metadata_thread_tasks {
+        match read_track_metadata_thread_task.await {
             Ok((Ok(track_metadata), _)) => processed_tracks.push(track_metadata),
             Ok((Err(error), track_file_path)) => {
                 error!(
