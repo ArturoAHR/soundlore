@@ -1,6 +1,6 @@
 use iced::{
     Element, Renderer, Task,
-    widget::{Column, button, text},
+    widget::{Column, button, scrollable, text},
 };
 use tracing::instrument;
 
@@ -61,8 +61,6 @@ impl MainPane {
             })
             .collect();
 
-        Column::with_children(track_rows).into()
-
-        // text("Main Pane").into()
+        scrollable(Column::with_children(track_rows)).into()
     }
 }
