@@ -2,6 +2,7 @@ pub mod app;
 pub mod config;
 pub mod database;
 pub mod error;
+pub mod event;
 pub mod file;
 pub mod library;
 pub mod log;

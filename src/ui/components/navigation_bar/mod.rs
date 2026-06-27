@@ -1,8 +1,9 @@
 use iced::{Element, Renderer, Task, widget::row};
 use tracing::instrument;
 
-use crate::ui::{
-    components::navigation_bar::navigation_bar_menu::navigation_bar_menu, theme::Theme,
+use crate::{
+    event::Event,
+    ui::{components::navigation_bar::navigation_bar_menu::navigation_bar_menu, theme::Theme},
 };
 
 pub mod handler;
@@ -29,6 +30,11 @@ impl NavigationBar {
                 (Task::none(), vec![Outcome::OpenSelectDirectoryDialog])
             }
         }
+    }
+
+    #[instrument(skip(self), level = "debug")]
+    pub fn on_event(&mut self, _event: &Event) -> Task<Message> {
+        Task::none()
     }
 
     pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Message, Theme, Renderer> {

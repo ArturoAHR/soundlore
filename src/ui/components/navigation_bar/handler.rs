@@ -3,6 +3,7 @@ use rfd::AsyncFileDialog;
 
 use crate::{
     app::{self, App},
+    event::Event,
     ui::{
         components::navigation_bar::{Message, Outcome},
         theme::Theme,
@@ -16,8 +17,8 @@ impl App {
             .map(app::Message::NavigationBar)
     }
 
-    pub fn handle_navigation_bar(&mut self, event: Message) -> Task<app::Message> {
-        let (task, outcomes) = self.navigation_bar.update(event);
+    pub fn handle_navigation_bar(&mut self, message: Message) -> Task<app::Message> {
+        let (task, outcomes) = self.navigation_bar.update(message);
         let component_task = task.map(app::Message::NavigationBar);
 
         if outcomes.len() == 0 {
@@ -40,5 +41,11 @@ impl App {
         }
 
         Task::batch(tasks)
+    }
+
+    pub fn notify_navigation_bar(&mut self, event: &Event) -> Task<app::Message> {
+        self.navigation_bar
+            .on_event(event)
+            .map(app::Message::NavigationBar)
     }
 }

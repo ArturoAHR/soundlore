@@ -5,6 +5,7 @@ use iced::{
 use tracing::instrument;
 
 use crate::{
+    event::Event,
     outcome::PlaybackOutcome,
     playback::PlaybackControllerStatus,
     track::models::Track,
@@ -122,6 +123,11 @@ impl PlaybackBar {
                 )
             }
         }
+    }
+
+    #[instrument(skip(self), level = "debug")]
+    pub fn on_event(&mut self, _event: &Event) -> Task<Message> {
+        Task::none()
     }
 
     pub fn view<'a>(

@@ -4,7 +4,7 @@ use iced::{
 };
 use tracing::instrument;
 
-use crate::{outcome::PlaybackOutcome, track::models::Track, ui::theme::Theme};
+use crate::{event::Event, outcome::PlaybackOutcome, track::models::Track, ui::theme::Theme};
 
 pub mod handler;
 
@@ -39,6 +39,11 @@ impl MainPane {
                 vec![Outcome::Playback(PlaybackOutcome::Play(track))],
             ),
         }
+    }
+
+    #[instrument(skip(self), level = "debug")]
+    pub fn on_event(&mut self, _event: &Event) -> Task<Message> {
+        Task::none()
     }
 
     pub fn view<'a>(&'a self, ctx: MainPaneViewContext) -> Element<'a, Message, Theme, Renderer> {

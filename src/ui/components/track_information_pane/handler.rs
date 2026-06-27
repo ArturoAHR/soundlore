@@ -2,6 +2,7 @@ use iced::{Element, Renderer, Task};
 
 use crate::{
     app::{self, App},
+    event::Event,
     ui::{components::track_information_pane::Message, theme::Theme},
 };
 
@@ -31,5 +32,11 @@ impl App {
         }
 
         Task::batch(tasks)
+    }
+
+    pub fn notify_track_information_pane(&mut self, event: &Event) -> Task<app::Message> {
+        self.track_information_pane
+            .on_event(event)
+            .map(app::Message::TrackInformationPane)
     }
 }

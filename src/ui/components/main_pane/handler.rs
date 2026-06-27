@@ -2,6 +2,7 @@ use iced::{Element, Renderer, Task};
 
 use crate::{
     app::{self, App},
+    event::Event,
     ui::{
         components::main_pane::{MainPaneViewContext, Message, Outcome},
         theme::Theme,
@@ -18,8 +19,8 @@ impl App {
         self.main_pane.view(context).map(app::Message::MainPane)
     }
 
-    pub fn handle_main_pane(&mut self, event: Message) -> Task<app::Message> {
-        let (task, outcomes) = self.main_pane.update(event);
+    pub fn handle_main_pane(&mut self, message: Message) -> Task<app::Message> {
+        let (task, outcomes) = self.main_pane.update(message);
         let component_task = task.map(app::Message::MainPane);
 
         if outcomes.len() == 0 {
@@ -39,5 +40,9 @@ impl App {
         }
 
         Task::batch(tasks)
+    }
+
+    pub fn notify_main_pane(&mut self, event: &Event) -> Task<app::Message> {
+        self.main_pane.on_event(event).map(app::Message::MainPane)
     }
 }
