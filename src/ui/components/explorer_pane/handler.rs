@@ -14,24 +14,24 @@ impl App {
     }
 
     pub fn handle_explorer_pane(&mut self, message: Message) -> Task<app::Message> {
-        let (task, outcomes) = self.explorer_pane.update(message);
+        let (task, _outcomes) = self.explorer_pane.update(message);
         let component_task = task.map(app::Message::ExplorerPane);
 
-        if outcomes.len() == 0 {
-            return component_task;
-        };
+        // if outcomes.len() == 0 {
+        return component_task;
+        // };
 
-        let mut tasks = vec![component_task];
+        // let mut tasks = vec![component_task];
 
-        for outcome in outcomes {
-            let outcome = match outcome {};
+        // for outcome in outcomes {
+        //     let outcome = match outcome {};
 
-            let outcome_task = self.handle_outcome(outcome);
+        //     let outcome_task = self.handle_outcome(outcome);
 
-            tasks.push(outcome_task);
-        }
+        //     tasks.push(outcome_task);
+        // }
 
-        Task::batch(tasks)
+        // Task::batch(tasks)
     }
 
     pub fn notify_explorer_pane(&mut self, event: &Event) -> Task<app::Message> {
