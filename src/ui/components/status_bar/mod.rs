@@ -1,4 +1,7 @@
-use iced::{Element, Renderer, Task, widget::text};
+use iced::{
+    Element, Length, Renderer, Task,
+    widget::{container, text},
+};
 use tracing::instrument;
 
 use crate::{app::AppStatus, event::Event, ui::theme::Theme};
@@ -41,6 +44,13 @@ impl StatusBar {
             AppStatus::FinishedAddingTracks => "Finished adding tracks",
         };
 
-        text(status_label).into()
+        container(text(status_label))
+            .height(Length::Fixed(20.0))
+            .width(Length::Fill)
+            .style(|theme: &Theme| container::Style {
+                background: Some(theme.palette.surface_sunken.into()),
+                ..container::Style::default()
+            })
+            .into()
     }
 }

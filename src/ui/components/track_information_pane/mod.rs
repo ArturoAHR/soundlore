@@ -1,4 +1,7 @@
-use iced::{Element, Renderer, Task, widget::text};
+use iced::{
+    Element, Length, Renderer, Task,
+    widget::{container, text},
+};
 use tracing::instrument;
 
 use crate::{event::Event, ui::theme::Theme};
@@ -26,6 +29,13 @@ impl TrackInformationPane {
     }
 
     pub fn view<'a>(&'a self, _theme: &Theme) -> Element<'a, Message, Theme, Renderer> {
-        text("Track Information Pane").into()
+        container(text("Track Information Pane"))
+            .height(Length::FillPortion(3))
+            .width(Length::Fill)
+            .style(|theme: &Theme| container::Style {
+                background: Some(theme.palette.surface_raised.into()),
+                ..container::Style::default()
+            })
+            .into()
     }
 }

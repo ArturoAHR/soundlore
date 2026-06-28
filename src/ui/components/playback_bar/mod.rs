@@ -1,5 +1,5 @@
 use iced::{
-    Element, Renderer, Task,
+    Element, Length, Renderer, Task,
     widget::{button, container, row, slider},
 };
 use tracing::instrument;
@@ -166,6 +166,12 @@ impl PlaybackBar {
             slider(0.0..=total_frames, current_position, Message::Scrubbed)
                 .on_release(Message::Seeked)
         ])
+        .height(Length::Fixed(90.0))
+        .width(Length::Fill)
+        .style(|theme: &Theme| container::Style {
+            background: Some(theme.palette.surface_raised.into()),
+            ..container::Style::default()
+        })
         .into()
     }
 }
