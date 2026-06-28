@@ -1,5 +1,5 @@
 use iced::{
-    Background, Border, Color, Shadow,
+    Border, Shadow,
     border::Radius,
     widget::{
         container,
@@ -15,7 +15,7 @@ impl Catalog for Theme {
     type Class<'a> = StyleFn<'a>;
 
     fn default<'a>() -> Self::Class<'a> {
-        Box::new(|theme, status| Style {
+        Box::new(|theme, _status| Style {
             auto_scroll: AutoScroll {
                 background: theme.palette.surface_sunken.into(),
                 border: Border {

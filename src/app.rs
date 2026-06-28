@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use sqlx::SqlitePool;
 
 use iced::{
-    Element, Subscription, Task,
+    Element, Length, Subscription, Task,
     time::{every, milliseconds},
     widget::{column, row},
 };
@@ -195,6 +195,8 @@ impl App {
             status_bar,
             playback_bar
         ]
+        .width(Length::Fill)
+        .height(Length::Fill)
         .into()
     }
 
