@@ -1,6 +1,6 @@
 use iced::{
-    Element, Length, Renderer, Task,
-    widget::{button, container, row, slider},
+    Alignment, Element, Length, Padding, Renderer, Task,
+    widget::{button, column, container, row, slider, text},
 };
 use tracing::instrument;
 
@@ -8,7 +8,7 @@ use crate::{
     event::Event,
     outcome::PlaybackOutcome,
     playback::PlaybackControllerStatus,
-    track::models::Track,
+    track::{models::Track, utils::get_track_name},
     ui::{
         theme::Theme,
         widgets::icons::{self, icon},
@@ -152,23 +152,37 @@ impl PlaybackBar {
         let mut total_frames = 1.0;
         let mut current_position = 0.0;
 
+        let mut title = String::new();
         if let Some(track) = ctx.current_playing_track {
             total_frames = track.frames as f64;
             current_position = self.current_position;
+            title = get_track_name(track);
         }
 
+        let play_previous = button(icon(icons::PLAY_PREVIOUS));
+        let play_next = button(icon(icons::PLAY_NEXT));
         let play_button = match self.status {
             PlaybackBarStatus::Paused => button(icon(icons::PLAY)).on_press(Message::Resume),
             PlaybackBarStatus::Playing => button(icon(icons::PAUSE)).on_press(Message::Pause),
         };
 
-        container(row![
-            play_button,
-            slider(0.0..=total_frames, current_position, Message::Scrubbed)
-                .on_release(Message::Seeked)
-        ])
+        container(
+            row![
+                row![play_previous, play_button, play_next],
+                column![
+                    text(title),
+                    slider(0.0..=total_frames, current_position, Message::Scrubbed)
+                        .on_release(Message::Seeked)
+                ]
+                .spacing(10.0)
+            ]
+            .align_y(Alignment::Center)
+            .spacing(20.0),
+        )
         .height(Length::Fixed(90.0))
         .width(Length::Fill)
+        .align_y(Alignment::Center)
+        .padding(Padding::from(15.0))
         .style(|theme: &Theme| container::Style {
             background: Some(theme.palette.surface_raised.into()),
             ..container::Style::default()
