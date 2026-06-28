@@ -136,7 +136,8 @@ impl PlaybackBar {
             Event::AttemptedPlayingTrack => {
                 self.status = PlaybackBarStatus::Playing;
 
-                self.current_position_generation_threshold = ctx.playback_engine_generation
+                self.current_position_generation_threshold = ctx.playback_engine_generation;
+                self.current_position = 0.0;
             }
             _ => {}
         }
