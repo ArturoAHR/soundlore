@@ -1900,6 +1900,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_split"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6938b71924cf266604ec05a89057a214999408a498ce623d4274969762f066d7"
+dependencies = [
+ "iced_core",
+]
+
+[[package]]
 name = "iced_test"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4163,6 +4172,7 @@ dependencies = [
  "futures",
  "iced",
  "iced_aw",
+ "iced_split",
  "iced_test",
  "pretty_assertions",
  "rayon",

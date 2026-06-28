@@ -1,11 +1,13 @@
 use std::path::{Path, PathBuf};
 
+use iced_split::vertical_split;
 use sqlx::SqlitePool;
 
 use iced::{
-    Element, Length, Subscription, Task,
+    Element, Length, Size, Subscription, Task,
     time::{every, milliseconds},
     widget::{column, row},
+    window,
 };
 use tracing::{info, instrument};
 
@@ -38,6 +40,9 @@ pub struct App {
     pub status: AppStatus,
     pub current_playing_track: Option<Track>,
     pub tracks: Vec<Track>,
+    pub window_size: Size,
+
+    pub pane_split_ratio: SplitPositions,
 
     pub playback_controller: PlaybackController,
 
@@ -65,6 +70,8 @@ pub enum Message {
     LoadedTracks(Result<Vec<Track>, AppError>),
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
+    SplitDragged(Split, f32),
+    WindowResized(Size),
 
     NavigationBar(navigation_bar::Message),
     ExplorerPane(explorer_pane::Message),
@@ -75,6 +82,19 @@ pub enum Message {
     PlaybackBar(playback_bar::Message),
 
     Playback(playback::Message),
+}
+
+pub struct SplitPositions {
+    pub explorer_main: f64,
+    pub main_queue: f64,
+}
+
+#[derive(Debug, Clone)]
+pub enum Split {
+    /// The split between the explorer pane and main pane.
+    ExplorerMain,
+    /// The split between the main pane and the column with the queue pane and the track information pane.
+    MainQueue,
 }
 
 impl App {
@@ -95,6 +115,12 @@ impl App {
                 status: AppStatus::Idle,
                 tracks: Vec::new(),
                 current_playing_track: None,
+                window_size: Size::default(),
+
+                pane_split_ratio: SplitPositions {
+                    explorer_main: 0.2,
+                    main_queue: 0.6,
+                },
 
                 playback_controller,
 
@@ -106,7 +132,12 @@ impl App {
                 status_bar: StatusBar {},
                 playback_bar: PlaybackBar::new(),
             },
-            Task::done(Message::LoadTracks),
+            Task::batch([
+                Task::done(Message::LoadTracks),
+                window::latest()
+                    .and_then(window::size)
+                    .map(Message::WindowResized),
+            ]),
         )
     }
 
@@ -125,49 +156,75 @@ impl App {
         )
     )]
     pub fn update(&mut self, message: Message) -> Task<Message> {
+        let mut task = Task::none();
+
         match message {
+            Message::SplitDragged(split, split_ratio) => {
+                match split {
+                    Split::ExplorerMain => {
+                        // Since the main-queue split is a children of the explorer-main split, we
+                        // need to calculate the new ratio of the main-queue split so the split stays
+                        // in place.
+                        let main_queue_split_ratio = 1.0
+                            - (1.0 - self.pane_split_ratio.explorer_main)
+                                * (1.0 - self.pane_split_ratio.main_queue)
+                                / (1.0 - split_ratio as f64);
+
+                        self.pane_split_ratio.explorer_main = split_ratio as f64;
+                        self.pane_split_ratio.main_queue = main_queue_split_ratio;
+                    }
+                    Split::MainQueue => {
+                        self.pane_split_ratio.main_queue = split_ratio as f64;
+                    }
+                }
+            }
+            Message::WindowResized(size) => {
+                self.window_size = size;
+            }
+
             Message::LoadTracks => {
                 let pool = self.pool.clone();
 
-                Task::perform(async move { get_tracks(pool).await }, Message::LoadedTracks)
+                task = Task::perform(async move { get_tracks(pool).await }, Message::LoadedTracks);
             }
             Message::LoadedTracks(tracks) => match tracks {
                 Ok(tracks) => {
                     self.tracks = tracks;
-
-                    Task::none()
                 }
-                Err(_) => Task::none(),
+                Err(_) => {}
             },
             Message::ScanDirectory(Some(directories)) => {
                 let pool = self.pool.clone();
                 self.status = AppStatus::AddingTracks;
 
-                Task::perform(
+                task = Task::perform(
                     async move { scan_files_in_directory(pool, directories).await },
                     Message::ScannedDirectory,
-                )
+                );
             }
-            Message::ScanDirectory(None) => Task::none(),
+            Message::ScanDirectory(None) => {}
             Message::ScannedDirectory(scan_result) => {
-                let task = match scan_result {
+                task = match scan_result {
                     Ok(_) => Task::done(LoadTracks),
                     Err(_) => Task::none(),
                 };
 
                 self.status = AppStatus::FinishedAddingTracks;
-
-                task
             }
-            Message::NavigationBar(event) => self.handle_navigation_bar(event),
-            Message::ExplorerPane(event) => self.handle_explorer_pane(event),
-            Message::MainPane(event) => self.handle_main_pane(event),
-            Message::QueuePane(event) => self.handle_queue_pane(event),
-            Message::TrackInformationPane(event) => self.handle_track_information_pane(event),
-            Message::StatusBar(event) => self.handle_status_bar(event),
-            Message::PlaybackBar(event) => self.handle_playback_bar(event),
-            Message::Playback(event) => self.handle_playback(event),
-        }
+
+            Message::NavigationBar(event) => task = self.handle_navigation_bar(event),
+            Message::ExplorerPane(event) => task = self.handle_explorer_pane(event),
+            Message::MainPane(event) => task = self.handle_main_pane(event),
+            Message::QueuePane(event) => task = self.handle_queue_pane(event),
+            Message::TrackInformationPane(event) => {
+                task = self.handle_track_information_pane(event)
+            }
+            Message::StatusBar(event) => task = self.handle_status_bar(event),
+            Message::PlaybackBar(event) => task = self.handle_playback_bar(event),
+            Message::Playback(event) => task = self.handle_playback(event),
+        };
+
+        task
     }
 
     pub fn view(&self) -> Element<'_, Message, Theme> {
@@ -188,10 +245,22 @@ impl App {
         column![
             navigation_bar,
             row![
-                explorer_pane,
-                main_pane,
-                column![queue_pane, track_information_pane]
-            ],
+                vertical_split(
+                    explorer_pane,
+                    vertical_split(
+                        main_pane,
+                        column![queue_pane, track_information_pane],
+                        self.pane_split_ratio.main_queue as f32,
+                        |split_at| Message::SplitDragged(Split::MainQueue, split_at)
+                    )
+                    .handle_width(5.0),
+                    self.pane_split_ratio.explorer_main as f32,
+                    |split_at| Message::SplitDragged(Split::ExplorerMain, split_at)
+                )
+                .handle_width(5.0),
+            ]
+            .height(Length::Fill)
+            .width(Length::Fill),
             status_bar,
             playback_bar
         ]

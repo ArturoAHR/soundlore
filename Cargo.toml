@@ -37,6 +37,7 @@ dotenvy = "0.15.7"
 cpal = "0.17.3"
 rtrb = "0.3.4"
 rubato = "3.0.0"
+iced_split = "0.1.0"
 
 [dev-dependencies]
 ffmpeg-sidecar = "2.5.1"
