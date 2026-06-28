@@ -1,6 +1,6 @@
 use iced::{
-    Alignment, Element, Length, Padding, Renderer, Task,
-    widget::{button, column, container, row, slider, text},
+    Alignment, Element, Font, Length, Padding, Renderer, Task,
+    widget::{Space, button, column, container, row, slider, text},
 };
 use tracing::instrument;
 
@@ -8,9 +8,13 @@ use crate::{
     event::Event,
     outcome::PlaybackOutcome,
     playback::PlaybackControllerStatus,
-    track::{models::Track, utils::get_track_name},
+    track::{
+        models::Track,
+        utils::{get_track_duration_label, get_track_label},
+    },
     ui::{
         theme::Theme,
+        utils::seconds_to_timestamp,
         widgets::icons::{self, icon},
     },
 };
@@ -152,11 +156,20 @@ impl PlaybackBar {
         let mut total_frames = 1.0;
         let mut current_position = 0.0;
 
-        let mut title = String::new();
+        let mut track_name_label = String::new();
+        let mut track_duration_timestamp = "0:00".to_owned();
+        let mut current_position_timestamp = "0:00".to_owned();
+
         if let Some(track) = ctx.current_playing_track {
             total_frames = track.frames as f64;
             current_position = self.current_position;
-            title = get_track_name(track);
+            track_name_label = get_track_label(track);
+
+            track_duration_timestamp = get_track_duration_label(track);
+            current_position_timestamp = seconds_to_timestamp(
+                ((current_position / total_frames) * total_frames / track.sample_rate as f64)
+                    .floor() as u64,
+            )
         }
 
         let play_previous = button(icon(icons::PLAY_PREVIOUS));
@@ -166,11 +179,20 @@ impl PlaybackBar {
             PlaybackBarStatus::Playing => button(icon(icons::PAUSE)).on_press(Message::Pause),
         };
 
+        let current_time_label = format!(
+            "{} / {}",
+            current_position_timestamp, track_duration_timestamp
+        );
+
         container(
             row![
                 row![play_previous, play_button, play_next],
                 column![
-                    text(title),
+                    row![
+                        text(track_name_label),
+                        Space::new().width(Length::Fill),
+                        text(current_time_label).font(Font::MONOSPACE)
+                    ],
                     slider(0.0..=total_frames, current_position, Message::Scrubbed)
                         .on_release(Message::Seeked)
                 ]
