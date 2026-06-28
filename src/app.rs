@@ -40,7 +40,9 @@ pub struct App {
     pub status: AppStatus,
     pub current_playing_track: Option<Track>,
     pub tracks: Vec<Track>,
+
     pub window_size: Size,
+    pub main_window_id: Option<window::Id>,
 
     pub pane_split_ratio: SplitPositions,
 
@@ -71,7 +73,8 @@ pub enum Message {
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
     SplitDragged(Split, f32),
-    WindowResized(Size),
+    WindowResized(Option<window::Id>, Size),
+    GetWindowId(window::Id),
 
     NavigationBar(navigation_bar::Message),
     ExplorerPane(explorer_pane::Message),
@@ -115,7 +118,9 @@ impl App {
                 status: AppStatus::Idle,
                 tracks: Vec::new(),
                 current_playing_track: None,
+
                 window_size: Size::default(),
+                main_window_id: None,
 
                 pane_split_ratio: SplitPositions {
                     explorer_main: 0.2,
@@ -134,9 +139,12 @@ impl App {
             },
             Task::batch([
                 Task::done(Message::LoadTracks),
-                window::latest()
-                    .and_then(window::size)
-                    .map(Message::WindowResized),
+                window::latest().and_then(|window_id| {
+                    Task::batch([
+                        Task::done(Message::GetWindowId(window_id)),
+                        window::size(window_id).map(|size| Message::WindowResized(None, size)),
+                    ])
+                }),
             ]),
         )
     }
@@ -178,9 +186,12 @@ impl App {
                     }
                 }
             }
-            Message::WindowResized(size) => {
-                self.window_size = size;
+            Message::WindowResized(window_id, size) => {
+                if window_id.is_none() || window_id == self.main_window_id {
+                    self.window_size = size;
+                }
             }
+            Message::GetWindowId(window_id) => self.main_window_id = Some(window_id),
 
             Message::LoadTracks => {
                 let pool = self.pool.clone();
@@ -275,6 +286,11 @@ impl App {
         subscriptions.push(
             every(milliseconds(16))
                 .map(|_| Message::Playback(playback::Message::PollPlaybackEvent)),
+        );
+
+        subscriptions.push(
+            window::resize_events()
+                .map(|(window_id, size)| Message::WindowResized(Some(window_id), size)),
         );
 
         Subscription::batch(subscriptions)
