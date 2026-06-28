@@ -1,4 +1,4 @@
-use iced::{Element, Renderer, Task, widget::row};
+use iced::{Element, Length, Renderer, Task, widget::row};
 use tracing::instrument;
 
 use crate::{
@@ -38,6 +38,9 @@ impl NavigationBar {
     }
 
     pub fn view<'a>(&'a self, theme: &Theme) -> Element<'a, Message, Theme, Renderer> {
-        row![navigation_bar_menu(theme)].into()
+        row![navigation_bar_menu(theme)]
+            .height(Length::Fixed(50.0))
+            .width(Length::Fill)
+            .into()
     }
 }
