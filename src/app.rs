@@ -13,6 +13,7 @@ use tracing::{info, instrument};
 
 use crate::{
     app::Message::LoadTracks,
+    constants::MIN_VERTICAL_SPLIT_PANE_WIDTH,
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{self, PlaybackController, engine::device::watch_default_device},
@@ -28,6 +29,7 @@ use crate::{
             track_information_pane::{self, TrackInformationPane},
         },
         theme::Theme,
+        utils::{is_horizontal_pane_split_valid, is_vertical_pane_split_valid},
     },
 };
 
@@ -72,7 +74,7 @@ pub enum Message {
     LoadedTracks(Result<Vec<Track>, AppError>),
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
-    SplitDragged(PaneSplit, f32),
+    SplitDragged(PaneSplit, f64),
     WindowResized(Option<window::Id>, Size),
     GetWindowId(window::Id),
 
@@ -182,14 +184,31 @@ impl App {
                                 * (1.0 - self.pane_split_ratio.main_queue)
                                 / (1.0 - split_ratio as f64);
 
-                        self.pane_split_ratio.explorer_main = split_ratio as f64;
-                        self.pane_split_ratio.main_queue = main_queue_split_ratio;
+                        if is_vertical_pane_split_valid(
+                            split_ratio,
+                            main_queue_split_ratio,
+                            self.window_size.width as f64,
+                        ) {
+                            self.pane_split_ratio.explorer_main = split_ratio as f64;
+                            self.pane_split_ratio.main_queue = main_queue_split_ratio;
+                        }
                     }
                     PaneSplit::MainQueue => {
-                        self.pane_split_ratio.main_queue = split_ratio as f64;
+                        if is_vertical_pane_split_valid(
+                            self.pane_split_ratio.explorer_main,
+                            split_ratio,
+                            self.window_size.width as f64,
+                        ) {
+                            self.pane_split_ratio.main_queue = split_ratio as f64;
+                        }
                     }
                     PaneSplit::QueueTrackInformation => {
-                        self.pane_split_ratio.queue_track_information = split_ratio as f64;
+                        if is_horizontal_pane_split_valid(
+                            split_ratio,
+                            self.window_size.height as f64,
+                        ) {
+                            self.pane_split_ratio.queue_track_information = split_ratio as f64;
+                        }
                     }
                 }
             }
@@ -264,7 +283,7 @@ impl App {
             queue_pane,
             track_information_pane,
             self.pane_split_ratio.queue_track_information as f32,
-            |split_at| Message::SplitDragged(PaneSplit::QueueTrackInformation, split_at),
+            |split_at| Message::SplitDragged(PaneSplit::QueueTrackInformation, split_at as f64),
         )
         .handle_width(5.0);
 
@@ -272,7 +291,7 @@ impl App {
             main_pane,
             queue_track_information_pane_split,
             self.pane_split_ratio.main_queue as f32,
-            |split_at| Message::SplitDragged(PaneSplit::MainQueue, split_at),
+            |split_at| Message::SplitDragged(PaneSplit::MainQueue, split_at as f64),
         )
         .handle_width(5.0);
 
@@ -280,7 +299,7 @@ impl App {
             explorer_pane,
             main_queue_pane_split,
             self.pane_split_ratio.explorer_main as f32,
-            |split_at| Message::SplitDragged(PaneSplit::ExplorerMain, split_at),
+            |split_at| Message::SplitDragged(PaneSplit::ExplorerMain, split_at as f64),
         )
         .handle_width(5.0);
 
