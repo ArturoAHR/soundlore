@@ -228,10 +228,8 @@ impl PlaybackBar {
             track_name_label = get_track_label(track);
 
             track_duration_timestamp = get_track_duration_label(track);
-            current_position_timestamp = format_duration(
-                ((current_position / total_frames) * total_frames / track.sample_rate as f64)
-                    .floor() as u64,
-            )
+            current_position_timestamp =
+                format_duration((current_position / track.sample_rate as f64).floor() as u64)
         }
 
         let play_previous = button(icon(icons::PLAY_PREVIOUS));
