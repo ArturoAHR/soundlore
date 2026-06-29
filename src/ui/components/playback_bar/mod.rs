@@ -28,16 +28,52 @@ pub struct PlaybackBar {
     current_position: f64,
     pub current_position_generation_threshold: u64,
 
+    status: PlaybackBarStatus,
+
+    // TODO: These values must live in the app state, declaring them here for mocking UI.
     volume_percentage: u8,
     muted: bool,
 
-    status: PlaybackBarStatus,
+    repeat_mode: PlaybackRepeatMode,
+    queue_order: PlaybackQueueOrder,
 }
 
 #[derive(Debug)]
 pub enum PlaybackBarStatus {
     Playing,
     Paused,
+}
+
+#[derive(Debug)]
+pub enum PlaybackRepeatMode {
+    NoRepeat,
+    RepeatAll,
+    RepeatOne,
+}
+
+impl PlaybackRepeatMode {
+    pub fn next(&self) -> Self {
+        match self {
+            PlaybackRepeatMode::NoRepeat => PlaybackRepeatMode::RepeatAll,
+            PlaybackRepeatMode::RepeatAll => PlaybackRepeatMode::RepeatOne,
+            PlaybackRepeatMode::RepeatOne => PlaybackRepeatMode::NoRepeat,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum PlaybackQueueOrder {
+    Sequential,
+    Shuffle,
+}
+
+impl PlaybackQueueOrder {
+    pub fn next(&self) -> Self {
+        match self {
+            PlaybackQueueOrder::Sequential => PlaybackQueueOrder::Shuffle,
+            PlaybackQueueOrder::Shuffle => PlaybackQueueOrder::Sequential,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +85,8 @@ pub enum Message {
     PlaybackProgressed(f64),
     ChangeVolumePercentage(u8),
     MutePlayback,
+    CycleRepeatMode,
+    CycleQueueOrder,
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +120,9 @@ impl PlaybackBar {
 
             muted: false,
             volume_percentage: 100,
+
+            repeat_mode: PlaybackRepeatMode::NoRepeat,
+            queue_order: PlaybackQueueOrder::Sequential,
         }
     }
 
@@ -135,6 +176,13 @@ impl PlaybackBar {
             // TODO: Add playback outcome to change volume
             Message::MutePlayback => {
                 self.muted = !self.muted;
+            }
+            // TODO: Wire these two changes in upper for queue functionality
+            Message::CycleRepeatMode => {
+                self.repeat_mode = self.repeat_mode.next();
+            }
+            Message::CycleQueueOrder => {
+                self.queue_order = self.queue_order.next();
             }
         };
 
@@ -193,9 +241,20 @@ impl PlaybackBar {
             current_position_timestamp, track_duration_timestamp
         );
 
+        let repeat_mode_icon = match self.repeat_mode {
+            PlaybackRepeatMode::NoRepeat => 'N', //Placeholder
+            PlaybackRepeatMode::RepeatAll => icons::LOOP_TRACKLIST,
+            PlaybackRepeatMode::RepeatOne => '1', //Placeholder
+        };
+
+        let queue_order_icon = match self.queue_order {
+            PlaybackQueueOrder::Sequential => icons::NO_SHUFFLE,
+            PlaybackQueueOrder::Shuffle => icons::SHUFFLE,
+        };
+
         container(
             row![
-                row![play_previous, play_button, play_next],
+                row![play_previous, play_button, play_next].spacing(10.0),
                 column![
                     row![
                         text(track_name_label),
@@ -206,7 +265,9 @@ impl PlaybackBar {
                         .on_release(Message::Seeked)
                 ]
                 .spacing(10.0),
-                volume_bar(self.volume_percentage, self.muted)
+                volume_bar(self.volume_percentage, self.muted),
+                button(icon(repeat_mode_icon)).on_press(Message::CycleRepeatMode),
+                button(icon(queue_order_icon)).on_press(Message::CycleQueueOrder),
             ]
             .align_y(Alignment::Center)
             .spacing(20.0),
