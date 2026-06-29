@@ -111,6 +111,11 @@ pub struct PlaybackBarEventContext {
     pub playback_engine_generation: u64,
 }
 
+/*
+ * TODO:
+ * - Handle track label overflow.
+ * - Fix icons with consistent design.
+ */
 impl PlaybackBar {
     pub fn new() -> Self {
         Self {
