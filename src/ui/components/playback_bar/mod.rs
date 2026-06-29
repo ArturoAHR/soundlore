@@ -13,6 +13,7 @@ use crate::{
         utils::{get_track_duration_label, get_track_label},
     },
     ui::{
+        components::playback_bar::widgets::volume_bar,
         theme::Theme,
         utils::seconds_to_timestamp,
         widgets::icons::{self, icon},
@@ -20,11 +21,15 @@ use crate::{
 };
 
 pub mod handler;
+pub mod widgets;
 
 #[derive(Debug)]
 pub struct PlaybackBar {
     current_position: f64,
     pub current_position_generation_threshold: u64,
+
+    volume_percentage: u8,
+    muted: bool,
 
     status: PlaybackBarStatus,
 }
@@ -42,6 +47,8 @@ pub enum Message {
     Scrubbed(f64),
     Seeked,
     PlaybackProgressed(f64),
+    ChangeVolumePercentage(u8),
+    MutePlayback,
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +79,9 @@ impl PlaybackBar {
             status: PlaybackBarStatus::Playing,
             current_position: 0.0,
             current_position_generation_threshold: 0,
+
+            muted: false,
+            volume_percentage: 100,
         }
     }
 
@@ -81,23 +91,21 @@ impl PlaybackBar {
         event: Message,
         ctx: PlaybackBarUpdateContext,
     ) -> (Task<Message>, Vec<Outcome>) {
+        let task = Task::none();
+        let mut outcomes = Vec::new();
+
         match event {
             Message::Scrubbed(position) => {
                 self.current_position = position;
 
                 self.current_position_generation_threshold = ctx.playback_engine_generation;
 
-                let mut outcomes = Vec::new();
                 if PlaybackControllerStatus::Playing == *ctx.playback_controller_status {
                     outcomes.push(Outcome::Playback(PlaybackOutcome::Pause));
                 };
-
-                (Task::none(), outcomes)
             }
             Message::PlaybackProgressed(position) => {
                 self.current_position = position;
-
-                (Task::none(), Vec::new())
             }
             Message::Seeked => {
                 let pre_seek_status = match self.status {
@@ -105,31 +113,32 @@ impl PlaybackBar {
                     PlaybackBarStatus::Paused => PlaybackControllerStatus::Stopped,
                 };
 
-                (
-                    Task::none(),
-                    vec![Outcome::Playback(PlaybackOutcome::Seek {
-                        timestamp: self.current_position.round() as u64,
-                        post_seek_status: pre_seek_status,
-                    })],
-                )
+                outcomes = vec![Outcome::Playback(PlaybackOutcome::Seek {
+                    timestamp: self.current_position.round() as u64,
+                    post_seek_status: pre_seek_status,
+                })];
             }
             Message::Resume => {
                 self.status = PlaybackBarStatus::Playing;
 
-                (
-                    Task::none(),
-                    vec![Outcome::Playback(PlaybackOutcome::Resume)],
-                )
+                outcomes = vec![Outcome::Playback(PlaybackOutcome::Resume)];
             }
             Message::Pause => {
                 self.status = PlaybackBarStatus::Paused;
 
-                (
-                    Task::none(),
-                    vec![Outcome::Playback(PlaybackOutcome::Pause)],
-                )
+                outcomes = vec![Outcome::Playback(PlaybackOutcome::Pause)];
             }
-        }
+            // TODO: Add playback outcome to change volume
+            Message::ChangeVolumePercentage(volume_percentage) => {
+                self.volume_percentage = volume_percentage;
+            }
+            // TODO: Add playback outcome to change volume
+            Message::MutePlayback => {
+                self.muted = !self.muted;
+            }
+        };
+
+        (task, outcomes)
     }
 
     #[instrument(skip(self), level = "debug")]
@@ -196,7 +205,8 @@ impl PlaybackBar {
                     slider(0.0..=total_frames, current_position, Message::Scrubbed)
                         .on_release(Message::Seeked)
                 ]
-                .spacing(10.0)
+                .spacing(10.0),
+                volume_bar(self.volume_percentage, self.muted)
             ]
             .align_y(Alignment::Center)
             .spacing(20.0),

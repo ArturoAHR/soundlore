@@ -15,6 +15,8 @@ pub const SHUFFLE: char = '\u{E80A}';
 pub const NO_SHUFFLE: char = '\u{E801}';
 pub const EQUALIZER: char = '\u{E800}';
 pub const MENU: char = '\u{E806}';
+pub const VOLUME: char = '\u{E808}';
+pub const VOLUME_MUTED: char = '\u{E80B}';
 
 pub fn icon<'a, M, T>(codepoint: char) -> Element<'a, M, T>
 where
