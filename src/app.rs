@@ -1,12 +1,12 @@
 use std::path::{Path, PathBuf};
 
-use iced_split::vertical_split;
+use iced_split::{horizontal_split, vertical_split};
 use sqlx::SqlitePool;
 
 use iced::{
     Element, Length, Size, Subscription, Task,
     time::{every, milliseconds},
-    widget::{column, row},
+    widget::{column, container},
     window,
 };
 use tracing::{info, instrument};
@@ -44,7 +44,7 @@ pub struct App {
     pub window_size: Size,
     pub main_window_id: Option<window::Id>,
 
-    pub pane_split_ratio: SplitPositions,
+    pub pane_split_ratio: PaneSplitPositions,
 
     pub playback_controller: PlaybackController,
 
@@ -72,7 +72,7 @@ pub enum Message {
     LoadedTracks(Result<Vec<Track>, AppError>),
     ScanDirectory(Option<Vec<PathBuf>>),
     ScannedDirectory(Result<(), AppError>),
-    SplitDragged(Split, f32),
+    SplitDragged(PaneSplit, f32),
     WindowResized(Option<window::Id>, Size),
     GetWindowId(window::Id),
 
@@ -87,17 +87,20 @@ pub enum Message {
     Playback(playback::Message),
 }
 
-pub struct SplitPositions {
+pub struct PaneSplitPositions {
     pub explorer_main: f64,
     pub main_queue: f64,
+    pub queue_track_information: f64,
 }
 
 #[derive(Debug, Clone)]
-pub enum Split {
+pub enum PaneSplit {
     /// The split between the explorer pane and main pane.
     ExplorerMain,
     /// The split between the main pane and the column with the queue pane and the track information pane.
     MainQueue,
+    /// The split between the queue pane and the track information pane.
+    QueueTrackInformation,
 }
 
 impl App {
@@ -122,9 +125,10 @@ impl App {
                 window_size: Size::default(),
                 main_window_id: None,
 
-                pane_split_ratio: SplitPositions {
+                pane_split_ratio: PaneSplitPositions {
                     explorer_main: 0.2,
                     main_queue: 0.6,
+                    queue_track_information: 0.8,
                 },
 
                 playback_controller,
@@ -169,7 +173,7 @@ impl App {
         match message {
             Message::SplitDragged(split, split_ratio) => {
                 match split {
-                    Split::ExplorerMain => {
+                    PaneSplit::ExplorerMain => {
                         // Since the main-queue split is a children of the explorer-main split, we
                         // need to calculate the new ratio of the main-queue split so the split stays
                         // in place.
@@ -181,8 +185,11 @@ impl App {
                         self.pane_split_ratio.explorer_main = split_ratio as f64;
                         self.pane_split_ratio.main_queue = main_queue_split_ratio;
                     }
-                    Split::MainQueue => {
+                    PaneSplit::MainQueue => {
                         self.pane_split_ratio.main_queue = split_ratio as f64;
+                    }
+                    PaneSplit::QueueTrackInformation => {
+                        self.pane_split_ratio.queue_track_information = split_ratio as f64;
                     }
                 }
             }
@@ -253,25 +260,35 @@ impl App {
 
         let playback_bar = self.view_playback_bar();
 
+        let queue_track_information_pane_split = horizontal_split(
+            queue_pane,
+            track_information_pane,
+            self.pane_split_ratio.queue_track_information as f32,
+            |split_at| Message::SplitDragged(PaneSplit::QueueTrackInformation, split_at),
+        )
+        .handle_width(5.0);
+
+        let main_queue_pane_split = vertical_split(
+            main_pane,
+            queue_track_information_pane_split,
+            self.pane_split_ratio.main_queue as f32,
+            |split_at| Message::SplitDragged(PaneSplit::MainQueue, split_at),
+        )
+        .handle_width(5.0);
+
+        let explorer_main_pane_split = vertical_split(
+            explorer_pane,
+            main_queue_pane_split,
+            self.pane_split_ratio.explorer_main as f32,
+            |split_at| Message::SplitDragged(PaneSplit::ExplorerMain, split_at),
+        )
+        .handle_width(5.0);
+
         column![
             navigation_bar,
-            row![
-                vertical_split(
-                    explorer_pane,
-                    vertical_split(
-                        main_pane,
-                        column![queue_pane, track_information_pane],
-                        self.pane_split_ratio.main_queue as f32,
-                        |split_at| Message::SplitDragged(Split::MainQueue, split_at)
-                    )
-                    .handle_width(5.0),
-                    self.pane_split_ratio.explorer_main as f32,
-                    |split_at| Message::SplitDragged(Split::ExplorerMain, split_at)
-                )
-                .handle_width(5.0),
-            ]
-            .height(Length::Fill)
-            .width(Length::Fill),
+            container(explorer_main_pane_split)
+                .height(Length::Fill)
+                .width(Length::Fill),
             status_bar,
             playback_bar
         ]
