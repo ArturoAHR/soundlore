@@ -2,7 +2,7 @@ use std::str::from_utf8;
 
 use tracing::instrument;
 
-use crate::{track::models::Track, ui::utils::seconds_to_timestamp};
+use crate::{track::models::Track, ui::utils::label::format_duration};
 
 #[instrument(level = "trace", ret(level = "trace"))]
 pub fn fix_latin1_utf8_mojibake(s: &str) -> String {
@@ -32,5 +32,5 @@ pub fn get_track_label(track: &Track) -> String {
 pub fn get_track_duration_label(track: &Track) -> String {
     let duration_seconds = (track.frames as f64 / track.sample_rate as f64).floor() as u64;
 
-    seconds_to_timestamp(duration_seconds)
+    format_duration(duration_seconds)
 }

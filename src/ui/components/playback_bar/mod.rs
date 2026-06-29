@@ -15,7 +15,7 @@ use crate::{
     ui::{
         components::playback_bar::widgets::volume_bar,
         theme::Theme,
-        utils::seconds_to_timestamp,
+        utils::label::format_duration,
         widgets::icons::{self, icon},
     },
 };
@@ -228,7 +228,7 @@ impl PlaybackBar {
             track_name_label = get_track_label(track);
 
             track_duration_timestamp = get_track_duration_label(track);
-            current_position_timestamp = seconds_to_timestamp(
+            current_position_timestamp = format_duration(
                 ((current_position / total_frames) * total_frames / track.sample_rate as f64)
                     .floor() as u64,
             )

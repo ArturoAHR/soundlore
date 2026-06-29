@@ -13,6 +13,7 @@ use tracing::{info, instrument};
 
 use crate::{
     app::Message::LoadTracks,
+    constants::{MIN_HORIZONTAL_SPLIT_PANE_HEIGHT, MIN_VERTICAL_SPLIT_PANE_WIDTH},
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{self, PlaybackController, engine::device::watch_default_device},
@@ -28,7 +29,7 @@ use crate::{
             track_information_pane::{self, TrackInformationPane},
         },
         theme::Theme,
-        utils::{is_horizontal_pane_split_valid, is_vertical_pane_split_valid},
+        utils::pane::{are_pane_heights_valid, are_pane_widths_valid},
     },
 };
 
@@ -183,28 +184,31 @@ impl App {
                                 * (1.0 - self.pane_split_ratio.main_queue)
                                 / (1.0 - split_ratio as f64);
 
-                        if is_vertical_pane_split_valid(
+                        if are_pane_widths_valid(
                             split_ratio,
                             main_queue_split_ratio,
                             self.window_size.width as f64,
+                            MIN_VERTICAL_SPLIT_PANE_WIDTH,
                         ) {
                             self.pane_split_ratio.explorer_main = split_ratio as f64;
                             self.pane_split_ratio.main_queue = main_queue_split_ratio;
                         }
                     }
                     PaneSplit::MainQueue => {
-                        if is_vertical_pane_split_valid(
+                        if are_pane_widths_valid(
                             self.pane_split_ratio.explorer_main,
                             split_ratio,
                             self.window_size.width as f64,
+                            MIN_VERTICAL_SPLIT_PANE_WIDTH,
                         ) {
                             self.pane_split_ratio.main_queue = split_ratio as f64;
                         }
                     }
                     PaneSplit::QueueTrackInformation => {
-                        if is_horizontal_pane_split_valid(
+                        if are_pane_heights_valid(
                             split_ratio,
                             self.window_size.height as f64,
+                            MIN_HORIZONTAL_SPLIT_PANE_HEIGHT,
                         ) {
                             self.pane_split_ratio.queue_track_information = split_ratio as f64;
                         }
