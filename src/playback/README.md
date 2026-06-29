@@ -8,7 +8,7 @@ The audio engine is meant to handle everything related to the output stream buil
 
 **Important:** The output callback must not block, allocate, decode or perform any sort of database queries or I/O, it must be as performant as possible since it is a critical flow to output audio to the system. If there is an underrun of samples from the ring buffer the output stream receives silence.
 
-**Note:** The stream callback gets continuously called no matter what and pauses through an atomic boolean, this unblocks generation counter acknowledgement while the playback is paused. We don't use the stream play and pause methods due to inconsistencies between output devices, it might be a no-op for some output backends like ALSA.
+**Note:** The stream callback gets continuously called no matter what and pauses through an atomic boolean, this unblocks generation counter acknowledgement while the playback is paused. We don't use the stream play and pause methods due to inconsistencies between output devices, it might be a no-op for some output backends like ALSA, however since some output devices could start paused we issue a direct play command when creating an output stream.
 
 ## Audio Pipeline
 
