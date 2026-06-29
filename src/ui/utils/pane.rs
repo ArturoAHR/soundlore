@@ -43,10 +43,10 @@ pub fn are_pane_heights_valid(
     let queue_pane_ratio = queue_track_information_ratio;
     let track_information_ratio = 1.0 - queue_track_information_ratio;
 
-    let queue_pane_width = queue_pane_ratio * window_height;
-    let track_information_width = track_information_ratio * window_height;
+    let queue_pane_height = queue_pane_ratio * window_height;
+    let track_information_pane_height = track_information_ratio * window_height;
 
-    queue_pane_width >= minimum_height && track_information_width >= minimum_height
+    queue_pane_height >= minimum_height && track_information_pane_height >= minimum_height
 }
 
 #[cfg(test)]
