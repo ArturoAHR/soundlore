@@ -61,13 +61,17 @@ impl MainPane {
             })
             .collect();
 
-        container(scrollable(Column::with_children(track_rows)))
-            .height(Length::Fill)
-            .width(Length::Fill)
-            .style(|theme: &Theme| container::Style {
-                background: Some(theme.palette.surface.into()),
-                ..container::Style::default()
-            })
-            .into()
+        container(scrollable(
+            Column::with_children(track_rows)
+                .width(Length::Fill)
+                .height(Length::Fill),
+        ))
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .style(|theme: &Theme| container::Style {
+            background: Some(theme.palette.surface.into()),
+            ..container::Style::default()
+        })
+        .into()
     }
 }
