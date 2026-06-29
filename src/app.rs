@@ -13,7 +13,6 @@ use tracing::{info, instrument};
 
 use crate::{
     app::Message::LoadTracks,
-    constants::MIN_VERTICAL_SPLIT_PANE_WIDTH,
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{self, PlaybackController, engine::device::watch_default_device},
