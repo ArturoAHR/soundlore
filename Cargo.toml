@@ -12,7 +12,7 @@ edition = "2024"
 name = "soundlore_lib"
 
 [dependencies]
-iced = { version = "0.14.0", features = ["tokio"] }
+iced = { version = "0.14.0", features = ["tokio", "advanced"] }
 iced_aw = { version = "0.14.1", default-features = false, features = ["menu", "context_menu", "quad"] }
 sea-query = { version = "1.0.0-rc.32", features = ["derive", "backend-sqlite"] }
 serde = { version = "1", features = ["derive"] }

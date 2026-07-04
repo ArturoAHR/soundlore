@@ -5,4 +5,5 @@ pub mod menu_bar;
 pub mod scrollable;
 pub mod slider;
 pub mod split;
+pub mod table;
 pub mod text;
