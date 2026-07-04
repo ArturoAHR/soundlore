@@ -1,10 +1,18 @@
 use iced::{
     Element, Length, Renderer, Task,
-    widget::{Column, button, container, scrollable, text},
+    widget::{self, button, container, scrollable, text},
 };
 use tracing::instrument;
 
-use crate::{event::Event, outcome::PlaybackOutcome, track::models::Track, ui::theme::Theme};
+use crate::{
+    event::Event,
+    outcome::PlaybackOutcome,
+    track::models::Track,
+    ui::{
+        theme::Theme,
+        widgets::table::{column, table},
+    },
+};
 
 pub mod handler;
 
@@ -46,7 +54,10 @@ impl MainPane {
         Task::none()
     }
 
-    pub fn view<'a>(&'a self, ctx: MainPaneViewContext) -> Element<'a, Message, Theme, Renderer> {
+    pub fn view<'a>(
+        &'a self,
+        ctx: MainPaneViewContext<'a>,
+    ) -> Element<'a, Message, Theme, Renderer> {
         let track_rows: Vec<Element<Message, Theme, Renderer>> = ctx
             .tracks
             .iter()
@@ -61,17 +72,31 @@ impl MainPane {
             })
             .collect();
 
-        container(scrollable(
-            Column::with_children(track_rows)
+        let _columns = scrollable(
+            widget::Column::with_children(track_rows)
                 .width(Length::Fill)
                 .height(Length::Fill),
-        ))
-        .height(Length::Fill)
-        .width(Length::Fill)
-        .style(|theme: &Theme| container::Style {
-            background: Some(theme.palette.surface.into()),
-            ..container::Style::default()
-        })
-        .into()
+        );
+
+        let columns = vec![
+            column(Some(text("Title").into()), |track: &Track| {
+                text(track.title.clone().unwrap_or("Untitled".to_owned()))
+            }),
+            column(Some(text("Artist").into()), |track: &Track| {
+                text(track.artist.clone().unwrap_or("Unknown".to_owned()))
+            }),
+            column(Some(text("").into()), |track: &Track| {
+                text(track.artist.clone().unwrap_or("Unknown".to_owned()))
+            }),
+        ];
+
+        container(table(columns, &ctx.tracks))
+            .height(Length::Fill)
+            .width(Length::Fill)
+            .style(|theme: &Theme| container::Style {
+                background: Some(theme.palette.surface.into()),
+                ..container::Style::default()
+            })
+            .into()
     }
 }
