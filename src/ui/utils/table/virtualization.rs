@@ -18,6 +18,7 @@ pub fn get_visible_range(
 ) -> Range<usize> {
     if row_height <= 0.5 {
         error!("Failed to determine visible range, row height is too small");
+
         return 0..0;
     }
 
