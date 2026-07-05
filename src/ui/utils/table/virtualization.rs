@@ -1,6 +1,8 @@
 use std::ops::Range;
 
-use tracing::error;
+use tracing::{error, instrument};
+
+use crate::ui::widgets::table::Column;
 
 /// Gets the visible range of elements that we need to display in a table based on the vertical offset
 /// and different heights
@@ -9,6 +11,7 @@ use tracing::error;
 /// // Need to show 5 rows for a container with size 120.0 and header with size 20.0.
 /// assert_eq!(0..5, get_visible_range(120.0, 20.0, 20.0, 0.0));
 /// ```
+#[instrument(level = "debug")]
 pub fn get_visible_range(
     container_height: f32,
     row_height: f32,
@@ -16,13 +19,7 @@ pub fn get_visible_range(
     offset_y: f32,
 ) -> Range<usize> {
     if row_height <= 0.5 {
-        error!(
-            container_height = ?container_height,
-            row_height = ?row_height,
-            header_height = ?header_height,
-            offset_y = ?offset_y,
-            "Failed to determine visible range, row height is too small"
-        );
+        error!("Failed to determine visible range, row height is too small");
         return 0..0;
     }
 

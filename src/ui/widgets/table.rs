@@ -9,7 +9,10 @@ use iced::{
     },
     alignment,
     border::Radius,
+    widget::Space,
 };
+
+use crate::ui::utils::table::virtualization::get_visible_range;
 
 pub struct Table<'a, T, Message, Theme, Renderer = iced::Renderer>
 where
@@ -20,10 +23,11 @@ where
     header_height: f32,
     row_height: f32,
 
-    header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
-
     columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
     records: &'a [T],
+
+    header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
+    body_cells: Vec<Element<'a, Message, Theme, Renderer>>,
 }
 
 // pub struct ColumnConfiguration {
@@ -45,10 +49,11 @@ where
             header_height: 40.0,
             row_height: 40.0,
 
-            header_cells: Vec::new(),
-
             columns,
             records,
+
+            header_cells: Vec::new(),
+            body_cells: Vec::new(),
         }
     }
 }
@@ -70,6 +75,7 @@ where
 impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Table<'a, T, Message, Theme, Renderer>
 where
+    Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
@@ -89,7 +95,37 @@ where
     }
 
     fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        let offset_y = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State>();
+
+        let has_header = self.columns.iter().any(|column| column.header.is_some());
+        let header_height = if has_header { self.header_height } else { 0.0 };
+
+        if has_header {
+            self.header_cells = Vec::with_capacity(self.columns.len());
+
+            for column in &mut self.columns {
+                self.header_cells
+                    .push(column.header.take().unwrap_or(Space::new().into()))
+            }
+        }
+
+        let mut visible_row_range = get_visible_range(
+            limits.max().height,
+            self.row_height,
+            header_height,
+            state.offset_y,
+        );
+
+        visible_row_range.start = visible_row_range.start.clamp(0, self.records.len());
+        visible_row_range.end = visible_row_range.end.clamp(0, self.records.len());
+
+        self.body_cells = Vec::with_capacity(visible_row_range.len() * self.columns.len());
+
+        for record in &self.records[visible_row_range] {
+            for column in &self.columns {
+                self.body_cells.push((column.view)(record).into());
+            }
+        }
 
         Node::new(limits.max())
     }
@@ -122,7 +158,8 @@ where
 pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
     header: Option<Element<'a, Message, Theme, Renderer>>,
     view: Box<dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a>,
-    width: Length,
+    width: f32,
+    min_width: f32,
     align_x: alignment::Horizontal,
     align_y: alignment::Vertical,
     resizable: bool,
@@ -140,7 +177,8 @@ where
     Column {
         header,
         view: Box::new(move |data| view(data).into()),
-        width: Length::Fill,
+        width: 100.0,
+        min_width: 20.0,
         align_x: alignment::Horizontal::Left,
         align_y: alignment::Vertical::Center,
         resizable: false,
@@ -149,8 +187,14 @@ where
 }
 
 impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
-    pub fn width(mut self, width: impl Into<Length>) -> Self {
+    pub fn width(mut self, width: impl Into<f32>) -> Self {
         self.width = width.into();
+
+        self
+    }
+
+    pub fn min_width(mut self, min_width: impl Into<f32>) -> Self {
+        self.min_width = min_width.into();
 
         self
     }
