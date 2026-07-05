@@ -1,15 +1,11 @@
 use super::*;
 
-fn generate_column_width_specifications(
-    widths: &[f64],
-    min_width: f64,
-) -> Vec<ColumnWidthSpecification> {
+fn generate_column_width_specifications(widths: &[f64], min_width: f64) -> Vec<ColumnWidth> {
     widths
         .iter()
-        .map(|width| ColumnWidthSpecification {
+        .map(|width| ColumnWidth::Resizable {
             width: *width,
             min_width,
-            resizable: true,
         })
         .collect()
 }
@@ -87,7 +83,7 @@ fn should_return_unchanged_widths_if_passed_in_non_resizable_columns_widths_fit_
     let mut columns = generate_column_width_specifications(&column_widths, 100.0);
     columns
         .iter_mut()
-        .for_each(|column| column.resizable = false);
+        .for_each(|column| *column = ColumnWidth::Fixed { width: 200.0 });
 
     let resulting_column_widths = get_column_widths(container_width, columns.clone());
 
@@ -104,7 +100,7 @@ fn should_return_unchanged_widths_if_all_columns_are_not_resizable_and_the_sum_i
     let mut columns = generate_column_width_specifications(&column_widths, 100.0);
     columns
         .iter_mut()
-        .for_each(|column| column.resizable = false);
+        .for_each(|column| *column = ColumnWidth::Fixed { width: 200.0 });
 
     let resulting_column_widths = get_column_widths(container_width, columns.clone());
 
@@ -136,7 +132,7 @@ fn should_return_proportionally_increased_widths_if_column_width_sum_is_less_tha
 
     let mut columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    columns[0].resizable = false;
+    columns[0] = ColumnWidth::Fixed { width: 200.0 };
 
     let resulting_column_widths = get_column_widths(container_width, columns.clone());
 
@@ -172,8 +168,8 @@ fn should_return_proportionally_increased_widths_if_column_width_sum_is_less_tha
 
     let mut columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    columns[0].resizable = false;
-    columns[6].resizable = false;
+    columns[0] = ColumnWidth::Fixed { width: 50.0 };
+    columns[6] = ColumnWidth::Fixed { width: 50.0 };
 
     let resulting_column_widths = get_column_widths(container_width, columns.clone());
 
@@ -209,7 +205,7 @@ fn should_return_proportionally_decreased_widths_if_column_width_sum_is_more_tha
 
     let mut columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    columns[0].resizable = false;
+    columns[0] = ColumnWidth::Fixed { width: 200.0 };
 
     let resulting_column_widths = get_column_widths(container_width, columns.clone());
 
@@ -245,8 +241,8 @@ fn should_return_proportionally_decreased_widths_if_column_width_sum_is_more_tha
 
     let mut columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    columns[0].resizable = false;
-    columns[6].resizable = false;
+    columns[0] = ColumnWidth::Fixed { width: 50.0 };
+    columns[6] = ColumnWidth::Fixed { width: 50.0 };
 
     let resulting_column_widths = get_column_widths(container_width, columns.clone());
 
@@ -270,7 +266,7 @@ fn should_return_minimum_widths_if_all_columns_minimum_widths_sum_is_equal_to_co
     assert_column_widths(
         &columns
             .iter()
-            .map(|column| column.min_width)
+            .map(ColumnWidth::get_min_width)
             .collect::<Vec<f64>>(),
         &resulting_column_widths,
     );
@@ -288,7 +284,7 @@ fn should_return_minimum_widths_if_all_columns_minimum_widths_sum_is_larger_than
     assert_column_widths(
         &columns
             .iter()
-            .map(|column| column.min_width)
+            .map(ColumnWidth::get_min_width)
             .collect::<Vec<f64>>(),
         &resulting_column_widths,
     );
