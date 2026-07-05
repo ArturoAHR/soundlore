@@ -2,12 +2,10 @@ use std::ops::Range;
 
 use tracing::{error, instrument};
 
-use crate::ui::widgets::table::Column;
-
 /// Gets the visible range of elements that we need to display in a table based on the vertical offset
 /// and different heights
 /// ```
-/// # use soundlore_lib::ui::utils::table::get_visible_range;
+/// # use soundlore_lib::ui::utils::table::virtualization::get_visible_range;
 /// // Need to show 5 rows for a container with size 120.0 and header with size 20.0.
 /// assert_eq!(0..5, get_visible_range(120.0, 20.0, 20.0, 0.0));
 /// ```
@@ -54,7 +52,7 @@ mod tests {
 
     #[test]
     fn should_get_visible_range_without_header_height() {
-        assert_eq!(0..6, get_visible_range(120.0, 20.0, 20.0, 10.0));
+        assert_eq!(0..7, get_visible_range(120.0, 20.0, 0.0, 10.0));
     }
 
     #[test]
