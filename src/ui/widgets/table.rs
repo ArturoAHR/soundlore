@@ -134,6 +134,7 @@ where
 
         if self.has_header {
             self.header_cells = Vec::with_capacity(self.columns.len());
+            self.header_cell_trees = Vec::with_capacity(self.columns.len());
 
             for column in &mut self.columns {
                 self.header_cells
@@ -152,6 +153,7 @@ where
         visible_row_range.end = visible_row_range.end.clamp(0, self.records.len());
 
         self.body_cells = Vec::with_capacity(visible_row_range.len() * self.columns.len());
+        self.body_cell_trees = Vec::with_capacity(visible_row_range.len() * self.columns.len());
 
         for record in &self.records[visible_row_range.clone()] {
             for column in &self.columns {
