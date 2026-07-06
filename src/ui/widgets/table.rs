@@ -1,5 +1,5 @@
 use iced::{
-    Border, Color, Element, Length, Rectangle, Size,
+    Border, Color, Element, Length, Point, Rectangle, Size,
     advanced::{
         Layout,
         layout::{Limits, Node},
@@ -12,7 +12,10 @@ use iced::{
     widget::Space,
 };
 
-use crate::ui::utils::table::virtualization::get_visible_range;
+use crate::ui::utils::table::{
+    column::{ColumnWidth, get_column_widths},
+    virtualization::get_visible_range,
+};
 
 pub struct Table<'a, T, Message, Theme, Renderer = iced::Renderer>
 where
@@ -23,38 +26,66 @@ where
     header_height: f32,
     row_height: f32,
 
+    has_header: bool,
     columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
     records: &'a [T],
 
     header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
+    header_cell_trees: Vec<Tree>,
     body_cells: Vec<Element<'a, Message, Theme, Renderer>>,
+    body_cell_trees: Vec<Tree>,
 }
-
-// pub struct ColumnConfiguration {
-//     width: Length,
-//     align_x: alignment::Horizontal,
-//     align_y: alignment::Vertical,
-//     resizable: bool,
-//     sortable: bool,
-// }
 
 impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
 where
     Theme: Catalog,
 {
     pub fn new(columns: Vec<Column<'a, T, Message, Theme, Renderer>>, records: &'a [T]) -> Self {
+        let has_header = columns.iter().any(|column| column.header.is_some());
+        let header_height = if has_header { 40.0 } else { 0.0 };
+
         Self {
+            header_height,
+            has_header,
+
             width: Length::Fill,
             height: Length::Fill,
-            header_height: 40.0,
             row_height: 40.0,
 
             columns,
             records,
 
             header_cells: Vec::new(),
+            header_cell_trees: Vec::new(),
             body_cells: Vec::new(),
+            body_cell_trees: Vec::new(),
         }
+    }
+
+    pub fn height(mut self, height: impl Into<Length>) -> Self {
+        self.height = height.into();
+
+        self
+    }
+
+    pub fn width(mut self, width: impl Into<Length>) -> Self {
+        self.width = width.into();
+
+        self
+    }
+
+    pub fn header_height(mut self, header_height: impl Into<f32>) -> Self {
+        if self.has_header {
+            self.header_height = header_height.into();
+        }
+
+        self
+    }
+
+    pub fn row_height(mut self, row_height: impl Into<f32>) -> Self {
+        self.row_height = row_height.into();
+
+        self
     }
 }
 
@@ -94,13 +125,14 @@ where
         tree::State::new(State { offset_y: 0.0 })
     }
 
+    /// Creates the table cells with virtualization and the layout for the table, if the header
+    /// is present, first column count child nodes are the header cell nodes.
     fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
         let state = tree.state.downcast_mut::<State>();
 
-        let has_header = self.columns.iter().any(|column| column.header.is_some());
-        let header_height = if has_header { self.header_height } else { 0.0 };
+        // Children Cell Generation
 
-        if has_header {
+        if self.has_header {
             self.header_cells = Vec::with_capacity(self.columns.len());
 
             for column in &mut self.columns {
@@ -112,7 +144,7 @@ where
         let mut visible_row_range = get_visible_range(
             limits.max().height,
             self.row_height,
-            header_height,
+            self.header_height,
             state.offset_y,
         );
 
@@ -121,13 +153,109 @@ where
 
         self.body_cells = Vec::with_capacity(visible_row_range.len() * self.columns.len());
 
-        for record in &self.records[visible_row_range] {
+        for record in &self.records[visible_row_range.clone()] {
             for column in &self.columns {
                 self.body_cells.push((column.view)(record).into());
             }
         }
 
-        Node::new(limits.max())
+        // Column Width Resolution
+
+        let container_width = limits.max().width as f64;
+        let column_widths = self
+            .columns
+            .iter()
+            .map(|column| {
+                if column.resizable {
+                    ColumnWidth::Resizable {
+                        width: column.width as f64,
+                        min_width: column.min_width as f64,
+                    }
+                } else {
+                    ColumnWidth::Fixed {
+                        width: column.width as f64,
+                    }
+                }
+            })
+            .collect();
+
+        let column_widths = get_column_widths(container_width, column_widths);
+
+        for (column, column_width) in self.columns.iter_mut().zip(column_widths) {
+            column.width = column_width as f32;
+        }
+
+        // Child Node Generation
+
+        let mut nodes = Vec::new();
+
+        let mut cell_offsets_x = Vec::new();
+        let mut column_width_offset_sum = 0.0;
+        for column in self.columns.iter() {
+            cell_offsets_x.push(column_width_offset_sum);
+            column_width_offset_sum += column.width;
+        }
+
+        let mut cell_offsets_y = Vec::new();
+        let mut row_height_offset_sum =
+            self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
+        for _ in visible_row_range {
+            cell_offsets_y.push(row_height_offset_sum);
+            row_height_offset_sum += self.row_height;
+        }
+
+        if self.has_header {
+            for ((header_cell, column), offset_x) in self
+                .header_cells
+                .iter_mut()
+                .zip(&self.columns)
+                .zip(&cell_offsets_x)
+            {
+                let limits = Limits::new(Size::ZERO, Size::new(column.width, self.header_height));
+                let mut tree = Tree::new(header_cell.as_widget());
+
+                let mut node = header_cell
+                    .as_widget_mut()
+                    .layout(&mut tree, renderer, &limits);
+
+                node = node.move_to(Point::new(*offset_x, 0.0)).align(
+                    column.align_x.into(),
+                    column.align_y.into(),
+                    Size::new(column.width, self.header_height),
+                );
+
+                nodes.push(node);
+                self.header_cell_trees.push(tree);
+            }
+        }
+
+        for (visible_row_number, offset_y) in cell_offsets_y.iter().enumerate() {
+            let row_body_cell_range = visible_row_number * self.columns.len()
+                ..(visible_row_number + 1) * self.columns.len();
+
+            for (body_cell, (column, offset_x)) in self.body_cells[row_body_cell_range]
+                .iter_mut()
+                .zip(self.columns.iter().zip(&cell_offsets_x))
+            {
+                let limits = Limits::new(Size::ZERO, Size::new(column.width, self.row_height));
+                let mut tree = Tree::new(body_cell.as_widget());
+
+                let mut node = body_cell
+                    .as_widget_mut()
+                    .layout(&mut tree, renderer, &limits);
+
+                node = node.move_to(Point::new(*offset_x, *offset_y)).align(
+                    column.align_x.into(),
+                    column.align_y.into(),
+                    Size::new(column.width, self.row_height),
+                );
+
+                nodes.push(node);
+                self.body_cell_trees.push(tree);
+            }
+        }
+
+        Node::with_children(limits.max(), nodes)
     }
 
     fn draw(
@@ -144,14 +272,22 @@ where
             Quad {
                 bounds: layout.bounds(),
                 border: Border {
-                    color: Color::BLACK,
+                    color: Color::WHITE,
                     radius: Radius::default(),
                     width: 1.0,
                 },
                 ..Default::default()
             },
-            Color::WHITE,
+            Color::BLACK,
         );
+
+        let cells = self.header_cells.iter().chain(&self.body_cells);
+        let trees = self.header_cell_trees.iter().chain(&self.body_cell_trees);
+
+        for ((cell, state), cell_layout) in cells.zip(trees).zip(layout.children()) {
+            cell.as_widget()
+                .draw(state, renderer, theme, style, cell_layout, cursor, viewport);
+        }
     }
 }
 
