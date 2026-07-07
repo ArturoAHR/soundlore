@@ -433,7 +433,7 @@ where
                     iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
                 };
 
-                state.offset_y += delta_y * self.row_height * 0.7;
+                state.offset_y += delta_y * self.row_height * -0.7;
                 state.offset_y = state.offset_y.clamp(
                     0.0,
                     self.row_height * self.records.len() as f32
