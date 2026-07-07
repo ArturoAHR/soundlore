@@ -436,8 +436,9 @@ where
                 state.offset_y += delta_y * self.row_height * -0.7;
                 state.offset_y = state.offset_y.clamp(
                     0.0,
-                    self.row_height * self.records.len() as f32
-                        - (layout.bounds().height - self.header_height),
+                    (self.row_height * self.records.len() as f32
+                        - (layout.bounds().height - self.header_height))
+                        .max(0.0),
                 );
 
                 shell.invalidate_layout();
