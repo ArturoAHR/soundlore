@@ -1,9 +1,9 @@
 use std::{collections::HashSet, ops::Range};
 
 use iced::{
-    Border, Color, Element, Length, Point, Rectangle, Size,
+    Border, Color, Element, Event, Length, Point, Rectangle, Size,
     advanced::{
-        Layout,
+        Clipboard, Layout, Shell,
         layout::{Limits, Node},
         mouse::Cursor,
         renderer::{self, Quad},
@@ -403,6 +403,42 @@ where
                     });
                 }
             });
+        }
+    }
+
+    fn update(
+        &mut self,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        _cursor: Cursor,
+        _renderer: &Renderer,
+        _clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        _viewport: &Rectangle,
+    ) {
+        let state = tree.state.downcast_mut::<State>();
+
+        match event {
+            iced::Event::Mouse(iced::mouse::Event::WheelScrolled { delta }) => {
+                let delta_y = match delta {
+                    iced::mouse::ScrollDelta::Lines { x: _, y } => *y,
+                    iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
+                };
+
+                state.offset_y += delta_y * self.row_height * 0.7;
+                state.offset_y = state.offset_y.clamp(
+                    0.0,
+                    self.row_height * self.records.len() as f32
+                        - layout.bounds().height
+                        - self.header_height,
+                );
+
+                shell.invalidate_layout();
+                shell.request_redraw();
+                shell.capture_event();
+            }
+            _ => {}
         }
     }
 }
