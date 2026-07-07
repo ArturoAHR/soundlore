@@ -48,11 +48,25 @@ where
 impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
 where
     T: Identifiable,
+    Message: 'a,
     Theme: Catalog,
+    Renderer: renderer::Renderer,
 {
-    pub fn new(columns: Vec<Column<'a, T, Message, Theme, Renderer>>, records: &'a [T]) -> Self {
+    pub fn new(
+        mut columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
+        records: &'a [T],
+    ) -> Self {
         let has_header = columns.iter().any(|column| column.header.is_some());
         let header_height = if has_header { 40.0 } else { 0.0 };
+
+        let mut header_cells = Vec::new();
+        if has_header {
+            header_cells = Vec::with_capacity(columns.len());
+
+            for column in &mut columns {
+                header_cells.push(column.header.take().unwrap_or(Space::new().into()))
+            }
+        }
 
         Self {
             header_height,
@@ -66,7 +80,7 @@ where
             records,
 
             visible_row_range: 0..0,
-            header_cells: Vec::new(),
+            header_cells,
             body_cells: Vec::new(),
         }
     }
@@ -104,7 +118,9 @@ pub fn table<'a, T, Message, Theme, Renderer>(
 ) -> Table<'a, T, Message, Theme, Renderer>
 where
     T: Identifiable,
+    Message: 'a,
     Theme: Catalog,
+    Renderer: renderer::Renderer,
 {
     Table::new(columns, records)
 }
@@ -138,15 +154,6 @@ where
         let state = tree.state.downcast_mut::<State>();
 
         // Children Cell Generation
-
-        if self.has_header {
-            self.header_cells = Vec::with_capacity(self.columns.len());
-
-            for column in &mut self.columns {
-                self.header_cells
-                    .push(column.header.take().unwrap_or(Space::new().into()))
-            }
-        }
 
         let mut visible_row_range = get_visible_range(
             limits.max().height,
