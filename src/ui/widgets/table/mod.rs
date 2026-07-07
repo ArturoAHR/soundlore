@@ -1,3 +1,5 @@
+use std::{collections::HashSet, ops::Range};
+
 use iced::{
     Border, Color, Element, Length, Point, Rectangle, Size,
     advanced::{
@@ -12,13 +14,21 @@ use iced::{
     widget::Space,
 };
 
-use crate::ui::utils::table::{
-    column::{ColumnWidth, get_column_widths},
-    virtualization::get_visible_range,
+use crate::ui::{
+    utils::table::{
+        column::{ColumnWidth, get_column_widths},
+        virtualization::get_visible_range,
+    },
+    widgets::table::state::{HEADERS_ROW_IDENTIFIER, Identifiable},
 };
+
+use crate::ui::widgets::table::state::State;
+
+pub mod state;
 
 pub struct Table<'a, T, Message, Theme, Renderer = iced::Renderer>
 where
+    T: Identifiable,
     Theme: Catalog,
 {
     width: Length,
@@ -30,6 +40,7 @@ where
     columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
     records: &'a [T],
 
+    visible_row_range: Range<usize>,
     header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
     header_cell_trees: Vec<Tree>,
     body_cells: Vec<Element<'a, Message, Theme, Renderer>>,
@@ -38,6 +49,7 @@ where
 
 impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
 where
+    T: Identifiable,
     Theme: Catalog,
 {
     pub fn new(columns: Vec<Column<'a, T, Message, Theme, Renderer>>, records: &'a [T]) -> Self {
@@ -55,6 +67,7 @@ where
             columns,
             records,
 
+            visible_row_range: 0..0,
             header_cells: Vec::new(),
             header_cell_trees: Vec::new(),
             body_cells: Vec::new(),
@@ -89,15 +102,12 @@ where
     }
 }
 
-struct State {
-    offset_y: f32,
-}
-
 pub fn table<'a, T, Message, Theme, Renderer>(
     columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
     records: &'a [T],
 ) -> Table<'a, T, Message, Theme, Renderer>
 where
+    T: Identifiable,
     Theme: Catalog,
 {
     Table::new(columns, records)
@@ -106,6 +116,7 @@ where
 impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Table<'a, T, Message, Theme, Renderer>
 where
+    T: Identifiable,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -122,7 +133,7 @@ where
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State { offset_y: 0.0 })
+        tree::State::new(State::default())
     }
 
     /// Creates the table cells with virtualization and the layout for the table, if the header
@@ -152,10 +163,13 @@ where
         visible_row_range.start = visible_row_range.start.clamp(0, self.records.len());
         visible_row_range.end = visible_row_range.end.clamp(0, self.records.len());
 
-        self.body_cells = Vec::with_capacity(visible_row_range.len() * self.columns.len());
-        self.body_cell_trees = Vec::with_capacity(visible_row_range.len() * self.columns.len());
+        self.visible_row_range = visible_row_range;
 
-        for record in &self.records[visible_row_range.clone()] {
+        self.body_cells = Vec::with_capacity(self.visible_row_range.len() * self.columns.len());
+        self.body_cell_trees =
+            Vec::with_capacity(self.visible_row_range.len() * self.columns.len());
+
+        for record in &self.records[self.visible_row_range.clone()] {
             for column in &self.columns {
                 self.body_cells.push((column.view)(record).into());
             }
@@ -201,7 +215,7 @@ where
         let mut cell_offsets_y = Vec::new();
         let mut row_height_offset_sum =
             self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
-        for _ in visible_row_range {
+        for _ in self.visible_row_range.clone() {
             cell_offsets_y.push(row_height_offset_sum);
             row_height_offset_sum += self.row_height;
         }
@@ -214,7 +228,11 @@ where
                 .zip(&cell_offsets_x)
             {
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.header_height));
-                let mut tree = Tree::new(header_cell.as_widget());
+                let mut tree = state.cell_state.get_mut_or_insert(
+                    HEADERS_ROW_IDENTIFIER,
+                    &column.id,
+                    &header_cell,
+                );
 
                 let mut node = header_cell
                     .as_widget_mut()
@@ -227,20 +245,36 @@ where
                 );
 
                 nodes.push(node);
-                self.header_cell_trees.push(tree);
             }
         }
 
-        for (visible_row_number, offset_y) in cell_offsets_y.iter().enumerate() {
+        let mut row_ids: HashSet<&String> = HashSet::new();
+
+        let header_row_id = HEADERS_ROW_IDENTIFIER.to_owned();
+        if self.has_header {
+            row_ids.insert(&header_row_id);
+        }
+
+        for (visible_row_number, (record_id, offset_y)) in self.records
+            [self.visible_row_range.clone()]
+        .iter()
+        .map(|record| record.id())
+        .zip(cell_offsets_y.iter())
+        .enumerate()
+        {
             let row_body_cell_range = visible_row_number * self.columns.len()
                 ..(visible_row_number + 1) * self.columns.len();
+
+            row_ids.insert(record_id);
 
             for (body_cell, (column, offset_x)) in self.body_cells[row_body_cell_range]
                 .iter_mut()
                 .zip(self.columns.iter().zip(&cell_offsets_x))
             {
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.row_height));
-                let mut tree = Tree::new(body_cell.as_widget());
+                let mut tree = state
+                    .cell_state
+                    .get_mut_or_insert(record_id, &column.id, body_cell);
 
                 let mut node = body_cell
                     .as_widget_mut()
@@ -253,9 +287,10 @@ where
                 );
 
                 nodes.push(node);
-                self.body_cell_trees.push(tree);
             }
         }
+
+        state.cell_state.prune(row_ids);
 
         Node::with_children(limits.max(), nodes)
     }
@@ -270,6 +305,8 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
+        let state = tree.state.downcast_ref::<State>();
+
         renderer.fill_quad(
             Quad {
                 bounds: layout.bounds(),
@@ -283,17 +320,59 @@ where
             Color::BLACK,
         );
 
-        let cells = self.header_cells.iter().chain(&self.body_cells);
-        let trees = self.header_cell_trees.iter().chain(&self.body_cell_trees);
+        let header_cell_layouts = layout.children().take(self.columns.len());
+        let mut body_cell_layouts = layout.children().skip(self.columns.len());
 
-        for ((cell, state), cell_layout) in cells.zip(trees).zip(layout.children()) {
-            cell.as_widget()
-                .draw(state, renderer, theme, style, cell_layout, cursor, viewport);
+        for (visible_row_number, row_id) in self.records[self.visible_row_range.clone()]
+            .iter()
+            .map(|record| record.id())
+            .enumerate()
+        {
+            let row_body_cell_range = visible_row_number * self.columns.len()
+                ..(visible_row_number + 1) * self.columns.len();
+
+            for ((cell, cell_layout), column_id) in self.body_cells[row_body_cell_range]
+                .iter()
+                .zip(body_cell_layouts.by_ref().take(self.columns.len()))
+                .zip(self.columns.iter().map(|column| &column.id))
+            {
+                if let Some(cell_state) = state.cell_state.get(row_id, column_id) {
+                    cell.as_widget().draw(
+                        cell_state,
+                        renderer,
+                        theme,
+                        style,
+                        cell_layout,
+                        cursor,
+                        viewport,
+                    );
+                }
+            }
+        }
+
+        for ((cell, cell_layout), column_id) in self
+            .header_cells
+            .iter()
+            .zip(header_cell_layouts)
+            .zip(self.columns.iter().map(|column| &column.id))
+        {
+            if let Some(cell_state) = state.cell_state.get(HEADERS_ROW_IDENTIFIER, column_id) {
+                cell.as_widget().draw(
+                    cell_state,
+                    renderer,
+                    theme,
+                    style,
+                    cell_layout,
+                    cursor,
+                    viewport,
+                );
+            }
         }
     }
 }
 
 pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
+    id: String,
     header: Option<Element<'a, Message, Theme, Renderer>>,
     view: Box<dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a>,
     width: f32,
@@ -305,6 +384,7 @@ pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
 }
 
 pub fn column<'a, T, E, Message, Theme, Renderer>(
+    id: String,
     header: Option<Element<'a, Message, Theme, Renderer>>,
     view: impl Fn(&T) -> E + 'a,
 ) -> Column<'a, T, Message, Theme, Renderer>
@@ -313,6 +393,7 @@ where
     E: Into<Element<'a, Message, Theme, Renderer>>,
 {
     Column {
+        id,
         header,
         view: Box::new(move |data| view(data).into()),
         width: 100.0,
@@ -325,6 +406,12 @@ where
 }
 
 impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = id.into();
+
+        self
+    }
+
     pub fn width(mut self, width: impl Into<f32>) -> Self {
         self.width = width.into();
 
@@ -389,6 +476,7 @@ impl<Theme> From<Style> for StyleFn<'_, Theme> {
 impl<'a, T, Message, Theme, Renderer> From<Table<'a, T, Message, Theme, Renderer>>
     for Element<'a, Message, Theme, Renderer>
 where
+    T: Identifiable,
     Message: 'a,
     Theme: Catalog + 'a,
     Renderer: renderer::Renderer + 'a,

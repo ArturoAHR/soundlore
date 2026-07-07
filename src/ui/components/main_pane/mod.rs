@@ -80,24 +80,36 @@ impl MainPane {
         );
 
         let columns = vec![
-            column(Some(text("Artist").into()), |track: &Track| {
-                text(track.artist.clone().unwrap_or("Unknown".to_owned()))
-                    .wrapping(text::Wrapping::None)
-            })
+            column(
+                "artist".to_owned(),
+                Some(text("Artist").into()),
+                |track: &Track| {
+                    text(track.artist.clone().unwrap_or("Unknown".to_owned()))
+                        .wrapping(text::Wrapping::None)
+                },
+            )
             .width(200.0)
             .resizable(true),
-            column(Some(text("Title").into()), |track: &Track| {
-                text(track.title.clone().unwrap_or("Untitled".to_owned()))
-                    .wrapping(text::Wrapping::None)
-            })
+            column(
+                "title".to_owned(),
+                Some(text("Title").into()),
+                |track: &Track| {
+                    text(track.title.clone().unwrap_or("Untitled".to_owned()))
+                        .wrapping(text::Wrapping::None)
+                },
+            )
             .width(200.0)
             .resizable(true),
-            column(Some(text("Duration").into()), |track: &Track| {
-                text(format_duration(
-                    track.frames as u64 / track.sample_rate as u64,
-                ))
-                .wrapping(text::Wrapping::None)
-            })
+            column(
+                "duration".to_owned(),
+                Some(text("Duration").into()),
+                |track: &Track| {
+                    text(format_duration(
+                        track.frames as u64 / track.sample_rate as u64,
+                    ))
+                    .wrapping(text::Wrapping::None)
+                },
+            )
             .width(50.0)
             .resizable(true)
             .align_x(alignment::Horizontal::Right),

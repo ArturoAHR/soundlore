@@ -1,5 +1,7 @@
 use sea_query::enum_def;
 
+use crate::ui::widgets::table::state::Identifiable;
+
 #[enum_def(table_name = "track")]
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Track {
@@ -46,6 +48,12 @@ pub struct Track {
     pub created_at: i64,
     pub updated_at: i64,
     pub deleted_at: Option<i64>,
+}
+
+impl Identifiable for Track {
+    fn id(&self) -> &String {
+        &self.id
+    }
 }
 
 #[derive(Debug, Default)]
