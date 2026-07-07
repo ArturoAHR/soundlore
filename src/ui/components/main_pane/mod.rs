@@ -2,6 +2,7 @@ use iced::{
     Element, Length, Renderer, Task, alignment,
     widget::{self, button, container, scrollable, text},
 };
+use iced_palace::widget::ellipsized_text;
 use tracing::instrument;
 
 use crate::{
@@ -84,7 +85,7 @@ impl MainPane {
                 "artist".to_owned(),
                 Some(text("Artist").into()),
                 |track: &Track| {
-                    text(track.artist.clone().unwrap_or("Unknown".to_owned()))
+                    ellipsized_text(track.artist.clone().unwrap_or("Unknown".to_owned()))
                         .wrapping(text::Wrapping::None)
                 },
             )
@@ -94,7 +95,7 @@ impl MainPane {
                 "title".to_owned(),
                 Some(text("Title").into()),
                 |track: &Track| {
-                    text(track.title.clone().unwrap_or("Untitled".to_owned()))
+                    ellipsized_text(track.title.clone().unwrap_or("Untitled".to_owned()))
                         .wrapping(text::Wrapping::None)
                 },
             )
@@ -104,7 +105,7 @@ impl MainPane {
                 "duration".to_owned(),
                 Some(text("Duration").into()),
                 |track: &Track| {
-                    text(format_duration(
+                    ellipsized_text(format_duration(
                         track.frames as u64 / track.sample_rate as u64,
                     ))
                     .wrapping(text::Wrapping::None)

@@ -1855,6 +1855,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_palace"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00f0eea9b83a21665e09b986382e7c9659ef79b111531323a6f9aa338e4c7a70"
+dependencies = [
+ "iced_core",
+ "iced_widget",
+ "num-traits",
+]
+
+[[package]]
 name = "iced_program"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4172,6 +4183,7 @@ dependencies = [
  "futures",
  "iced",
  "iced_aw",
+ "iced_palace",
  "iced_split",
  "iced_test",
  "pretty_assertions",
