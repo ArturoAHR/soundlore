@@ -306,6 +306,7 @@ where
         viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_ref::<State>();
+        let bounds = layout.bounds();
 
         renderer.fill_quad(
             Quad {
@@ -320,53 +321,96 @@ where
             Color::BLACK,
         );
 
+        let body_bounds = Rectangle {
+            x: bounds.x,
+            y: bounds.y + self.header_height,
+            width: bounds.width,
+            height: bounds.height - self.header_height,
+        };
+
         let header_cell_layouts = layout.children().take(self.columns.len());
         let mut body_cell_layouts = layout.children().skip(self.columns.len());
 
-        for (visible_row_number, row_id) in self.records[self.visible_row_range.clone()]
-            .iter()
-            .map(|record| record.id())
-            .enumerate()
-        {
-            let row_body_cell_range = visible_row_number * self.columns.len()
-                ..(visible_row_number + 1) * self.columns.len();
-
-            for ((cell, cell_layout), column_id) in self.body_cells[row_body_cell_range]
+        // Clipping body cells to table body bounds
+        renderer.with_layer(body_bounds, |renderer| {
+            for (visible_row_number, row_id) in self.records[self.visible_row_range.clone()]
                 .iter()
-                .zip(body_cell_layouts.by_ref().take(self.columns.len()))
-                .zip(self.columns.iter().map(|column| &column.id))
+                .map(|record| record.id())
+                .enumerate()
             {
-                if let Some(cell_state) = state.cell_state.get(row_id, column_id) {
-                    cell.as_widget().draw(
-                        cell_state,
-                        renderer,
-                        theme,
-                        style,
-                        cell_layout,
-                        cursor,
-                        viewport,
-                    );
+                let row_body_cell_range = visible_row_number * self.columns.len()
+                    ..(visible_row_number + 1) * self.columns.len();
+
+                for ((cell, cell_layout), column_id) in self.body_cells[row_body_cell_range]
+                    .iter()
+                    .zip(body_cell_layouts.by_ref().take(self.columns.len()))
+                    .zip(self.columns.iter().map(|column| &column.id))
+                {
+                    // Cell bounds need to be intersected with table body bounds in case the cells
+                    // belong to the bottom-most row which can be cut in half.
+                    let Some(cell_bounds) = cell_layout.bounds().intersection(&body_bounds) else {
+                        continue;
+                    };
+
+                    // Clipping cell contents to cell bounds
+                    renderer.with_layer(cell_bounds, |renderer| {
+                        if let Some(cell_state) = state.cell_state.get(row_id, column_id) {
+                            cell.as_widget().draw(
+                                cell_state,
+                                renderer,
+                                theme,
+                                style,
+                                cell_layout,
+                                cursor,
+                                viewport,
+                            );
+                        }
+                    });
                 }
             }
-        }
+        });
 
-        for ((cell, cell_layout), column_id) in self
-            .header_cells
-            .iter()
-            .zip(header_cell_layouts)
-            .zip(self.columns.iter().map(|column| &column.id))
-        {
-            if let Some(cell_state) = state.cell_state.get(HEADERS_ROW_IDENTIFIER, column_id) {
-                cell.as_widget().draw(
-                    cell_state,
-                    renderer,
-                    theme,
-                    style,
-                    cell_layout,
-                    cursor,
-                    viewport,
-                );
-            }
+        if self.has_header {
+            let header_bounds = Rectangle {
+                x: bounds.x,
+                y: bounds.y,
+                width: bounds.width,
+                height: self.header_height,
+            };
+
+            // Clipping body cells to table header bounds
+            renderer.with_layer(header_bounds, |renderer| {
+                for ((cell, cell_layout), column_id) in self
+                    .header_cells
+                    .iter()
+                    .zip(header_cell_layouts)
+                    .zip(self.columns.iter().map(|column| &column.id))
+                {
+                    // Cell bounds need to be intersected with table header bounds in case the current
+                    // cell is the right most column header one.
+                    let Some(cell_bounds) = cell_layout.bounds().intersection(&header_bounds)
+                    else {
+                        continue;
+                    };
+
+                    // Clipping cell contents to cell bounds
+                    renderer.with_layer(cell_bounds, |renderer| {
+                        if let Some(cell_state) =
+                            state.cell_state.get(HEADERS_ROW_IDENTIFIER, column_id)
+                        {
+                            cell.as_widget().draw(
+                                cell_state,
+                                renderer,
+                                theme,
+                                style,
+                                cell_layout,
+                                cursor,
+                                viewport,
+                            );
+                        }
+                    });
+                }
+            });
         }
     }
 }
