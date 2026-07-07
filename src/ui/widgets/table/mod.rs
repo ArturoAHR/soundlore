@@ -42,9 +42,7 @@ where
 
     visible_row_range: Range<usize>,
     header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
-    header_cell_trees: Vec<Tree>,
     body_cells: Vec<Element<'a, Message, Theme, Renderer>>,
-    body_cell_trees: Vec<Tree>,
 }
 
 impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
@@ -69,9 +67,7 @@ where
 
             visible_row_range: 0..0,
             header_cells: Vec::new(),
-            header_cell_trees: Vec::new(),
             body_cells: Vec::new(),
-            body_cell_trees: Vec::new(),
         }
     }
 
@@ -145,7 +141,6 @@ where
 
         if self.has_header {
             self.header_cells = Vec::with_capacity(self.columns.len());
-            self.header_cell_trees = Vec::with_capacity(self.columns.len());
 
             for column in &mut self.columns {
                 self.header_cells
@@ -164,10 +159,7 @@ where
         visible_row_range.end = visible_row_range.end.clamp(0, self.records.len());
 
         self.visible_row_range = visible_row_range;
-
         self.body_cells = Vec::with_capacity(self.visible_row_range.len() * self.columns.len());
-        self.body_cell_trees =
-            Vec::with_capacity(self.visible_row_range.len() * self.columns.len());
 
         for record in &self.records[self.visible_row_range.clone()] {
             for column in &self.columns {
