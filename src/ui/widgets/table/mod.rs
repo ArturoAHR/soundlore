@@ -10,7 +10,6 @@ use iced::{
         widget::{Tree, Widget, tree},
     },
     alignment,
-    border::Radius,
     widget::Space,
 };
 
@@ -47,6 +46,9 @@ where
     header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
     body_cells: Vec<Element<'a, Message, Theme, Renderer>>,
 
+    column_offsets: Vec<f32>,
+    row_offsets: Vec<f32>,
+
     table_class: Theme::TableClass<'a>,
     scroll_class: Theme::ScrollClass<'a>,
     body_row_class: Theme::BodyRowClass<'a>,
@@ -65,7 +67,7 @@ where
         records: &'a [T],
     ) -> Self {
         let has_header = columns.iter().any(|column| column.header.is_some());
-        let header_height = if has_header { 40.0 } else { 0.0 };
+        let header_height = if has_header { 35.0 } else { 0.0 };
 
         let mut header_cells = Vec::new();
         if has_header {
@@ -82,7 +84,7 @@ where
 
             width: Length::Fill,
             height: Length::Fill,
-            row_height: 40.0,
+            row_height: 30.0,
 
             columns,
             records,
@@ -90,6 +92,9 @@ where
             visible_row_range: 0..0,
             header_cells,
             body_cells: Vec::new(),
+
+            column_offsets: Vec::new(),
+            row_offsets: Vec::new(),
 
             table_class: Theme::default_table(),
             scroll_class: Theme::default_scroll(),
@@ -258,31 +263,33 @@ where
             column.width = column_width as f32;
         }
 
+        // Get Cell Offsets
+
+        self.column_offsets = Vec::with_capacity(self.columns.len());
+        let mut column_width_offset_sum = 0.0;
+        for column in self.columns.iter() {
+            self.column_offsets.push(column_width_offset_sum);
+            column_width_offset_sum += column.width;
+        }
+
+        self.row_offsets = Vec::with_capacity(self.visible_row_range.clone().count());
+        let mut row_height_offset_sum =
+            self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
+        for _ in self.visible_row_range.clone() {
+            self.row_offsets.push(row_height_offset_sum);
+            row_height_offset_sum += self.row_height;
+        }
+
         // Child Node Generation
 
         let mut nodes = Vec::new();
 
-        let mut cell_offsets_x = Vec::new();
-        let mut column_width_offset_sum = 0.0;
-        for column in self.columns.iter() {
-            cell_offsets_x.push(column_width_offset_sum);
-            column_width_offset_sum += column.width;
-        }
-
-        let mut cell_offsets_y = Vec::new();
-        let mut row_height_offset_sum =
-            self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
-        for _ in self.visible_row_range.clone() {
-            cell_offsets_y.push(row_height_offset_sum);
-            row_height_offset_sum += self.row_height;
-        }
-
         if self.has_header {
-            for ((header_cell, column), offset_x) in self
+            for ((header_cell, column), column_offset) in self
                 .header_cells
                 .iter_mut()
                 .zip(&self.columns)
-                .zip(&cell_offsets_x)
+                .zip(&self.column_offsets)
             {
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.header_height));
                 let mut tree = state.cell_state.get_mut_or_insert(
@@ -295,7 +302,7 @@ where
                     .as_widget_mut()
                     .layout(&mut tree, renderer, &limits);
 
-                node = node.move_to(Point::new(*offset_x, 0.0)).align(
+                node = node.move_to(Point::new(*column_offset, 0.0)).align(
                     column.align_x.into(),
                     column.align_y.into(),
                     Size::new(column.width, self.header_height),
@@ -312,11 +319,11 @@ where
             row_ids.insert(&header_row_id);
         }
 
-        for (visible_row_number, (record_id, offset_y)) in self.records
+        for (visible_row_number, (record_id, row_offset)) in self.records
             [self.visible_row_range.clone()]
         .iter()
         .map(|record| record.id())
-        .zip(cell_offsets_y.iter())
+        .zip(self.row_offsets.iter())
         .enumerate()
         {
             let row_body_cell_range = visible_row_number * self.columns.len()
@@ -324,9 +331,9 @@ where
 
             row_ids.insert(record_id);
 
-            for (body_cell, (column, offset_x)) in self.body_cells[row_body_cell_range]
+            for (body_cell, (column, column_offset)) in self.body_cells[row_body_cell_range]
                 .iter_mut()
-                .zip(self.columns.iter().zip(&cell_offsets_x))
+                .zip(self.columns.iter().zip(&self.column_offsets))
             {
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.row_height));
                 let mut tree = state
@@ -337,7 +344,7 @@ where
                     .as_widget_mut()
                     .layout(&mut tree, renderer, &limits);
 
-                node = node.move_to(Point::new(*offset_x, *offset_y)).align(
+                node = node.move_to(Point::new(*column_offset, *row_offset)).align(
                     column.align_x.into(),
                     column.align_y.into(),
                     Size::new(column.width, self.row_height),
@@ -357,7 +364,7 @@ where
         tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
-        style: &renderer::Style,
+        _style: &renderer::Style,
         layout: Layout<'_>,
         cursor: Cursor,
         viewport: &Rectangle,
@@ -365,17 +372,17 @@ where
         let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
 
+        // Background drawing
+
+        let table_style = theme.table_style(&self.table_class);
+
         renderer.fill_quad(
             Quad {
                 bounds: layout.bounds(),
-                border: Border {
-                    color: Color::WHITE,
-                    radius: Radius::default(),
-                    width: 1.0,
-                },
+                border: table_style.border,
                 ..Default::default()
             },
-            Color::BLACK,
+            Color::WHITE,
         );
 
         let body_bounds = Rectangle {
@@ -390,11 +397,49 @@ where
 
         // Clipping body cells to table body bounds
         renderer.with_layer(body_bounds, |renderer| {
-            for (visible_row_number, row_id) in self.records[self.visible_row_range.clone()]
-                .iter()
-                .map(|record| record.id())
-                .enumerate()
+            // Render table body rows background
+            for (row_number, row_offset) in self.visible_row_range.clone().zip(&self.row_offsets) {
+                let row_bounds = Rectangle {
+                    x: body_bounds.x,
+                    y: body_bounds.y + row_offset - self.header_height,
+                    width: body_bounds.width,
+                    height: self.row_height,
+                };
+
+                let mut row_status = BodyRowStatus::Default;
+                if cursor.is_over(row_bounds) {
+                    row_status = BodyRowStatus::Hovered
+                }
+
+                let row_style = theme.body_row_style(&self.body_row_class, row_status, row_number);
+
+                renderer.fill_quad(
+                    Quad {
+                        bounds: row_bounds,
+                        border: Border {
+                            color: Color::TRANSPARENT,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    row_style.background,
+                );
+            }
+
+            for (visible_row_number, (row_id, row_offset)) in self.records
+                [self.visible_row_range.clone()]
+            .iter()
+            .map(|record| record.id())
+            .zip(&self.row_offsets)
+            .enumerate()
             {
+                let row_bounds = Rectangle {
+                    x: body_bounds.x,
+                    y: body_bounds.y + row_offset - self.header_height,
+                    width: body_bounds.width,
+                    height: self.row_height,
+                };
+
                 let row_body_cell_range = visible_row_number * self.columns.len()
                     ..(visible_row_number + 1) * self.columns.len();
 
@@ -409,6 +454,14 @@ where
                         continue;
                     };
 
+                    let mut cell_status = CellStatus::Default;
+                    if cursor.is_over(row_bounds) {
+                        cell_status = CellStatus::Hovered
+                    }
+
+                    let cell_style =
+                        theme.cell_style(&self.cell_class, cell_status, CellType::Body);
+
                     // Clipping cell contents to cell bounds
                     renderer.with_layer(cell_bounds, |renderer| {
                         if let Some(cell_state) = state.cell_state.get(row_id, column_id) {
@@ -416,7 +469,9 @@ where
                                 cell_state,
                                 renderer,
                                 theme,
-                                style,
+                                &renderer::Style {
+                                    text_color: cell_style.text_color,
+                                },
                                 cell_layout,
                                 cursor,
                                 viewport,
@@ -437,11 +492,25 @@ where
 
             // Clipping body cells to table header bounds
             renderer.with_layer(header_bounds, |renderer| {
-                for ((cell, cell_layout), column_id) in self
+                // render header background
+                renderer.fill_quad(
+                    Quad {
+                        bounds: header_bounds,
+                        border: Border {
+                            color: Color::TRANSPARENT,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    table_style.header_background,
+                );
+
+                for (((cell, cell_layout), column_id), column_offset) in self
                     .header_cells
                     .iter()
                     .zip(header_cell_layouts)
                     .zip(self.columns.iter().map(|column| &column.id))
+                    .zip(&self.column_offsets)
                 {
                     // Cell bounds need to be intersected with table header bounds in case the current
                     // cell is the right most column header one.
@@ -449,6 +518,14 @@ where
                     else {
                         continue;
                     };
+
+                    let mut cell_status = CellStatus::Default;
+                    if cursor.is_over(cell_bounds) {
+                        cell_status = CellStatus::Hovered;
+                    }
+
+                    let cell_style =
+                        theme.cell_style(&self.cell_class, cell_status, CellType::Body);
 
                     // Clipping cell contents to cell bounds
                     renderer.with_layer(cell_bounds, |renderer| {
@@ -459,14 +536,57 @@ where
                                 cell_state,
                                 renderer,
                                 theme,
-                                style,
+                                &renderer::Style {
+                                    text_color: cell_style.text_color,
+                                },
                                 cell_layout,
                                 cursor,
                                 viewport,
                             );
                         }
                     });
+
+                    // Render column header divisory line
+                    if *column_offset > 0.0 {
+                        let header_column_separator_bounds = Rectangle {
+                            x: header_bounds.x + *column_offset - 1.0,
+                            y: header_bounds.y,
+                            width: 1.0,
+                            height: header_bounds.height,
+                        };
+
+                        renderer.fill_quad(
+                            Quad {
+                                bounds: header_column_separator_bounds,
+                                border: Border {
+                                    color: Color::TRANSPARENT,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            },
+                            table_style.header_separator_x,
+                        );
+                    }
                 }
+
+                let header_body_separator_bounds = Rectangle {
+                    x: header_bounds.x,
+                    y: header_bounds.y + header_bounds.height - 1.0,
+                    width: header_bounds.width,
+                    height: 1.0,
+                };
+
+                renderer.fill_quad(
+                    Quad {
+                        bounds: header_body_separator_bounds,
+                        border: Border {
+                            color: Color::TRANSPARENT,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    table_style.header_body_separator,
+                );
             });
         }
     }
