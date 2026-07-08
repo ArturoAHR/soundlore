@@ -361,7 +361,7 @@ where
                     }
 
                     let cell_style =
-                        theme.cell_style(&self.cell_class, cell_status, CellType::Body);
+                        theme.cell_style(&self.cell_class, cell_status, CellType::Header);
 
                     // Clipping cell contents to cell bounds
                     renderer.with_layer(cell_bounds, |renderer| {

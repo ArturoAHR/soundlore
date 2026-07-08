@@ -79,7 +79,7 @@ impl Catalog for Theme {
                     }
                 }
                 BodyRowStatus::Hovered => theme.palette.hover,
-                BodyRowStatus::Selected => theme.palette.accent,
+                BodyRowStatus::Selected => theme.palette.selected,
             };
 
             BodyRowStyle {
@@ -92,11 +92,14 @@ impl Catalog for Theme {
         Box::new(|theme, status, cell_type| {
             let text_color = match status {
                 CellStatus::Default => match cell_type {
-                    CellType::Header => darken(theme.palette.text, 0.3),
+                    CellType::Header => darken(theme.palette.text, 0.5),
                     CellType::Body => theme.palette.text,
                 },
-                CellStatus::Hovered => lighten(theme.palette.text_accent, 0.5),
-                CellStatus::Selected => theme.palette.text_accent,
+                CellStatus::Hovered => match cell_type {
+                    CellType::Header => darken(theme.palette.text_selected, 0.4),
+                    CellType::Body => theme.palette.text_selected,
+                },
+                CellStatus::Selected => theme.palette.text_selected,
             };
 
             CellStyle {
