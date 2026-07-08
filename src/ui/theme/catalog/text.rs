@@ -8,9 +8,7 @@ impl Catalog for Theme {
     type Class<'a> = StyleFn<'a>;
 
     fn default<'a>() -> Self::Class<'a> {
-        Box::new(|theme| Style {
-            color: Some(theme.palette.text),
-        })
+        Box::new(|_theme| Style { color: None })
     }
 
     fn style(&self, class: &Self::Class<'_>) -> Style {

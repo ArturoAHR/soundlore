@@ -1,6 +1,6 @@
 use iced::{
-    widget::button::{Catalog, Status, Style},
     Border,
+    widget::button::{Catalog, Status, Style},
 };
 
 use crate::ui::theme::Theme;

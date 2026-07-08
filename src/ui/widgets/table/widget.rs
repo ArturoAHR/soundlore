@@ -208,10 +208,9 @@ where
         let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
 
-        // Background drawing
-
         let table_style = theme.table_style(&self.table_class);
 
+        // Render background
         renderer.fill_quad(
             Quad {
                 bounds: layout.bounds(),
@@ -355,6 +354,7 @@ where
                         continue;
                     };
 
+                    // TODO: Derive status based on whole header cell bounds instead of just contents
                     let mut cell_status = CellStatus::Default;
                     if cursor.is_over(cell_bounds) {
                         cell_status = CellStatus::Hovered;

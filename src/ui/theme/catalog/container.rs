@@ -1,6 +1,6 @@
 use iced::{
-    widget::container::{Catalog, Style},
     Border,
+    widget::container::{Catalog, Style},
 };
 
 use crate::ui::theme::Theme;
@@ -22,7 +22,7 @@ impl Catalog for Theme {
 pub fn pane<'a>() -> StyleFn<'a> {
     Box::new(|theme: &Theme| Style {
         background: Some(theme.palette.surface_raised.into()),
-        text_color: Some(theme.palette.text),
+        text_color: None,
         border: Border {
             color: theme.palette.border,
             width: theme.sizes.border.width,
@@ -35,7 +35,7 @@ pub fn pane<'a>() -> StyleFn<'a> {
 pub fn header<'a>() -> StyleFn<'a> {
     Box::new(|theme: &Theme| Style {
         background: Some(theme.palette.surface_raised.into()),
-        text_color: Some(theme.palette.text_subtle),
+        text_color: None,
         border: Border {
             color: theme.palette.border,
             width: theme.sizes.border.width,
