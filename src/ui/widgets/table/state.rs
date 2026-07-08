@@ -44,7 +44,14 @@ impl CellState {
         Renderer: renderer::Renderer,
     {
         if self.get(row_id, column_id).is_some() {
-            return self.get_mut(row_id, column_id).unwrap();
+            return match self.get_mut(row_id, column_id) {
+                Some(tree) => {
+                    tree.diff(cell.as_widget());
+
+                    tree
+                }
+                None => unreachable!(),
+            };
         }
 
         self.insert(row_id, column_id, Tree::new(cell.as_widget()));
