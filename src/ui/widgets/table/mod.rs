@@ -46,6 +46,11 @@ where
     visible_row_range: Range<usize>,
     header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
     body_cells: Vec<Element<'a, Message, Theme, Renderer>>,
+
+    table_class: Theme::TableClass<'a>,
+    scroll_class: Theme::ScrollClass<'a>,
+    body_row_class: Theme::BodyRowClass<'a>,
+    cell_class: Theme::CellClass<'a>,
 }
 
 impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
@@ -85,6 +90,11 @@ where
             visible_row_range: 0..0,
             header_cells,
             body_cells: Vec::new(),
+
+            table_class: Theme::default_table(),
+            scroll_class: Theme::default_scroll(),
+            body_row_class: Theme::default_body_row(),
+            cell_class: Theme::default_cell(),
         }
     }
 
@@ -110,6 +120,51 @@ where
 
     pub fn row_height(mut self, row_height: impl Into<f32>) -> Self {
         self.row_height = row_height.into();
+
+        self
+    }
+
+    pub fn style(mut self, function: impl Fn(&Theme) -> TableStyle + 'a) -> Self
+    where
+        Theme::TableClass<'a>: From<TableStyleFn<'a, Theme>>,
+    {
+        self.table_class = (Box::new(function) as TableStyleFn<'a, Theme>).into();
+
+        self
+    }
+
+    pub fn scroll_style(
+        mut self,
+        function: impl Fn(&Theme, ScrollState) -> ScrollStyle + 'a,
+    ) -> Self
+    where
+        Theme::ScrollClass<'a>: From<ScrollStyleFn<'a, Theme>>,
+    {
+        self.scroll_class = (Box::new(function) as ScrollStyleFn<'a, Theme>).into();
+
+        self
+    }
+
+    pub fn body_row_style(
+        mut self,
+        function: impl Fn(&Theme, BodyRowStatus, usize) -> BodyRowStyle + 'a,
+    ) -> Self
+    where
+        Theme::BodyRowClass<'a>: From<BodyRowStyleFn<'a, Theme>>,
+    {
+        self.body_row_class = (Box::new(function) as BodyRowStyleFn<'a, Theme>).into();
+
+        self
+    }
+
+    pub fn cell_style(
+        mut self,
+        function: impl Fn(&Theme, CellStatus, CellType) -> CellStyle + 'a,
+    ) -> Self
+    where
+        Theme::CellClass<'a>: From<CellStyleFn<'a, Theme>>,
+    {
+        self.cell_class = (Box::new(function) as CellStyleFn<'a, Theme>).into();
 
         self
     }

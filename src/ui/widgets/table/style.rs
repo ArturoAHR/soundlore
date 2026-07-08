@@ -14,6 +14,7 @@ pub struct TableStyle {
     pub header_separator_x: Background,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct ScrollStyle {
     pub vertical_scroll: Rail,
     // TODO: Add horizontal rail when horizontal scroll is added.
@@ -32,6 +33,7 @@ pub enum ScrollStatus {
     Dragged,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct BodyRowStyle {
     /// Background color of the table body
     pub background: Background,
@@ -43,6 +45,7 @@ pub enum BodyRowStatus {
     Selected,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct CellStyle {
     /// Text color override for cell contents
     pub text_color: Color,
@@ -70,10 +73,10 @@ pub trait Catalog {
     type CellClass<'a>;
 
     /// The default class produced by the catalog
-    fn table_default<'a>() -> Self::TableClass<'a>;
-    fn scroll_default<'a>() -> Self::ScrollClass<'a>;
-    fn body_row_default<'a>() -> Self::BodyRowClass<'a>;
-    fn cell_default<'a>() -> Self::CellClass<'a>;
+    fn default_table<'a>() -> Self::TableClass<'a>;
+    fn default_scroll<'a>() -> Self::ScrollClass<'a>;
+    fn default_body_row<'a>() -> Self::BodyRowClass<'a>;
+    fn default_cell<'a>() -> Self::CellClass<'a>;
 
     /// The style of the class with the given status.
     fn table_style(&self, class: &Self::TableClass<'_>) -> TableStyle;
@@ -97,3 +100,27 @@ pub type TableStyleFn<'a, Theme> = Box<dyn Fn(&Theme) -> TableStyle + 'a>;
 pub type ScrollStyleFn<'a, Theme> = Box<dyn Fn(&Theme, ScrollState) -> ScrollStyle + 'a>;
 pub type BodyRowStyleFn<'a, Theme> = Box<dyn Fn(&Theme, BodyRowStatus, usize) -> BodyRowStyle + 'a>;
 pub type CellStyleFn<'a, Theme> = Box<dyn Fn(&Theme, CellStatus, CellType) -> CellStyle + 'a>;
+
+impl<Theme> From<TableStyle> for TableStyleFn<'_, Theme> {
+    fn from(style: TableStyle) -> Self {
+        Box::new(move |_theme| style)
+    }
+}
+
+impl<Theme> From<ScrollStyle> for ScrollStyleFn<'_, Theme> {
+    fn from(style: ScrollStyle) -> Self {
+        Box::new(move |_theme, _state| style)
+    }
+}
+
+impl<Theme> From<BodyRowStyle> for BodyRowStyleFn<'_, Theme> {
+    fn from(style: BodyRowStyle) -> Self {
+        Box::new(move |_theme, _status, _row_number| style)
+    }
+}
+
+impl<Theme> From<CellStyle> for CellStyleFn<'_, Theme> {
+    fn from(style: CellStyle) -> Self {
+        Box::new(move |_theme, _status, _type| style)
+    }
+}

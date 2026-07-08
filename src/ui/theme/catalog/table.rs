@@ -25,7 +25,7 @@ impl Catalog for Theme {
     type BodyRowClass<'a> = BodyRowStyleFn<'a>;
     type CellClass<'a> = CellStyleFn<'a>;
 
-    fn table_default<'a>() -> Self::TableClass<'a> {
+    fn default_table<'a>() -> Self::TableClass<'a> {
         Box::new(|theme| TableStyle {
             background: theme.palette.surface.into(),
             border: Border {
@@ -38,7 +38,7 @@ impl Catalog for Theme {
         })
     }
 
-    fn scroll_default<'a>() -> Self::ScrollClass<'a> {
+    fn default_scroll<'a>() -> Self::ScrollClass<'a> {
         Box::new(|theme, state| {
             let default_scroller_color = theme.palette.surface_raised;
 
@@ -68,7 +68,7 @@ impl Catalog for Theme {
         })
     }
 
-    fn body_row_default<'a>() -> Self::BodyRowClass<'a> {
+    fn default_body_row<'a>() -> Self::BodyRowClass<'a> {
         Box::new(|theme, status, row_number| {
             let body_row_color = match status {
                 BodyRowStatus::Default => {
@@ -88,7 +88,7 @@ impl Catalog for Theme {
         })
     }
 
-    fn cell_default<'a>() -> Self::CellClass<'a> {
+    fn default_cell<'a>() -> Self::CellClass<'a> {
         Box::new(|theme, status, cell_type| {
             let text_color = match status {
                 CellStatus::Default => match cell_type {
