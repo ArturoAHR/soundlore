@@ -217,7 +217,7 @@ where
                 border: table_style.border,
                 ..Default::default()
             },
-            Color::WHITE,
+            table_style.background,
         );
 
         let body_bounds = Rectangle {
