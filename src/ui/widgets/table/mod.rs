@@ -25,6 +25,9 @@ use crate::ui::{
 use crate::ui::widgets::table::state::State;
 
 pub mod state;
+pub mod style;
+
+pub use style::*;
 
 pub struct Table<'a, T, Message, Theme, Renderer = iced::Renderer>
 where
@@ -525,30 +528,6 @@ impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
         self.sortable = sortable;
 
         self
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Style {}
-
-/// Theme catalog for a table
-pub trait Catalog {
-    /// Item class of the catalog
-    type Class<'a>;
-
-    /// The default class produced by the catalog
-    fn default<'a>() -> Self::Class<'a>;
-
-    /// The style of the class with the given status.
-    fn style(&self, class: &Self::Class<'_>) -> Style;
-}
-
-/// Styling function for a table widget.
-pub type StyleFn<'a, Theme> = Box<dyn Fn(&Theme) -> Style + 'a>;
-
-impl<Theme> From<Style> for StyleFn<'_, Theme> {
-    fn from(style: Style) -> Self {
-        Box::new(move |_theme| style)
     }
 }
 
