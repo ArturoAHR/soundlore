@@ -7,8 +7,10 @@ use iced::{
 
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
 
+pub type TableIdentifier = String;
+
 pub trait Identifiable {
-    fn id(&self) -> &String;
+    fn id(&self) -> &TableIdentifier;
 }
 
 #[derive(Default)]

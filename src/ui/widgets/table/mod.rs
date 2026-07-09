@@ -7,7 +7,7 @@ use iced::{
     widget::Space,
 };
 
-use crate::ui::widgets::table::state::Identifiable;
+use crate::ui::widgets::table::state::{Identifiable, TableIdentifier};
 
 pub mod state;
 pub mod style;
@@ -25,6 +25,12 @@ where
     header_height: f32,
     row_height: f32,
     scroll_width: f32,
+
+    selected_rows: Option<&'a [TableIdentifier]>,
+    /// Returns the set of table body row identifiers that are currently selected every time the set changes.
+    on_row_select: Option<Box<dyn Fn(Vec<TableIdentifier>) -> Message + 'a>>,
+    on_header_cell_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
+    on_row_double_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
 
     has_header: bool,
     columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
@@ -77,6 +83,11 @@ where
             height: Length::Fill,
             row_height: 30.0,
             scroll_width: 12.0,
+
+            selected_rows: None,
+            on_row_select: None,
+            on_header_cell_click: None,
+            on_row_double_click: None,
 
             columns,
             records,
@@ -142,6 +153,45 @@ where
         self
     }
 
+    pub fn selected_rows(mut self, selected_rows: impl Into<&'a [TableIdentifier]>) -> Self {
+        let selected_rows = selected_rows.into();
+
+        if selected_rows.is_empty() {
+            self.selected_rows = None;
+        } else {
+            self.selected_rows = Some(selected_rows);
+        }
+
+        self
+    }
+
+    pub fn on_row_select(
+        mut self,
+        on_row_select: impl Fn(Vec<TableIdentifier>) -> Message + 'a,
+    ) -> Self {
+        self.on_row_select = Some(Box::new(on_row_select));
+
+        self
+    }
+
+    pub fn on_row_double_click(
+        mut self,
+        on_row_double_click: impl Fn(TableIdentifier) -> Message + 'a,
+    ) -> Self {
+        self.on_row_double_click = Some(Box::new(on_row_double_click));
+
+        self
+    }
+
+    pub fn on_header_cell_click(
+        mut self,
+        on_header_cell_click: impl Fn(TableIdentifier) -> Message + 'a,
+    ) -> Self {
+        self.on_header_cell_click = Some(Box::new(on_header_cell_click));
+
+        self
+    }
+
     pub fn style(mut self, function: impl Fn(&Theme) -> TableStyle + 'a) -> Self
     where
         Theme::TableClass<'a>: From<TableStyleFn<'a, Theme>>,
@@ -188,21 +238,21 @@ where
     }
 }
 
-pub fn table<'a, T, Message, Theme, Renderer>(
-    columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
-    records: &'a [T],
-) -> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, Message, Theme, Renderer> From<Table<'a, T, Message, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
 where
     T: Identifiable,
     Message: 'a,
-    Theme: Catalog,
-    Renderer: renderer::Renderer,
+    Theme: Catalog + 'a,
+    Renderer: renderer::Renderer + 'a,
 {
-    Table::new(columns, records)
+    fn from(table: Table<'a, T, Message, Theme, Renderer>) -> Self {
+        Self::new(table)
+    }
 }
 
 pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
-    id: String,
+    id: TableIdentifier,
     header: Option<Element<'a, Message, Theme, Renderer>>,
     view: Box<dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a>,
     width: f32,
@@ -213,30 +263,6 @@ pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
     sortable: bool,
     header_padding: Option<Padding>,
     cell_padding: Option<Padding>,
-}
-
-pub fn column<'a, T, E, Message, Theme, Renderer>(
-    id: String,
-    header: Option<Element<'a, Message, Theme, Renderer>>,
-    view: impl Fn(&T) -> E + 'a,
-) -> Column<'a, T, Message, Theme, Renderer>
-where
-    T: 'a,
-    E: Into<Element<'a, Message, Theme, Renderer>>,
-{
-    Column {
-        id,
-        header,
-        view: Box::new(move |data| view(data).into()),
-        width: 100.0,
-        min_width: 20.0,
-        align_x: alignment::Horizontal::Left,
-        align_y: alignment::Vertical::Center,
-        resizable: false,
-        sortable: false,
-        cell_padding: None,
-        header_padding: None,
-    }
 }
 
 impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
@@ -295,15 +321,42 @@ impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> From<Table<'a, T, Message, Theme, Renderer>>
-    for Element<'a, Message, Theme, Renderer>
+/// Creates an new Table with the given columns and one row for each record.
+pub fn table<'a, T, Message, Theme, Renderer>(
+    columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
+    records: &'a [T],
+) -> Table<'a, T, Message, Theme, Renderer>
 where
     T: Identifiable,
     Message: 'a,
-    Theme: Catalog + 'a,
-    Renderer: renderer::Renderer + 'a,
+    Theme: Catalog,
+    Renderer: renderer::Renderer,
 {
-    fn from(table: Table<'a, T, Message, Theme, Renderer>) -> Self {
-        Self::new(table)
+    Table::new(columns, records)
+}
+
+/// Creates a column with the given parameters, the view closure is used to determined how
+/// we represent the record in that particular column cell in its row.
+pub fn column<'a, T, E, Message, Theme, Renderer>(
+    id: TableIdentifier,
+    header: Option<Element<'a, Message, Theme, Renderer>>,
+    view: impl Fn(&T) -> E + 'a,
+) -> Column<'a, T, Message, Theme, Renderer>
+where
+    T: 'a,
+    E: Into<Element<'a, Message, Theme, Renderer>>,
+{
+    Column {
+        id,
+        header,
+        view: Box::new(move |data| view(data).into()),
+        width: 100.0,
+        min_width: 20.0,
+        align_x: alignment::Horizontal::Left,
+        align_y: alignment::Vertical::Center,
+        resizable: false,
+        sortable: false,
+        cell_padding: None,
+        header_padding: None,
     }
 }
