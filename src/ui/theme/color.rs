@@ -1,4 +1,5 @@
 use iced::Color;
+use palette::{Clamp, Darken, IntoColor, Lighten, Mix, Oklab, Oklch, Srgb};
 
 pub const fn rgb(r: u8, g: u8, b: u8) -> Color {
     Color {
@@ -27,23 +28,43 @@ pub fn with_alpha(c: Color, a: f32) -> Color {
 pub fn mix(a: Color, b: Color, t: f32) -> Color {
     let t = t.clamp(0.0, 1.0);
 
-    let [ar, ag, ab, aa] = a.into_linear();
-    let [br, bg, bb, ba] = b.into_linear();
+    let alpha = a.a + (b.a - a.a) * t;
 
-    Color::from_linear_rgba(
-        ar + (br - ar) * t,
-        ag + (bg - ag) * t,
-        ab + (bb - ab) * t,
-        aa + (ba - aa) * t,
-    )
+    let oklab_a = convert_color_to_oklab(a);
+    let oklab_b = convert_color_to_oklab(b);
+
+    convert_srgb_to_color(oklab_a.mix(oklab_b, t), alpha)
 }
 
 /// Makes the given color lighter by a given amount
 pub fn lighten(c: Color, amount: f32) -> Color {
-    mix(c, Color::WHITE, amount)
+    let oklch = convert_color_to_oklch(c);
+
+    convert_srgb_to_color(oklch.lighten(amount), c.a)
 }
 
 /// Makes the given color darker by a given amount
 pub fn darken(c: Color, amount: f32) -> Color {
-    mix(c, Color::BLACK, amount)
+    let oklch = convert_color_to_oklch(c);
+
+    convert_srgb_to_color(oklch.darken(amount), c.a)
+}
+
+fn convert_color_to_oklch(c: Color) -> Oklch {
+    Srgb::new(c.r, c.g, c.b).into_color()
+}
+
+fn convert_color_to_oklab(c: Color) -> Oklab {
+    Srgb::new(c.r, c.g, c.b).into_color()
+}
+
+fn convert_srgb_to_color(srgb: impl IntoColor<Srgb>, a: f32) -> Color {
+    let rgb = srgb.into_color().clamp();
+
+    Color {
+        r: rgb.red,
+        g: rgb.green,
+        b: rgb.blue,
+        a,
+    }
 }

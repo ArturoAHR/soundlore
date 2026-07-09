@@ -39,6 +39,7 @@ rtrb = "0.3.4"
 rubato = "3.0.0"
 iced_split = "0.1.0"
 iced_palace = "0.14.0"
+palette = "0.7.6"
 
 [dev-dependencies]
 ffmpeg-sidecar = "2.5.1"
