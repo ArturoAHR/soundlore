@@ -1,7 +1,4 @@
-use iced::{
-    Border, Color,
-    widget::scrollable::{Rail, Scroller},
-};
+use iced::{Border, Color, border::Radius};
 
 use crate::ui::{
     theme::{
@@ -9,8 +6,8 @@ use crate::ui::{
         color::{darken, lighten},
     },
     widgets::table::{
-        BodyRowStatus, BodyRowStyle, Catalog, CellStatus, CellStyle, CellType, ScrollState,
-        ScrollStatus, ScrollStyle, TableStyle,
+        BodyRowStatus, BodyRowStyle, Catalog, CellStatus, CellStyle, CellType, RailStyle,
+        ScrollState, ScrollStatus, ScrollStyle, TableStyle,
     },
 };
 
@@ -40,7 +37,7 @@ impl Catalog for Theme {
 
     fn default_scroll<'a>() -> Self::ScrollClass<'a> {
         Box::new(|theme, state| {
-            let default_scroller_color = theme.palette.surface_raised;
+            let default_scroller_color = theme.palette.surface;
 
             let scroller_color = match state.vertical_scroll_status {
                 ScrollStatus::Disabled => Color::TRANSPARENT,
@@ -50,18 +47,12 @@ impl Catalog for Theme {
             };
 
             ScrollStyle {
-                vertical_scroll: Rail {
-                    background: Some(theme.palette.surface_sunken.into()),
-                    border: Border {
-                        color: Color::TRANSPARENT,
+                vertical_scroll: RailStyle {
+                    background: darken(theme.palette.surface, 0.5).into(),
+                    thumb_background: scroller_color.into(),
+                    thumb_border: Border {
+                        radius: Radius::from(10.0),
                         ..Default::default()
-                    },
-                    scroller: Scroller {
-                        background: scroller_color.into(),
-                        border: Border {
-                            color: Color::TRANSPARENT,
-                            ..Default::default()
-                        },
                     },
                 },
             }

@@ -16,8 +16,18 @@ pub struct TableStyle {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ScrollStyle {
-    pub vertical_scroll: Rail,
+    pub vertical_scroll: RailStyle,
     // TODO: Add horizontal rail when horizontal scroll is added.
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RailStyle {
+    /// Background color of the scroll rail.
+    pub background: Background,
+    /// Background color of the thumb of the scroll.
+    pub thumb_background: Background,
+    /// Border around the scroll thumb.
+    pub thumb_border: Border,
 }
 
 pub struct ScrollState {

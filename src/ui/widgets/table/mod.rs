@@ -24,6 +24,7 @@ where
     height: Length,
     header_height: f32,
     row_height: f32,
+    scroll_width: f32,
 
     has_header: bool,
     columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
@@ -75,6 +76,7 @@ where
             width: Length::Fill,
             height: Length::Fill,
             row_height: 30.0,
+            scroll_width: 12.0,
 
             columns,
             records,
@@ -118,6 +120,12 @@ where
 
     pub fn row_height(mut self, row_height: impl Into<f32>) -> Self {
         self.row_height = row_height.into();
+
+        self
+    }
+
+    pub fn scroll_width(mut self, scroll_width: impl Into<f32>) -> Self {
+        self.scroll_width = scroll_width.into();
 
         self
     }

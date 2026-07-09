@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use iced::{
-    Border, Color, Event, Length, Point, Rectangle, Size,
+    Event, Length, Point, Rectangle, Size,
     advanced::{
         Clipboard, Layout, Shell,
         layout::{Limits, Node, positioned},
@@ -17,7 +17,7 @@ use crate::ui::{
         virtualization::get_visible_range,
     },
     widgets::table::{
-        BodyRowStatus, Catalog, CellStatus, CellType, Table,
+        BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table,
         state::{HEADERS_ROW_IDENTIFIER, Identifiable},
     },
 };
@@ -50,6 +50,7 @@ where
     /// Creates the table cells with virtualization and the layout for the table, if the header
     /// is present, first column count child nodes are the header cell nodes.
     fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
+        let limits = limits.width(limits.max().width - self.scroll_width);
         let state = tree.state.downcast_mut::<State>();
 
         // Children Cell Generation
@@ -234,15 +235,16 @@ where
             table_style.background,
         );
 
+        // Body
+
+        let mut body_cell_layouts = layout.children().skip(self.columns.len());
+
         let body_bounds = Rectangle {
             x: bounds.x,
             y: bounds.y + self.header_height,
             width: bounds.width,
             height: bounds.height - self.header_height,
         };
-
-        let header_cell_layouts = layout.children().take(self.columns.len());
-        let mut body_cell_layouts = layout.children().skip(self.columns.len());
 
         // Clipping body cells to table body bounds
         renderer.with_layer(body_bounds, |renderer| {
@@ -265,10 +267,6 @@ where
                 renderer.fill_quad(
                     Quad {
                         bounds: row_bounds,
-                        border: Border {
-                            color: Color::TRANSPARENT,
-                            ..Default::default()
-                        },
                         ..Default::default()
                     },
                     row_style.background,
@@ -332,6 +330,10 @@ where
             }
         });
 
+        // Header
+
+        let header_cell_layouts = layout.children().take(self.columns.len());
+
         if self.has_header {
             let header_bounds = Rectangle {
                 x: bounds.x,
@@ -346,10 +348,6 @@ where
                 renderer.fill_quad(
                     Quad {
                         bounds: header_bounds,
-                        border: Border {
-                            color: Color::TRANSPARENT,
-                            ..Default::default()
-                        },
                         ..Default::default()
                     },
                     table_style.header_background,
@@ -410,10 +408,6 @@ where
                         renderer.fill_quad(
                             Quad {
                                 bounds: header_column_separator_bounds,
-                                border: Border {
-                                    color: Color::TRANSPARENT,
-                                    ..Default::default()
-                                },
                                 ..Default::default()
                             },
                             table_style.header_separator_x,
@@ -431,16 +425,64 @@ where
                 renderer.fill_quad(
                     Quad {
                         bounds: header_body_separator_bounds,
-                        border: Border {
-                            color: Color::TRANSPARENT,
-                            ..Default::default()
-                        },
                         ..Default::default()
                     },
                     table_style.header_body_separator,
                 );
             });
         }
+
+        // Scrollbar
+
+        let scroll_bounds = Rectangle {
+            x: bounds.x + bounds.width,
+            y: bounds.y,
+            width: self.scroll_width,
+            height: bounds.height,
+        };
+
+        renderer.with_layer(scroll_bounds, |renderer| {
+            let scroll_style = theme.scroll_style(
+                &self.scroll_class,
+                ScrollState {
+                    vertical_scroll_status: ScrollStatus::Default,
+                },
+            );
+
+            renderer.fill_quad(
+                Quad {
+                    bounds: scroll_bounds,
+                    ..Default::default()
+                },
+                scroll_style.vertical_scroll.background,
+            );
+
+            let effective_scroll_area_height = scroll_bounds.height - self.header_height;
+            let scroll_thumb_height = (effective_scroll_area_height
+                * (body_bounds.height / (self.row_height * self.records.len() as f32)))
+                .max(40.0);
+            let scroll_thumb_offset = (effective_scroll_area_height - scroll_thumb_height)
+                * (state.offset_y
+                    / (self.row_height * self.records.len() as f32 - body_bounds.height));
+            let scroll_thumb_horizontal_padding = self.scroll_width * 0.25;
+            let scroll_thumb_width = self.scroll_width - scroll_thumb_horizontal_padding * 2.0;
+
+            let scroll_thumb_bounds = Rectangle {
+                x: scroll_bounds.x + scroll_thumb_horizontal_padding,
+                y: scroll_bounds.y + self.header_height + scroll_thumb_offset,
+                width: scroll_thumb_width,
+                height: scroll_thumb_height,
+            };
+
+            renderer.fill_quad(
+                Quad {
+                    bounds: scroll_thumb_bounds,
+                    border: scroll_style.vertical_scroll.thumb_border,
+                    ..Default::default()
+                },
+                scroll_style.vertical_scroll.thumb_background,
+            );
+        });
     }
 
     fn update(
