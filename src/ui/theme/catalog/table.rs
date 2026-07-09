@@ -29,7 +29,7 @@ impl Catalog for Theme {
                 color: Color::TRANSPARENT,
                 ..Default::default()
             },
-            header_background: darken(theme.palette.surface, 0.5).into(),
+            header_background: darken(theme.palette.surface, 0.3).into(),
             header_body_separator: theme.palette.border.into(),
             header_separator_x: theme.palette.border.into(),
         })
@@ -42,13 +42,13 @@ impl Catalog for Theme {
             let scroller_color = match state.vertical_scroll_status {
                 ScrollStatus::Disabled => Color::TRANSPARENT,
                 ScrollStatus::Default => default_scroller_color,
-                ScrollStatus::Hovered => lighten(default_scroller_color, 0.3),
-                ScrollStatus::Dragged => lighten(default_scroller_color, 0.6),
+                ScrollStatus::Hovered => lighten(default_scroller_color, 0.1),
+                ScrollStatus::Dragged => lighten(default_scroller_color, 0.2),
             };
 
             ScrollStyle {
                 vertical_scroll: RailStyle {
-                    background: darken(theme.palette.surface, 0.5).into(),
+                    background: darken(theme.palette.surface, 0.3).into(),
                     thumb_background: scroller_color.into(),
                     thumb_border: Border {
                         radius: Radius::from(10.0),
@@ -66,10 +66,10 @@ impl Catalog for Theme {
                     if row_number % 2 == 0 {
                         theme.palette.surface
                     } else {
-                        darken(theme.palette.surface, 0.3)
+                        darken(theme.palette.surface, 0.15)
                     }
                 }
-                BodyRowStatus::Hovered => theme.palette.hover,
+                BodyRowStatus::Hovered => lighten(theme.palette.hover, 0.1),
                 BodyRowStatus::Selected => theme.palette.selected,
             };
 
@@ -87,7 +87,7 @@ impl Catalog for Theme {
                     CellType::Body => theme.palette.text,
                 },
                 CellStatus::Hovered => match cell_type {
-                    CellType::Header => darken(theme.palette.text_selected, 0.4),
+                    CellType::Header => darken(theme.palette.text_selected, 0.2),
                     CellType::Body => theme.palette.text_selected,
                 },
                 CellStatus::Selected => theme.palette.text_selected,

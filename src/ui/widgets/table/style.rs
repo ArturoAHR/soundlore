@@ -1,4 +1,4 @@
-use iced::{Background, Border, Color, widget::scrollable::Rail};
+use iced::{Background, Border, Color};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TableStyle {

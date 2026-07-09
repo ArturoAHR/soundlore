@@ -442,21 +442,6 @@ where
         };
 
         renderer.with_layer(scroll_bounds, |renderer| {
-            let scroll_style = theme.scroll_style(
-                &self.scroll_class,
-                ScrollState {
-                    vertical_scroll_status: ScrollStatus::Default,
-                },
-            );
-
-            renderer.fill_quad(
-                Quad {
-                    bounds: scroll_bounds,
-                    ..Default::default()
-                },
-                scroll_style.vertical_scroll.background,
-            );
-
             let effective_scroll_area_height = scroll_bounds.height - self.header_height;
             let scroll_thumb_height = (effective_scroll_area_height
                 * (body_bounds.height / (self.row_height * self.records.len() as f32)))
@@ -473,6 +458,24 @@ where
                 width: scroll_thumb_width,
                 height: scroll_thumb_height,
             };
+
+            let mut scroll_state = ScrollState {
+                vertical_scroll_status: ScrollStatus::Default,
+            };
+
+            if cursor.is_over(scroll_thumb_bounds) {
+                scroll_state.vertical_scroll_status = ScrollStatus::Hovered;
+            }
+
+            let scroll_style = theme.scroll_style(&self.scroll_class, scroll_state);
+
+            renderer.fill_quad(
+                Quad {
+                    bounds: scroll_bounds,
+                    ..Default::default()
+                },
+                scroll_style.vertical_scroll.background,
+            );
 
             renderer.fill_quad(
                 Quad {
