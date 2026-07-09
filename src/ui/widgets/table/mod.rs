@@ -1,7 +1,7 @@
 use std::ops::Range;
 
 use iced::{
-    Element, Length,
+    Element, Length, Padding,
     advanced::renderer::{self},
     alignment,
     widget::Space,
@@ -35,6 +35,9 @@ where
 
     column_offsets: Vec<f32>,
     row_offsets: Vec<f32>,
+
+    cell_padding: Padding,
+    header_cell_padding: Padding,
 
     table_class: Theme::TableClass<'a>,
     scroll_class: Theme::ScrollClass<'a>,
@@ -83,6 +86,9 @@ where
             column_offsets: Vec::new(),
             row_offsets: Vec::new(),
 
+            header_cell_padding: [0.0, 8.0].into(),
+            cell_padding: [0.0, 8.0].into(),
+
             table_class: Theme::default_table(),
             scroll_class: Theme::default_scroll(),
             body_row_class: Theme::default_body_row(),
@@ -112,6 +118,18 @@ where
 
     pub fn row_height(mut self, row_height: impl Into<f32>) -> Self {
         self.row_height = row_height.into();
+
+        self
+    }
+
+    pub fn cell_padding(mut self, padding: impl Into<Padding>) -> Self {
+        self.cell_padding = padding.into();
+
+        self
+    }
+
+    pub fn header_cell_padding(mut self, padding: impl Into<Padding>) -> Self {
+        self.header_cell_padding = padding.into();
 
         self
     }
@@ -185,6 +203,8 @@ pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
     align_y: alignment::Vertical,
     resizable: bool,
     sortable: bool,
+    header_padding: Option<Padding>,
+    cell_padding: Option<Padding>,
 }
 
 pub fn column<'a, T, E, Message, Theme, Renderer>(
@@ -206,6 +226,8 @@ where
         align_y: alignment::Vertical::Center,
         resizable: false,
         sortable: false,
+        cell_padding: None,
+        header_padding: None,
     }
 }
 
@@ -248,6 +270,18 @@ impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
 
     pub fn sortable(mut self, sortable: bool) -> Self {
         self.sortable = sortable;
+
+        self
+    }
+
+    pub fn cell_padding(mut self, padding: impl Into<Padding>) -> Self {
+        self.cell_padding = Some(padding.into());
+
+        self
+    }
+
+    pub fn header_padding(mut self, padding: impl Into<Padding>) -> Self {
+        self.header_padding = Some(padding.into());
 
         self
     }

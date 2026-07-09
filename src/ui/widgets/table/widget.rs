@@ -4,7 +4,7 @@ use iced::{
     Border, Color, Event, Length, Point, Rectangle, Size,
     advanced::{
         Clipboard, Layout, Shell,
-        layout::{Limits, Node},
+        layout::{Limits, Node, positioned},
         mouse::Cursor,
         renderer::{self, Quad},
         widget::{Tree, Widget, tree},
@@ -127,6 +127,8 @@ where
                 .zip(&self.columns)
                 .zip(&self.column_offsets)
             {
+                let padding = column.header_padding.unwrap_or(self.header_cell_padding);
+
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.header_height));
                 let mut tree = state.cell_state.get_mut_or_insert(
                     HEADERS_ROW_IDENTIFIER,
@@ -134,15 +136,20 @@ where
                     &header_cell,
                 );
 
-                let mut node = header_cell
-                    .as_widget_mut()
-                    .layout(&mut tree, renderer, &limits);
-
-                node = node.move_to(Point::new(*column_offset, 0.0)).align(
-                    column.align_x.into(),
-                    column.align_y.into(),
-                    Size::new(column.width, self.header_height),
+                let mut node = positioned(
+                    &limits,
+                    column.width,
+                    self.header_height,
+                    padding,
+                    |limits| {
+                        header_cell
+                            .as_widget_mut()
+                            .layout(&mut tree, renderer, &limits.loose())
+                    },
+                    |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
                 );
+
+                node = node.move_to(Point::new(*column_offset, 0.0));
 
                 nodes.push(node);
             }
@@ -171,20 +178,27 @@ where
                 .iter_mut()
                 .zip(self.columns.iter().zip(&self.column_offsets))
             {
+                let padding = column.cell_padding.unwrap_or(self.cell_padding);
+
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.row_height));
                 let mut tree = state
                     .cell_state
                     .get_mut_or_insert(record_id, &column.id, body_cell);
 
-                let mut node = body_cell
-                    .as_widget_mut()
-                    .layout(&mut tree, renderer, &limits);
-
-                node = node.move_to(Point::new(*column_offset, *row_offset)).align(
-                    column.align_x.into(),
-                    column.align_y.into(),
-                    Size::new(column.width, self.row_height),
+                let mut node = positioned(
+                    &limits,
+                    column.width,
+                    self.row_height,
+                    padding,
+                    |limits| {
+                        body_cell
+                            .as_widget_mut()
+                            .layout(&mut tree, renderer, &limits.loose())
+                    },
+                    |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
                 );
+
+                node = node.move_to(Point::new(*column_offset, *row_offset));
 
                 nodes.push(node);
             }
@@ -307,7 +321,8 @@ where
                                 &renderer::Style {
                                     text_color: cell_style.text_color,
                                 },
-                                cell_layout,
+                                // Gets inner layout since it's a padding wrapper for the child
+                                cell_layout.child(0),
                                 cursor,
                                 viewport,
                             );
@@ -375,7 +390,8 @@ where
                                 &renderer::Style {
                                     text_color: cell_style.text_color,
                                 },
-                                cell_layout,
+                                // Gets inner layout since it's a padding wrapper for the child
+                                cell_layout.child(0),
                                 cursor,
                                 viewport,
                             );
