@@ -1,6 +1,6 @@
 use iced::{
     Element, Length, Renderer, Task, alignment,
-    widget::{self, button, container, scrollable, text},
+    widget::{container, text},
 };
 use iced_palace::widget::ellipsized_text;
 use tracing::instrument;
@@ -12,7 +12,7 @@ use crate::{
     ui::{
         theme::Theme,
         utils::label::format_duration,
-        widgets::table::{column, table},
+        widgets::table::{column, state::TableIdentifier, table},
     },
 };
 
@@ -23,7 +23,7 @@ pub struct MainPane {}
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    TrackSelected(Track),
+    TrackRowDoubleClicked(TableIdentifier),
 }
 
 #[derive(Debug, Clone)]
@@ -43,12 +43,16 @@ pub struct MainPaneUpdateContext {}
 impl MainPane {
     #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, event: Message) -> (Task<Message>, Vec<Outcome>) {
+        let task = Task::none();
+        let mut outcomes = Vec::new();
+
         match event {
-            Message::TrackSelected(track) => (
-                Task::none(),
-                vec![Outcome::Playback(PlaybackOutcome::Play(track))],
-            ),
+            Message::TrackRowDoubleClicked(track_id) => {
+                outcomes.push(Outcome::Playback(PlaybackOutcome::Play(track_id)))
+            }
         }
+
+        return (task, outcomes);
     }
 
     #[instrument(skip(self), level = "debug")]
@@ -60,26 +64,6 @@ impl MainPane {
         &'a self,
         ctx: MainPaneViewContext<'a>,
     ) -> Element<'a, Message, Theme, Renderer> {
-        let track_rows: Vec<Element<Message, Theme, Renderer>> = ctx
-            .tracks
-            .iter()
-            .map(|track| {
-                button(text(format!(
-                    "{} - {}",
-                    track.artist.clone().unwrap_or("Unknown".to_owned()),
-                    track.title.clone().unwrap_or("Untitled".to_owned())
-                )))
-                .on_press(Message::TrackSelected(track.to_owned()))
-                .into()
-            })
-            .collect();
-
-        let _columns = scrollable(
-            widget::Column::with_children(track_rows)
-                .width(Length::Fill)
-                .height(Length::Fill),
-        );
-
         let columns = vec![
             column(
                 "artist".to_owned(),
@@ -116,13 +100,16 @@ impl MainPane {
             .align_x(alignment::Horizontal::Right),
         ];
 
-        container(table(columns, &ctx.tracks))
-            .height(Length::Fill)
-            .width(Length::Fill)
-            .style(|theme: &Theme| container::Style {
-                background: Some(theme.palette.surface.into()),
-                ..container::Style::default()
-            })
-            .into()
+        container(
+            table(columns, &ctx.tracks)
+                .on_row_double_click(|track_id| Message::TrackRowDoubleClicked(track_id)),
+        )
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .style(|theme: &Theme| container::Style {
+            background: Some(theme.palette.surface.into()),
+            ..container::Style::default()
+        })
+        .into()
     }
 }

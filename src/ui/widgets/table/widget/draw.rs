@@ -16,7 +16,7 @@ use crate::ui::widgets::table::{
 use crate::ui::widgets::table::state::State;
 
 pub fn draw<'a, T, Message, Theme, Renderer>(
-    table: &Table<'a, T, Message, Theme, Renderer>,
+    widget: &Table<'a, T, Message, Theme, Renderer>,
     tree: &Tree,
     renderer: &mut Renderer,
     theme: &Theme,
@@ -33,7 +33,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     let state = tree.state.downcast_ref::<State>();
     let bounds = layout.bounds();
 
-    let table_style = theme.table_style(&table.table_class);
+    let table_style = theme.table_style(&widget.table_class);
 
     // Render background
     renderer.fill_quad(
@@ -47,24 +47,24 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
     // Body
 
-    let mut body_cell_layouts = layout.children().skip(table.columns.len());
+    let mut body_cell_layouts = layout.children().skip(widget.columns.len());
 
     let body_bounds = Rectangle {
         x: bounds.x,
-        y: bounds.y + table.header_height,
+        y: bounds.y + widget.header_height,
         width: bounds.width,
-        height: bounds.height - table.header_height,
+        height: bounds.height - widget.header_height,
     };
 
     // Clipping body cells to table body bounds
     renderer.with_layer(body_bounds, |renderer| {
         // Render table body rows background
-        for (row_number, row_offset) in table.visible_row_range.clone().zip(&table.row_offsets) {
+        for (row_number, row_offset) in widget.visible_row_range.clone().zip(&widget.row_offsets) {
             let row_bounds = Rectangle {
                 x: body_bounds.x,
-                y: body_bounds.y + row_offset - table.header_height,
+                y: body_bounds.y + row_offset - widget.header_height,
                 width: body_bounds.width,
-                height: table.row_height,
+                height: widget.row_height,
             };
 
             let mut row_status = BodyRowStatus::Default;
@@ -72,7 +72,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                 row_status = BodyRowStatus::Hovered
             }
 
-            let row_style = theme.body_row_style(&table.body_row_class, row_status, row_number);
+            let row_style = theme.body_row_style(&widget.body_row_class, row_status, row_number);
 
             renderer.fill_quad(
                 Quad {
@@ -83,27 +83,27 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
             );
         }
 
-        for (visible_row_number, (row_id, row_offset)) in table.records
-            [table.visible_row_range.clone()]
+        for (visible_row_number, (row_id, row_offset)) in widget.records
+            [widget.visible_row_range.clone()]
         .iter()
         .map(|record| record.id())
-        .zip(&table.row_offsets)
+        .zip(&widget.row_offsets)
         .enumerate()
         {
             let row_bounds = Rectangle {
                 x: body_bounds.x,
-                y: body_bounds.y + row_offset - table.header_height,
+                y: body_bounds.y + row_offset - widget.header_height,
                 width: body_bounds.width,
-                height: table.row_height,
+                height: widget.row_height,
             };
 
-            let row_body_cell_range = visible_row_number * table.columns.len()
-                ..(visible_row_number + 1) * table.columns.len();
+            let row_body_cell_range = visible_row_number * widget.columns.len()
+                ..(visible_row_number + 1) * widget.columns.len();
 
-            for ((cell, cell_layout), column_id) in table.body_cells[row_body_cell_range]
+            for ((cell, cell_layout), column_id) in widget.body_cells[row_body_cell_range]
                 .iter()
-                .zip(body_cell_layouts.by_ref().take(table.columns.len()))
-                .zip(table.columns.iter().map(|column| &column.id))
+                .zip(body_cell_layouts.by_ref().take(widget.columns.len()))
+                .zip(widget.columns.iter().map(|column| &column.id))
             {
                 // Cell bounds need to be intersected with table body bounds in case the cells
                 // belong to the bottom-most row which can be cut in half.
@@ -116,7 +116,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                     cell_status = CellStatus::Hovered
                 }
 
-                let cell_style = theme.cell_style(&table.cell_class, cell_status, CellType::Body);
+                let cell_style = theme.cell_style(&widget.cell_class, cell_status, CellType::Body);
 
                 // Clipping cell contents to cell bounds
                 renderer.with_layer(cell_bounds, |renderer| {
@@ -141,14 +141,14 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
     // Header
 
-    let header_cell_layouts = layout.children().take(table.columns.len());
+    let header_cell_layouts = layout.children().take(widget.columns.len());
 
-    if table.has_header {
+    if widget.has_header {
         let header_bounds = Rectangle {
             x: bounds.x,
             y: bounds.y,
             width: bounds.width,
-            height: table.header_height,
+            height: widget.header_height,
         };
 
         // Clipping body cells to table header bounds
@@ -162,12 +162,12 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                 table_style.header_background,
             );
 
-            for (((cell, cell_layout), column_id), column_offset) in table
+            for (((cell, cell_layout), column_id), column_offset) in widget
                 .header_cells
                 .iter()
                 .zip(header_cell_layouts)
-                .zip(table.columns.iter().map(|column| &column.id))
-                .zip(&table.column_offsets)
+                .zip(widget.columns.iter().map(|column| &column.id))
+                .zip(&widget.column_offsets)
             {
                 // Cell bounds need to be intersected with table header bounds in case the current
                 // cell is the right most column header one.
@@ -175,13 +175,13 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                     continue;
                 };
 
-                // TODO: Derive status based on whole header cell bounds instead of just contents
                 let mut cell_status = CellStatus::Default;
                 if cursor.is_over(cell_bounds) {
                     cell_status = CellStatus::Hovered;
                 }
 
-                let cell_style = theme.cell_style(&table.cell_class, cell_status, CellType::Header);
+                let cell_style =
+                    theme.cell_style(&widget.cell_class, cell_status, CellType::Header);
 
                 // Clipping cell contents to cell bounds
                 renderer.with_layer(cell_bounds, |renderer| {
@@ -244,24 +244,24 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     let scroll_bounds = Rectangle {
         x: bounds.x + bounds.width,
         y: bounds.y,
-        width: table.scroll_width,
+        width: widget.scroll_width,
         height: bounds.height,
     };
 
     renderer.with_layer(scroll_bounds, |renderer| {
-        let effective_scroll_area_height = scroll_bounds.height - table.header_height;
+        let effective_scroll_area_height = scroll_bounds.height - widget.header_height;
         let scroll_thumb_height = (effective_scroll_area_height
-            * (body_bounds.height / (table.row_height * table.records.len() as f32)))
+            * (body_bounds.height / (widget.row_height * widget.records.len() as f32)))
             .max(40.0);
         let scroll_thumb_offset = (effective_scroll_area_height - scroll_thumb_height)
             * (state.offset_y
-                / (table.row_height * table.records.len() as f32 - body_bounds.height));
-        let scroll_thumb_horizontal_padding = table.scroll_width * 0.25;
-        let scroll_thumb_width = table.scroll_width - scroll_thumb_horizontal_padding * 2.0;
+                / (widget.row_height * widget.records.len() as f32 - body_bounds.height));
+        let scroll_thumb_horizontal_padding = widget.scroll_width * 0.25;
+        let scroll_thumb_width = widget.scroll_width - scroll_thumb_horizontal_padding * 2.0;
 
         let scroll_thumb_bounds = Rectangle {
             x: scroll_bounds.x + scroll_thumb_horizontal_padding,
-            y: scroll_bounds.y + table.header_height + scroll_thumb_offset,
+            y: scroll_bounds.y + widget.header_height + scroll_thumb_offset,
             width: scroll_thumb_width,
             height: scroll_thumb_height,
         };
@@ -274,7 +274,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
             scroll_state.vertical_scroll_status = ScrollStatus::Hovered;
         }
 
-        let scroll_style = theme.scroll_style(&table.scroll_class, scroll_state);
+        let scroll_style = theme.scroll_style(&widget.scroll_class, scroll_state);
 
         renderer.fill_quad(
             Quad {

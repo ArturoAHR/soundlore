@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use iced::{
     Element,
-    advanced::{renderer, widget::Tree},
+    advanced::{mouse::Click, renderer, widget::Tree},
 };
 
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
@@ -15,8 +15,17 @@ pub trait Identifiable {
 
 #[derive(Default)]
 pub struct State {
-    pub offset_y: f32,
+    /// Table cells state, handled on our side since virtualization plays poorly with
+    /// normal children state management.
     pub cell_state: CellState,
+
+    /// Table vertical scroll offset
+    pub offset_y: f32,
+
+    /// Last mouse click (used to determine double clicks)
+    pub last_click: Option<Click>,
+    // /// Current mouse click (used for dragging)
+    // pub current_click: Option<Click>
 }
 
 #[derive(Default)]

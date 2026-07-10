@@ -26,8 +26,11 @@ pub enum AppError {
     #[error("database query generation error - {0}")]
     DatabaseQueryGeneration(Arc<SeaQueryError>),
 
-    #[error("track not found: {path}")]
-    TrackNotFound { path: PathBuf },
+    #[error("track not found id={:?} path={:?}", id, path)]
+    TrackNotFound {
+        id: Option<String>,
+        path: Option<PathBuf>,
+    },
 
     #[error("playlist not found: {name}")]
     PlaylistNotFound { name: String },

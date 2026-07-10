@@ -19,7 +19,7 @@ pub enum PlaybackOutcome {
     Resume,
     Pause,
     Stop,
-    Play(Track),
+    Play(String),
     Seek {
         timestamp: u64,
         post_seek_status: PlaybackControllerStatus,
@@ -72,7 +72,21 @@ impl App {
 
                 Ok(Task::none())
             }
-            PlaybackOutcome::Play(track) => {
+
+            PlaybackOutcome::Play(track_id) => {
+                let track: Track = self
+                    .tracks
+                    .iter()
+                    .filter(|track| track.id == track_id)
+                    .cloned()
+                    .collect::<Vec<Track>>()
+                    .first()
+                    .ok_or_else(|| AppError::TrackNotFound {
+                        id: Some(track_id),
+                        path: None,
+                    })?
+                    .to_owned();
+
                 let event_tasks = self.broadcast(AttemptedPlayingTrack);
 
                 self.playback_controller.play(track.clone())?;
