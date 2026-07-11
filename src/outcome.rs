@@ -77,10 +77,8 @@ impl App {
                 let track: Track = self
                     .tracks
                     .iter()
-                    .filter(|track| track.id == track_id)
+                    .find(|track| track.id == track_id)
                     .cloned()
-                    .collect::<Vec<Track>>()
-                    .first()
                     .ok_or_else(|| AppError::TrackNotFound {
                         id: Some(track_id),
                         path: None,
