@@ -36,13 +36,13 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    let limits = limits.width(limits.max().width - widget.scroll_width);
+    let grid_limits = limits.width(limits.max().width - widget.scroll_width);
     let state = tree.state.downcast_mut::<State>();
 
     // Children Cell Generation
 
     let mut visible_row_range = get_visible_range(
-        limits.max().height,
+        grid_limits.max().height,
         widget.row_height,
         widget.header_height,
         state.offset_y,
@@ -62,7 +62,7 @@ where
 
     // Column Width Resolution
 
-    let container_width = limits.max().width as f64;
+    let container_width = grid_limits.max().width as f64;
     let column_widths = widget
         .columns
         .iter()

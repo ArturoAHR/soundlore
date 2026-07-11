@@ -5,6 +5,8 @@ use iced::{
     advanced::{mouse::Click, renderer, widget::Tree},
 };
 
+use crate::ui::widgets::table::widget::update::TableClick;
+
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
 
 pub type TableIdentifier = String;
@@ -23,7 +25,7 @@ pub struct State {
     pub offset_y: f32,
 
     /// Last mouse click (used to determine double clicks)
-    pub last_click: Option<Click>,
+    pub previous_click: Option<TableClick>,
     // /// Current mouse click (used for dragging)
     // pub current_click: Option<Click>
 }

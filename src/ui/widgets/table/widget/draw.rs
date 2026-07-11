@@ -33,6 +33,13 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     let state = tree.state.downcast_ref::<State>();
     let bounds = layout.bounds();
 
+    let grid_bounds = Rectangle {
+        x: bounds.x,
+        y: bounds.y,
+        width: bounds.width - widget.scroll_width,
+        height: bounds.height,
+    };
+
     let table_style = theme.table_style(&widget.table_class);
 
     // Render background
@@ -50,10 +57,10 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     let mut body_cell_layouts = layout.children().skip(widget.columns.len());
 
     let body_bounds = Rectangle {
-        x: bounds.x,
-        y: bounds.y + widget.header_height,
-        width: bounds.width,
-        height: bounds.height - widget.header_height,
+        x: grid_bounds.x,
+        y: grid_bounds.y + widget.header_height,
+        width: grid_bounds.width,
+        height: grid_bounds.height - widget.header_height,
     };
 
     // Clipping body cells to table body bounds
@@ -145,9 +152,9 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
     if widget.has_header {
         let header_bounds = Rectangle {
-            x: bounds.x,
-            y: bounds.y,
-            width: bounds.width,
+            x: grid_bounds.x,
+            y: grid_bounds.y,
+            width: grid_bounds.width,
             height: widget.header_height,
         };
 
@@ -242,7 +249,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     // Scrollbar
 
     let scroll_bounds = Rectangle {
-        x: bounds.x + bounds.width,
+        x: bounds.x + grid_bounds.width,
         y: bounds.y,
         width: widget.scroll_width,
         height: bounds.height,
