@@ -91,10 +91,10 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                     if matches!(table_click.clicked_area, Some(TableArea::Body)) {
                         let visible_records = &widget.records[widget.visible_row_range.clone()];
-                        let visible_row_offsets = widget.row_offsets
-                            [widget.visible_row_range.clone()]
-                        .iter()
-                        .map(|&row_offset| row_offset + bounds.y);
+                        let visible_row_offsets = widget
+                            .row_offsets
+                            .iter()
+                            .map(|&row_offset| row_offset + bounds.y);
 
                         let Some(clicked_row_id) = visible_records
                             .iter()
