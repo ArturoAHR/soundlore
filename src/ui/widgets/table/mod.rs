@@ -7,7 +7,10 @@ use iced::{
     widget::Space,
 };
 
-use crate::ui::widgets::table::state::{Identifiable, TableIdentifier};
+use crate::ui::{
+    utils::table::column::ColumnWidth,
+    widgets::table::state::{Identifiable, TableIdentifier},
+};
 
 pub mod state;
 pub mod style;
@@ -266,6 +269,19 @@ pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
 }
 
 impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
+    pub fn get_column_width(&self) -> ColumnWidth {
+        if self.resizable {
+            ColumnWidth::Resizable {
+                width: self.width as f64,
+                min_width: self.min_width as f64,
+            }
+        } else {
+            ColumnWidth::Fixed {
+                width: self.width as f64,
+            }
+        }
+    }
+
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = id.into();
 

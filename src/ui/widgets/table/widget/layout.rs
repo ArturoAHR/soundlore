@@ -8,12 +8,10 @@ use iced::{
         widget::Tree,
     },
 };
+use itertools::izip;
 
 use crate::ui::{
-    utils::table::{
-        column::{ColumnWidth, get_column_widths},
-        virtualization::get_visible_range,
-    },
+    utils::table::{column::get_column_widths, virtualization::get_visible_range},
     widgets::table::{
         Catalog, Table,
         state::{HEADERS_ROW_IDENTIFIER, Identifiable},
@@ -66,18 +64,7 @@ where
     let column_widths = widget
         .columns
         .iter()
-        .map(|column| {
-            if column.resizable {
-                ColumnWidth::Resizable {
-                    width: column.width as f64,
-                    min_width: column.min_width as f64,
-                }
-            } else {
-                ColumnWidth::Fixed {
-                    width: column.width as f64,
-                }
-            }
-        })
+        .map(|column| column.get_column_width())
         .collect();
 
     let column_widths = get_column_widths(container_width, column_widths);
@@ -88,32 +75,34 @@ where
 
     // Get Cell Offsets
 
-    widget.column_offsets = Vec::with_capacity(widget.columns.len());
-    let mut column_width_offset_sum = 0.0;
-    for column in widget.columns.iter() {
-        widget.column_offsets.push(column_width_offset_sum);
-        column_width_offset_sum += column.width;
-    }
+    widget.column_offsets = widget
+        .columns
+        .iter()
+        .scan(0.0, |offset_accumulator, column| {
+            let current_offset = *offset_accumulator;
 
-    widget.row_offsets = Vec::with_capacity(widget.visible_row_range.clone().count());
-    let mut row_height_offset_sum =
+            *offset_accumulator += column.width;
+
+            Some(current_offset)
+        })
+        .collect();
+
+    let row_offset_start =
         widget.header_height - widget.row_height * (state.offset_y / widget.row_height).fract();
-    for _ in widget.visible_row_range.clone() {
-        widget.row_offsets.push(row_height_offset_sum);
-        row_height_offset_sum += widget.row_height;
-    }
+    widget.row_offsets = (0..widget.visible_row_range.len())
+        .map(|visible_row_number| row_offset_start + widget.row_height * visible_row_number as f32)
+        .collect();
 
     // Child Node Generation
 
     let mut nodes = Vec::new();
 
     if widget.has_header {
-        for ((header_cell, column), column_offset) in widget
-            .header_cells
-            .iter_mut()
-            .zip(&widget.columns)
-            .zip(&widget.column_offsets)
-        {
+        for (header_cell, column, column_offset) in izip!(
+            widget.header_cells.iter_mut(),
+            &widget.columns,
+            &widget.column_offsets
+        ) {
             let padding = column.header_padding.unwrap_or(widget.header_cell_padding);
 
             let limits = Limits::new(Size::ZERO, Size::new(column.width, widget.header_height));
@@ -149,22 +138,23 @@ where
         row_ids.insert(&header_row_id);
     }
 
-    for (visible_row_number, (record_id, row_offset)) in widget.records
-        [widget.visible_row_range.clone()]
-    .iter()
-    .map(|record| record.id())
-    .zip(widget.row_offsets.iter())
-    .enumerate()
-    {
-        let row_body_cell_range = visible_row_number * widget.columns.len()
-            ..(visible_row_number + 1) * widget.columns.len();
+    let visible_row_record_ids = widget.records[widget.visible_row_range.clone()]
+        .iter()
+        .map(|record| record.id());
+    let row_body_cell_groups = widget.body_cells.chunks_mut(widget.columns.len());
 
+    for (record_id, row_offset, row_body_cells) in izip!(
+        visible_row_record_ids,
+        &widget.row_offsets,
+        row_body_cell_groups
+    ) {
         row_ids.insert(record_id);
 
-        for (body_cell, (column, column_offset)) in widget.body_cells[row_body_cell_range]
-            .iter_mut()
-            .zip(widget.columns.iter().zip(&widget.column_offsets))
-        {
+        for (body_cell, column, column_offset) in izip!(
+            row_body_cells.iter_mut(),
+            &widget.columns,
+            &widget.column_offsets
+        ) {
             let padding = column.cell_padding.unwrap_or(widget.cell_padding);
 
             let limits = Limits::new(Size::ZERO, Size::new(column.width, widget.row_height));
