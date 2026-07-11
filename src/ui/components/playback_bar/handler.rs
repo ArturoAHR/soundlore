@@ -33,9 +33,9 @@ impl App {
         let (task, outcomes) = self.playback_bar.update(message, playback_bar_context);
         let component_task = task.map(app::Message::PlaybackBar);
 
-        if outcomes.len() == 0 {
+        if outcomes.is_empty() {
             return component_task;
-        };
+        }
 
         let mut tasks = vec![component_task];
 

@@ -15,8 +15,8 @@ pub enum ColumnWidth {
 impl ColumnWidth {
     pub fn get_width(&self) -> f64 {
         match self {
-            ColumnWidth::Fixed { width } => *width,
-            ColumnWidth::Resizable {
+            Self::Fixed { width }
+            | Self::Resizable {
                 width,
                 min_width: _,
             } => *width,
@@ -25,8 +25,8 @@ impl ColumnWidth {
 
     pub fn get_min_width(&self) -> f64 {
         match self {
-            ColumnWidth::Fixed { width } => *width,
-            ColumnWidth::Resizable {
+            Self::Fixed { width } => *width,
+            Self::Resizable {
                 width: _,
                 min_width,
             } => *min_width,
@@ -35,8 +35,8 @@ impl ColumnWidth {
 
     pub fn get_shrink_capacity(&self) -> f64 {
         match self {
-            ColumnWidth::Fixed { width: _ } => 0.0,
-            ColumnWidth::Resizable { width, min_width } => width - min_width,
+            Self::Fixed { width: _ } => 0.0,
+            Self::Resizable { width, min_width } => width - min_width,
         }
     }
 }
@@ -45,16 +45,16 @@ impl ColumnWidth {
 pub fn get_column_widths(container_width: f64, mut column_widths: Vec<ColumnWidth>) -> Vec<f64> {
     if column_widths.is_empty() {
         return vec![];
-    };
+    }
 
     // If for some reason resizable column widths fall below minimum width, correct it for calculation.
-    column_widths.iter_mut().for_each(|column| {
+    for column in &mut column_widths {
         if let ColumnWidth::Resizable { width, min_width } = column
             && width < min_width
         {
-            *width = *min_width
+            *width = *min_width;
         }
-    });
+    }
 
     let column_width_sum = column_widths
         .iter()
@@ -86,7 +86,7 @@ pub fn get_column_widths(container_width: f64, mut column_widths: Vec<ColumnWidt
         if resizable_column_widths <= 0.1 {
             warn!("Not enough resizable column width, returning widths as is.");
 
-            return Vec::from_iter(column_widths.iter().map(ColumnWidth::get_width));
+            return column_widths.iter().map(ColumnWidth::get_width).collect();
         }
 
         let growth_ratio = (container_width - fixed_column_widths) / resizable_column_widths;
@@ -124,7 +124,7 @@ pub fn get_column_widths(container_width: f64, mut column_widths: Vec<ColumnWidt
     let columns_shrink_capacity = column_widths.iter().map(ColumnWidth::get_shrink_capacity);
     let column_shrink_capacity_sum = columns_shrink_capacity.clone().sum::<f64>();
 
-    return column_widths
+    column_widths
         .iter()
         .zip(columns_shrink_capacity)
         .map(|(column, column_shrink_capacity)| match column {
@@ -136,5 +136,5 @@ pub fn get_column_widths(container_width: f64, mut column_widths: Vec<ColumnWidt
             }
             ColumnWidth::Fixed { width } => *width,
         })
-        .collect();
+        .collect()
 }

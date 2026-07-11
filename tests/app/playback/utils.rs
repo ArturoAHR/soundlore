@@ -5,5 +5,5 @@ pub fn get_file_name(sample_rate: u32, channels: u16, format: &str) -> String {
         _ => unreachable!(),
     };
 
-    format!("{}_{}.{}", sample_rate, channel_count_name, format)
+    format!("{sample_rate}_{channel_count_name}.{format}")
 }

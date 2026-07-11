@@ -48,15 +48,15 @@ impl MainPane {
 
         match event {
             Message::TrackRowDoubleClicked(track_id) => {
-                outcomes.push(Outcome::Playback(PlaybackOutcome::Play(track_id)))
+                outcomes.push(Outcome::Playback(PlaybackOutcome::Play(track_id)));
             }
         }
 
-        return (task, outcomes);
+        (task, outcomes)
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub fn on_event(&mut self, _event: &Event) -> Task<Message> {
+    pub fn on_event(&mut self, event: &Event) -> Task<Message> {
         Task::none()
     }
 
@@ -69,7 +69,7 @@ impl MainPane {
                 "artist".to_owned(),
                 Some(text("Artist").into()),
                 |track: &Track| {
-                    ellipsized_text(track.artist.clone().unwrap_or("Unknown".to_owned()))
+                    ellipsized_text(track.artist.clone().unwrap_or_else(|| "Unknown".to_owned()))
                         .wrapping(text::Wrapping::None)
                 },
             )
@@ -79,7 +79,7 @@ impl MainPane {
                 "title".to_owned(),
                 Some(text("Title").into()),
                 |track: &Track| {
-                    ellipsized_text(track.title.clone().unwrap_or("Untitled".to_owned()))
+                    ellipsized_text(track.title.clone().unwrap_or_else(|| "Untitled".to_owned()))
                         .wrapping(text::Wrapping::None)
                 },
             )
@@ -100,16 +100,13 @@ impl MainPane {
             .align_x(alignment::Horizontal::Right),
         ];
 
-        container(
-            table(columns, &ctx.tracks)
-                .on_row_double_click(|track_id| Message::TrackRowDoubleClicked(track_id)),
-        )
-        .height(Length::Fill)
-        .width(Length::Fill)
-        .style(|theme: &Theme| container::Style {
-            background: Some(theme.palette.surface.into()),
-            ..container::Style::default()
-        })
-        .into()
+        container(table(columns, ctx.tracks).on_row_double_click(Message::TrackRowDoubleClicked))
+            .height(Length::Fill)
+            .width(Length::Fill)
+            .style(|theme: &Theme| container::Style {
+                background: Some(theme.palette.surface.into()),
+                ..container::Style::default()
+            })
+            .into()
     }
 }

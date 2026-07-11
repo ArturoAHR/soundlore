@@ -17,7 +17,7 @@ impl AudioPipelineEventEmitter {
     #[instrument(skip(self), ret, level = "debug")]
     pub fn emit(&self, event: AudioPipelineThreadEvent) {
         match self.event_sender.send(event) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(error) => {
                 error!("Failed to send audio pipeline event: {error}");
             }

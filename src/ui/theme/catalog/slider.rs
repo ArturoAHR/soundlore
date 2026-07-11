@@ -14,8 +14,7 @@ impl Catalog for Theme {
         Box::new(|theme, status| {
             let fill_color = match status {
                 Status::Active => theme.palette.accent,
-                Status::Hovered => theme.palette.focus,
-                Status::Dragged => theme.palette.focus,
+                Status::Hovered | Status::Dragged => theme.palette.focus,
             };
 
             Style {

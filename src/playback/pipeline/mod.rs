@@ -119,12 +119,8 @@ impl AudioPipeline {
             generation_counter,
         };
 
-        if let Some(track) = track {
-            if let Err(error) = audio_pipeline.play_track(track) {
-                error!(
-                    "Failed to create audio track pipeline when creating audio pipeline {error}"
-                );
-            }
+        if let Some(error) = track.and_then(|track| audio_pipeline.play_track(track).err()) {
+            error!("Failed to create audio track pipeline when creating audio pipeline {error}");
         }
 
         audio_pipeline
@@ -175,7 +171,7 @@ impl AudioPipeline {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     #[instrument(skip(self))]
@@ -223,7 +219,7 @@ impl AudioPipeline {
             AudioPipelineThreadCommand::Exit => {
                 return Ok(Some(AudioPipelineProcessDirective::Exit));
             }
-        };
+        }
 
         let mut outcomes = Vec::new();
         if let (Some(audio_track_pipeline), Some(audio_pipeline_command)) = (
@@ -268,16 +264,17 @@ impl AudioPipeline {
     fn increase_generation_counter(&mut self, decoder_timestamp: u64) {
         self.audio_sink.clear();
 
-        let mut timestamp_offset = 0;
-        if let Some(audio_track_pipeline) = self.audio_track_pipelines.get(0) {
-            let resample_ratio = self.configuration.output.sample_rate as f64
-                / audio_track_pipeline.configuration.track.sample_rate as f64;
+        let timestamp_offset =
+            if let Some(audio_track_pipeline) = self.audio_track_pipelines.first() {
+                let resample_ratio = self.configuration.output.sample_rate as f64
+                    / audio_track_pipeline.configuration.track.sample_rate as f64;
 
-            let output_channels = self.configuration.output.channels;
+                let output_channels = self.configuration.output.channels;
 
-            timestamp_offset =
-                (decoder_timestamp as f64 * resample_ratio).round() as u64 * output_channels as u64;
-        }
+                (decoder_timestamp as f64 * resample_ratio).round() as u64 * output_channels as u64
+            } else {
+                0
+            };
 
         self.samples_played_timestamp_offset
             .store(timestamp_offset, Ordering::Relaxed);
@@ -290,11 +287,11 @@ impl AudioPipeline {
     #[instrument(skip_all, level = "trace", fields(
         current_track = self
             .audio_track_pipelines
-            .get(0)
+            .first()
             .map(|audio_track_pipeline| {
                 Path::new(&audio_track_pipeline.configuration.track.file_path)
                     .file_name()
-                    .unwrap_or(audio_track_pipeline.configuration.track.file_path.as_ref()).to_str()
+                    .unwrap_or_else(|| audio_track_pipeline.configuration.track.file_path.as_ref()).to_str()
             })
         ),
     )]
@@ -328,7 +325,7 @@ impl AudioPipeline {
                 )));
             }
             Ok(()) => {}
-        };
+        }
 
         let Some(audio_track_pipeline) = self.audio_track_pipelines.get_mut(0) else {
             self.set_status(AudioPipelineStatus::Idle);
@@ -354,7 +351,7 @@ impl AudioPipeline {
 
         let samples = audio_track_pipeline.produce_samples()?;
 
-        self.audio_sink.buffer(&samples.as_ref());
+        self.audio_sink.buffer(samples.as_ref());
 
         Ok(AudioPipelineProcessDirective::Continue)
     }

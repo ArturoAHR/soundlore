@@ -28,26 +28,29 @@ pub enum AudioPipelineSamples {
 
 impl AudioPipelineSamples {
     /// Creates a new `AudioPipelineSamples` value with the same variant as the current instance.
+    #[must_use]
     pub fn new_like(&self, samples: Vec<f32>) -> Self {
         match self {
-            AudioPipelineSamples::Chunk(_) => Self::Chunk(samples),
-            AudioPipelineSamples::End(_) => Self::End(samples),
+            Self::Chunk(_) => Self::Chunk(samples),
+            Self::End(_) => Self::End(samples),
         }
     }
 
     pub fn len(&self) -> usize {
         match self {
-            AudioPipelineSamples::Chunk(samples) => samples.len(),
-            AudioPipelineSamples::End(samples) => samples.len(),
+            Self::Chunk(samples) | Self::End(samples) => samples.len(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
 impl AsRef<Vec<f32>> for AudioPipelineSamples {
     fn as_ref(&self) -> &Vec<f32> {
         match self {
-            AudioPipelineSamples::Chunk(samples) => samples,
-            AudioPipelineSamples::End(samples) => samples,
+            Self::Chunk(samples) | Self::End(samples) => samples,
         }
     }
 }
@@ -55,8 +58,7 @@ impl AsRef<Vec<f32>> for AudioPipelineSamples {
 impl AsRef<[f32]> for AudioPipelineSamples {
     fn as_ref(&self) -> &[f32] {
         match self {
-            AudioPipelineSamples::Chunk(samples) => samples,
-            AudioPipelineSamples::End(samples) => samples,
+            Self::Chunk(samples) | Self::End(samples) => samples,
         }
     }
 }

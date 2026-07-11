@@ -111,13 +111,13 @@ fn should_consume_samples_from_buffer() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample,
             1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with sound."
-        )
-    });
+        );
+    }
 
     harness.assert_sample_buffer_consumer_slots(0);
     harness.assert_samples_played(DEFAULT_OUTPUT_DATA_SIZE as u64);
@@ -139,12 +139,12 @@ fn should_consume_samples_from_partially_filled_buffer() {
                 *sample,
                 1.0 * OUTPUT_VOLUME_MULTIPLIER,
                 "Output buffer wasn't filled correctly with sound at position {index}."
-            )
+            );
         } else {
             assert_eq!(
                 *sample, 0.0,
                 "Output buffer wasn't filled correctly with silence at position {index}."
-            )
+            );
         }
     });
 
@@ -163,13 +163,13 @@ fn should_continuously_consume_samples_from_buffer() {
     for _ in 0..3 {
         harness.process(&mut data);
 
-        data.iter().for_each(|sample| {
+        for sample in &data {
             assert_eq!(
                 *sample,
                 1.0 * OUTPUT_VOLUME_MULTIPLIER,
                 "Output buffer wasn't filled correctly with sound."
-            )
-        });
+            );
+        }
     }
 
     harness.assert_sample_buffer_consumer_slots(0);
@@ -187,12 +187,12 @@ fn should_underrun_with_silence() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_samples_played(0);
     harness.assert_track_start_timestamp(0);
@@ -211,12 +211,12 @@ fn should_output_silence_if_paused() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_sample_buffer_consumer_slots(DEFAULT_OUTPUT_DATA_SIZE);
     harness.assert_samples_played(0);
@@ -236,12 +236,12 @@ fn should_consume_buffer_after_pause() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_sample_buffer_consumer_slots(DEFAULT_OUTPUT_DATA_SIZE);
     harness.assert_samples_played(0);
@@ -252,13 +252,13 @@ fn should_consume_buffer_after_pause() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample,
             1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with sound."
-        )
-    });
+        );
+    }
 
     harness.assert_sample_buffer_consumer_slots(0);
     harness.assert_samples_played(DEFAULT_OUTPUT_DATA_SIZE as u64);
@@ -278,12 +278,12 @@ fn should_clear_buffer_if_pipeline_generation_counter_is_increased() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_engine_generation_counter(1);
     harness.assert_sample_buffer_consumer_slots(0);
@@ -303,12 +303,12 @@ fn should_consume_buffer_after_generation_counter_increase_clear() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_sample_buffer_consumer_slots(0);
     harness.assert_samples_played(0);
@@ -321,13 +321,13 @@ fn should_consume_buffer_after_generation_counter_increase_clear() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample,
             1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with sound."
-        )
-    });
+        );
+    }
 
     harness.assert_samples_played(DEFAULT_OUTPUT_DATA_SIZE as u64);
     harness.assert_sample_buffer_consumer_slots(0);
@@ -347,12 +347,12 @@ fn should_clear_buffer_if_pipeline_generation_counter_is_increased_twice_before_
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_engine_generation_counter(2);
     harness.assert_sample_buffer_consumer_slots(0);
@@ -362,12 +362,12 @@ fn should_clear_buffer_if_pipeline_generation_counter_is_increased_twice_before_
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 }
 
 #[test]
@@ -383,12 +383,12 @@ fn should_clear_buffer_if_pipeline_generation_counter_is_increased_twice_in_a_ro
 
         harness.process(&mut data);
 
-        data.iter().for_each(|sample| {
+        for sample in &data {
             assert_eq!(
                 *sample, 0.0,
                 "Output buffer wasn't filled correctly with silence."
-            )
-        });
+            );
+        }
 
         harness.assert_engine_generation_counter(index + 1);
         harness.assert_sample_buffer_consumer_slots(0);
@@ -422,13 +422,13 @@ fn should_set_track_started_timestamp_with_offset_after_clearing() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample,
             1.0 * OUTPUT_VOLUME_MULTIPLIER,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_sample_buffer_consumer_slots(DEFAULT_OUTPUT_DATA_SIZE);
     harness.assert_samples_played(DEFAULT_OUTPUT_DATA_SIZE as u64);
@@ -441,12 +441,12 @@ fn should_set_track_started_timestamp_with_offset_after_clearing() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_engine_generation_counter(1);
     harness.assert_sample_buffer_consumer_slots(0);
@@ -466,12 +466,12 @@ fn should_set_negative_track_started_timestamp_with_offset_after_clearing() {
 
     harness.process(&mut data);
 
-    data.iter().for_each(|sample| {
+    for sample in &data {
         assert_eq!(
             *sample, 0.0,
             "Output buffer wasn't filled correctly with silence."
-        )
-    });
+        );
+    }
 
     harness.assert_engine_generation_counter(1);
     harness.assert_sample_buffer_consumer_slots(0);

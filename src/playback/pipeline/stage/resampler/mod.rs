@@ -67,7 +67,7 @@ pub enum AudioResamplerStatus {
     Finished,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ResamplingMode {
     Resample,
     Flush,
@@ -176,16 +176,15 @@ impl AudioResampler {
             InterleavedSlice::new(samples, self.resampler.nbr_channels(), input_frames)?;
 
         let mut input_frames_left = input_frames;
-        let mut output_frames_left = 0;
-
-        // Gets remaining output frames we need to output based on how many samples were read and how
-        // many were delivered in the output sample rate.
-        if self.resampling_mode == ResamplingMode::Flush {
-            output_frames_left = ((self.total_samples_read as f64 * self.resampler.resample_ratio())
-                .round() as usize
+        let mut output_frames_left = if matches!(self.resampling_mode, ResamplingMode::Flush) {
+            // Gets remaining output frames we need to output based on how many samples were read and how
+            // many were delivered in the output sample rate.
+            ((self.total_samples_read as f64 * self.resampler.resample_ratio()).round() as usize
                 - self.total_samples_delivered)
-                / self.resampler.nbr_channels();
-        }
+                / self.resampler.nbr_channels()
+        } else {
+            0
+        };
 
         let mut output_samples: Vec<f32> =
             vec![0.0; self.resampler.output_frames_max() * self.resampler.nbr_channels()];
@@ -234,13 +233,14 @@ impl AudioResampler {
 
             // After no more input frames are left we start processing silence to output the remaining
             // resampled samples.
-            if input_frames_left == 0 && self.resampling_mode == ResamplingMode::Flush {
+            if input_frames_left == 0 && matches!(self.resampling_mode, ResamplingMode::Flush) {
                 indexing.input_offset = 0;
                 indexing.partial_len = Some(0);
             }
         }
 
-        if self.resampling_mode == ResamplingMode::Resample && indexing.input_offset < samples.len()
+        if matches!(self.resampling_mode, ResamplingMode::Resample)
+            && indexing.input_offset < samples.len()
         {
             self.sample_buffer
                 .extend(&samples[indexing.input_offset * self.resampler.nbr_channels()..]);
@@ -262,18 +262,19 @@ impl AudioResampler {
     ) -> (usize, usize) {
         let mut output_frames = min(frames_written, self.resampler.output_frames_max());
 
-        if self.resampling_mode == ResamplingMode::Flush {
+        if matches!(self.resampling_mode, ResamplingMode::Flush) {
             output_frames = min(output_frames, output_frames_left);
         }
 
         let last_resampled_sample_index = output_frames * self.resampler.nbr_channels();
 
-        let mut first_resampled_sample_index = 0;
-
-        // Skip resampler warmup frames
-        if let AudioResamplerStatus::Warmup(warmup_frames) = self.status {
-            first_resampled_sample_index = warmup_frames * self.resampler.nbr_channels();
-        }
+        let first_resampled_sample_index =
+            if let AudioResamplerStatus::Warmup(warmup_frames) = self.status {
+                // Skip resampler warmup frames
+                warmup_frames * self.resampler.nbr_channels()
+            } else {
+                0
+            };
 
         (first_resampled_sample_index, last_resampled_sample_index)
     }

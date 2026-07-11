@@ -69,7 +69,7 @@ pub fn spawn_audio_pipeline_thread(
             event_sender,
             samples_played_timestamp_offset,
             generation_counter,
-        )
+        );
     });
 
     (audio_pipeline_thread_handle, command_sender, event_receiver)
@@ -119,13 +119,13 @@ fn audio_pipeline_thread_process(
                 let current_track =
                     audio_pipeline
                         .audio_track_pipelines
-                        .get(0)
+                        .first()
                         .map(|audio_track_pipeline| {
                             Path::new(&audio_track_pipeline.configuration.track.file_path)
                                 .file_name()
-                                .unwrap_or(
-                                    audio_track_pipeline.configuration.track.file_path.as_ref(),
-                                )
+                                .unwrap_or_else(|| {
+                                    audio_track_pipeline.configuration.track.file_path.as_ref()
+                                })
                                 .to_owned()
                         });
 

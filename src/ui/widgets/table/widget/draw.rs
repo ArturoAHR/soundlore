@@ -76,10 +76,11 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                 height: widget.row_height,
             };
 
-            let mut row_status = BodyRowStatus::Default;
-            if cursor.is_over(row_bounds) {
-                row_status = BodyRowStatus::Hovered
-            }
+            let row_status = if cursor.is_over(row_bounds) {
+                BodyRowStatus::Hovered
+            } else {
+                BodyRowStatus::Default
+            };
 
             let row_style = theme.body_row_style(&widget.body_row_class, row_status, row_number);
 
@@ -94,7 +95,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
         let visible_row_ids = widget.records[widget.visible_row_range.clone()]
             .iter()
-            .map(|record| record.id());
+            .map(Identifiable::id);
 
         for (visible_row_number, row_id, row_offset) in
             izip!(0.., visible_row_ids, &widget.row_offsets)
@@ -120,10 +121,11 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                     continue;
                 };
 
-                let mut cell_status = CellStatus::Default;
-                if cursor.is_over(row_bounds) {
-                    cell_status = CellStatus::Hovered
-                }
+                let cell_status = if cursor.is_over(row_bounds) {
+                    CellStatus::Hovered
+                } else {
+                    CellStatus::Default
+                };
 
                 let cell_style = theme.cell_style(&widget.cell_class, cell_status, CellType::Body);
 
@@ -185,10 +187,11 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                     continue;
                 };
 
-                let mut cell_status = CellStatus::Default;
-                if cursor.is_over(cell_bounds) {
-                    cell_status = CellStatus::Hovered;
-                }
+                let cell_status = if cursor.is_over(cell_bounds) {
+                    CellStatus::Hovered
+                } else {
+                    CellStatus::Default
+                };
 
                 let cell_style =
                     theme.cell_style(&widget.cell_class, cell_status, CellType::Header);

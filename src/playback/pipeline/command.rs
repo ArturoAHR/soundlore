@@ -42,7 +42,7 @@ impl AudioPipelineCommandReceiver {
             Ok(command) => Ok(Some(command)),
             Err(error) => match error {
                 std::sync::mpsc::TryRecvError::Empty => Ok(None),
-                error => Err(error.into()),
+                std::sync::mpsc::TryRecvError::Disconnected => Err(error.into()),
             },
         }
     }

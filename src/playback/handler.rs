@@ -3,7 +3,7 @@ use tracing::error;
 
 use crate::{
     app::{self, App},
-    playback::{PlaybackControllerError, PlaybackControllerStatus, event::PlaybackControllerEvent},
+    playback::{PlaybackControllerError, PlaybackControllerStatus},
     ui::components::playback_bar,
 };
 
@@ -16,19 +16,23 @@ pub enum Message {
 }
 
 impl App {
+    #[allow(clippy::single_match)]
     pub fn handle_playback(&mut self, message: Message) -> Task<app::Message> {
         match message {
             Message::PollPlaybackEvent => {
-                while let Ok(Some(event)) = self.playback_controller.poll_event() {
-                    match event {
-                        PlaybackControllerEvent::EndOfTrack => {
-                            // TODO: Implement playing next track.
-                        }
-                        _ => {}
-                    }
+                while let Ok(Some(_event)) = self.playback_controller.poll_event() {
+                    // match event {
+                    //     PlaybackControllerEvent::EndOfTrack => {
+                    //         // TODO: Implement playing next track.
+                    //     }
+                    //     _ => {}
+                    // }
                 }
 
-                if self.playback_controller.status == PlaybackControllerStatus::Stopped {
+                if matches!(
+                    self.playback_controller.status,
+                    PlaybackControllerStatus::Stopped
+                ) {
                     return Task::none();
                 }
 
@@ -74,7 +78,7 @@ impl App {
 
                 Task::none()
             }
-            _ => Task::none(),
+            Message::OutputDeviceChanged => Task::none(),
         }
     }
 }

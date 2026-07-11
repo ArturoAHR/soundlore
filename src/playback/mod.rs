@@ -63,7 +63,7 @@ pub struct PlaybackController {
     generation_counter: Arc<GenerationCounter>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub enum PlaybackControllerStatus {
     Playing,
     Stopped,
@@ -108,7 +108,7 @@ impl PlaybackController {
             Arc::clone(&generation_counter),
         );
 
-        PlaybackController {
+        Self {
             status: PlaybackControllerStatus::Stopped,
             output_format: None,
 
@@ -214,7 +214,7 @@ impl PlaybackController {
         let track_start_timestamp = self.track_start_timestamp.load(Ordering::Acquire);
         let samples_played = self.samples_played.load(Ordering::Relaxed);
 
-        return max(0, samples_played as i64 - track_start_timestamp) as u64;
+        max(0, samples_played as i64 - track_start_timestamp) as u64
     }
 
     pub fn get_audio_pipeline_generation(&self) -> u64 {
@@ -234,17 +234,16 @@ impl Drop for PlaybackController {
             .audio_pipeline_command_sender
             .send(AudioPipelineThreadCommand::Exit)
         {
-            Ok(_) => {
-                if let Some(audio_pipeline_thread_handle) = self.audio_pipeline_thread_handle.take()
-                {
-                    if let Err(error) = audio_pipeline_thread_handle.join() {
-                        error!("Audio pipeline thread join failed: {:#?}", error);
-                    };
+            Ok(()) => {
+                if let Some(error) = self.audio_pipeline_thread_handle.take().and_then(
+                    |audio_pipeline_thread_handle| audio_pipeline_thread_handle.join().err(),
+                ) {
+                    error!("Audio pipeline thread join failed: {:#?}", error);
                 }
             }
             Err(error) => {
-                error!("Could not issue exit command to audio pipeline: {error}")
+                error!("Could not issue exit command to audio pipeline: {error}");
             }
-        };
+        }
     }
 }

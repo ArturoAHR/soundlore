@@ -36,7 +36,7 @@ impl NavigationBar {
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub fn on_event(&mut self, _event: &Event) -> Task<Message> {
+    pub fn on_event(&mut self, event: &Event) -> Task<Message> {
         Task::none()
     }
 

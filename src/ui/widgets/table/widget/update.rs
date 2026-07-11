@@ -25,6 +25,7 @@ pub enum TableArea {
     Scroll,
 }
 
+#[allow(clippy::single_match)]
 pub fn update<'a, T, Message, Theme, Renderer>(
     widget: &mut Table<'a, T, Message, Theme, Renderer>,
     tree: &mut Tree,
@@ -67,8 +68,8 @@ pub fn update<'a, T, Message, Theme, Renderer>(
             match event {
                 iced::mouse::Event::WheelScrolled { delta } => {
                     let delta_y = match delta {
-                        iced::mouse::ScrollDelta::Lines { x: _, y } => *y,
-                        iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
+                        iced::mouse::ScrollDelta::Lines { x: _, y }
+                        | iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
                     };
 
                     state.offset_y += delta_y * widget.row_height * -0.7;

@@ -84,8 +84,10 @@ impl AudioTrackPipeline {
         fields(
             track = self.configuration.track.file_path
                 .rsplit_once('/')
-                .map(|(_, file_name)| file_name )
-                .unwrap_or(self.configuration.track.file_path.as_ref())
+                .map_or_else(
+                    || self.configuration.track.file_path.as_ref(),
+                    |(_, file_name)| file_name
+                ),
         )
     )]
     pub fn handle_command(
@@ -123,11 +125,7 @@ impl AudioTrackPipeline {
             }
         }
 
-        Ok(outcomes
-            .iter()
-            .cloned()
-            .filter_map(|outcome| outcome)
-            .collect())
+        Ok(outcomes.iter().flatten().cloned().collect())
     }
 
     #[instrument(
@@ -136,8 +134,10 @@ impl AudioTrackPipeline {
         fields(
             track = self.configuration.track.file_path
                 .rsplit_once('/')
-                .map(|(_, file_name)| file_name )
-                .unwrap_or(self.configuration.track.file_path.as_ref())
+                .map_or_else(
+                    || self.configuration.track.file_path.as_ref(),
+                    |(_, file_name)| file_name
+                ),
         )
     )]
     pub fn produce_samples(&mut self) -> Result<AudioPipelineSamples, AudioPipelineError> {

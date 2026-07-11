@@ -23,9 +23,9 @@ impl App {
         let (task, outcomes) = self.main_pane.update(message);
         let component_task = task.map(app::Message::MainPane);
 
-        if outcomes.len() == 0 {
+        if outcomes.is_empty() {
             return component_task;
-        };
+        }
 
         let mut tasks = vec![component_task];
 

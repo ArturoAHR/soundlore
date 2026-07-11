@@ -7,9 +7,8 @@ use crate::ui::theme::{Mode, Theme};
 impl theme::Base for Theme {
     fn default(preference: IcedThemeMode) -> Self {
         match preference {
-            theme::Mode::Light => Theme::LIGHT,
-            theme::Mode::Dark => Theme::DARK,
-            theme::Mode::None => Theme::DARK,
+            theme::Mode::Light => Self::LIGHT,
+            theme::Mode::Dark | theme::Mode::None => Self::DARK,
         }
     }
 

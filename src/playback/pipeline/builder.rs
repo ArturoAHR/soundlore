@@ -84,7 +84,7 @@ impl AudioPipelineBuilder {
                 warn!(
                     "Unsupported command has been issued to builder: {:?}",
                     command
-                )
+                );
             }
         }
 

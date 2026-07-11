@@ -10,7 +10,7 @@ pub fn find_track_files(root: &Path) -> Vec<PathBuf> {
     WalkDir::new(root)
         .follow_links(true)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
         .filter(|e| is_supported_track_file(e.path()))
         .map(|e| e.path().to_owned())

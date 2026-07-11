@@ -105,6 +105,7 @@ impl AudioEngineDataProcessor {
         let mut samples_played = 0;
         let paused = self.paused.load(Ordering::Relaxed);
         for slot in data.iter_mut() {
+            #[allow(clippy::collapsible_if)]
             if !paused {
                 if let Ok(sample) = self.sample_buffer_consumer.pop() {
                     // TODO: Remove this once we have volume built

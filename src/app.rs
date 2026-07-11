@@ -9,7 +9,7 @@ use iced::{
     widget::{column, container},
     window,
 };
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 
 use crate::{
     app::Message::LoadTracks,
@@ -59,7 +59,7 @@ pub struct App {
     pub playback_bar: PlaybackBar,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum AppStatus {
     Idle,
     // TODO: Add progress with count
@@ -116,7 +116,7 @@ impl App {
         info!("Setting up App instance.");
 
         (
-            App {
+            Self {
                 pool,
                 theme,
                 ui_scale,
@@ -164,7 +164,7 @@ impl App {
             current_track = self.current_playing_track.as_ref().map(|track| {
                 Path::new(&track.file_path)
                     .file_name()
-                    .unwrap_or(track.file_path.as_ref())
+                    .unwrap_or_else(|| track.file_path.as_ref())
                     .to_str()
             })
         )
@@ -182,7 +182,7 @@ impl App {
                         let main_queue_split_ratio = 1.0
                             - (1.0 - self.pane_split_ratio.explorer_main)
                                 * (1.0 - self.pane_split_ratio.main_queue)
-                                / (1.0 - split_ratio as f64);
+                                / (1.0 - split_ratio);
 
                         if are_pane_widths_valid(
                             split_ratio,
@@ -190,7 +190,7 @@ impl App {
                             self.window_size.width as f64,
                             MIN_VERTICAL_SPLIT_PANE_WIDTH,
                         ) {
-                            self.pane_split_ratio.explorer_main = split_ratio as f64;
+                            self.pane_split_ratio.explorer_main = split_ratio;
                             self.pane_split_ratio.main_queue = main_queue_split_ratio;
                         }
                     }
@@ -201,7 +201,7 @@ impl App {
                             self.window_size.width as f64,
                             MIN_VERTICAL_SPLIT_PANE_WIDTH,
                         ) {
-                            self.pane_split_ratio.main_queue = split_ratio as f64;
+                            self.pane_split_ratio.main_queue = split_ratio;
                         }
                     }
                     PaneSplit::QueueTrackInformation => {
@@ -210,7 +210,7 @@ impl App {
                             self.window_size.height as f64,
                             MIN_HORIZONTAL_SPLIT_PANE_HEIGHT,
                         ) {
-                            self.pane_split_ratio.queue_track_information = split_ratio as f64;
+                            self.pane_split_ratio.queue_track_information = split_ratio;
                         }
                     }
                 }
@@ -231,7 +231,7 @@ impl App {
                 Ok(tracks) => {
                     self.tracks = tracks;
                 }
-                Err(_) => {}
+                Err(error) => error!("Failed to load tracks: {error}"),
             },
             Message::ScanDirectory(Some(directories)) => {
                 let pool = self.pool.clone();
@@ -245,7 +245,7 @@ impl App {
             Message::ScanDirectory(None) => {}
             Message::ScannedDirectory(scan_result) => {
                 task = match scan_result {
-                    Ok(_) => Task::done(LoadTracks),
+                    Ok(()) => Task::done(LoadTracks),
                     Err(_) => Task::none(),
                 };
 
@@ -257,12 +257,12 @@ impl App {
             Message::MainPane(event) => task = self.handle_main_pane(event),
             Message::QueuePane(event) => task = self.handle_queue_pane(event),
             Message::TrackInformationPane(event) => {
-                task = self.handle_track_information_pane(event)
+                task = self.handle_track_information_pane(event);
             }
             Message::StatusBar(event) => task = self.handle_status_bar(event),
             Message::PlaybackBar(event) => task = self.handle_playback_bar(event),
             Message::Playback(event) => task = self.handle_playback(event),
-        };
+        }
 
         task
     }
@@ -340,6 +340,6 @@ impl App {
     }
 
     pub fn theme(&self) -> Theme {
-        self.theme.to_owned()
+        self.theme.clone()
     }
 }

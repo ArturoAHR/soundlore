@@ -13,7 +13,7 @@ use itertools::izip;
 use crate::ui::{
     utils::table::{column::get_column_widths, virtualization::get_visible_range},
     widgets::table::{
-        Catalog, Table,
+        Catalog, Column, Table,
         state::{HEADERS_ROW_IDENTIFIER, Identifiable},
     },
 };
@@ -54,7 +54,7 @@ where
 
     for record in &widget.records[widget.visible_row_range.clone()] {
         for column in &widget.columns {
-            widget.body_cells.push((column.view)(record).into());
+            widget.body_cells.push((column.view)(record));
         }
     }
 
@@ -64,7 +64,7 @@ where
     let column_widths = widget
         .columns
         .iter()
-        .map(|column| column.get_column_width())
+        .map(Column::get_column_width)
         .collect();
 
     let column_widths = get_column_widths(container_width, column_widths);
@@ -87,6 +87,8 @@ where
         })
         .collect();
 
+    // Determines where the rows start by subtracting from the header height the length
+    // the first row that is below overlapping it.
     let row_offset_start =
         widget.header_height - widget.row_height * (state.offset_y / widget.row_height).fract();
     widget.row_offsets = (0..widget.visible_row_range.len())
@@ -106,11 +108,10 @@ where
             let padding = column.header_padding.unwrap_or(widget.header_cell_padding);
 
             let limits = Limits::new(Size::ZERO, Size::new(column.width, widget.header_height));
-            let mut tree = state.cell_state.get_mut_or_insert(
-                HEADERS_ROW_IDENTIFIER,
-                &column.id,
-                &header_cell,
-            );
+            let tree =
+                state
+                    .cell_state
+                    .get_mut_or_insert(HEADERS_ROW_IDENTIFIER, &column.id, header_cell);
 
             let mut node = positioned(
                 &limits,
@@ -120,7 +121,7 @@ where
                 |limits| {
                     header_cell
                         .as_widget_mut()
-                        .layout(&mut tree, renderer, &limits.loose())
+                        .layout(tree, renderer, &limits.loose())
                 },
                 |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
             );
@@ -140,7 +141,7 @@ where
 
     let visible_row_record_ids = widget.records[widget.visible_row_range.clone()]
         .iter()
-        .map(|record| record.id());
+        .map(Identifiable::id);
     let row_body_cell_groups = widget.body_cells.chunks_mut(widget.columns.len());
 
     for (record_id, row_offset, row_body_cells) in izip!(
@@ -158,7 +159,7 @@ where
             let padding = column.cell_padding.unwrap_or(widget.cell_padding);
 
             let limits = Limits::new(Size::ZERO, Size::new(column.width, widget.row_height));
-            let mut tree = state
+            let tree = state
                 .cell_state
                 .get_mut_or_insert(record_id, &column.id, body_cell);
 
@@ -170,7 +171,7 @@ where
                 |limits| {
                     body_cell
                         .as_widget_mut()
-                        .layout(&mut tree, renderer, &limits.loose())
+                        .layout(tree, renderer, &limits.loose())
                 },
                 |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
             );

@@ -157,7 +157,7 @@ impl PlaybackEngine for TestEngineContainer {
     fn play(&mut self) -> Result<(), PlaybackEngineError> {
         let result = self.engine.borrow_mut().play();
 
-        self.status = self.engine.borrow().status().to_owned();
+        self.status.clone_from(self.engine.borrow().status());
 
         result
     }
@@ -165,7 +165,7 @@ impl PlaybackEngine for TestEngineContainer {
     fn pause(&mut self) -> Result<(), PlaybackEngineError> {
         let result = self.engine.borrow_mut().pause();
 
-        self.status = self.engine.borrow().status().to_owned();
+        self.status.clone_from(self.engine.borrow().status());
 
         result
     }

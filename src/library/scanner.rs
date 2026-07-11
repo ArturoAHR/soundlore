@@ -27,7 +27,7 @@ pub async fn scan_files_in_directory(
     let mut track_file_paths = vec![];
 
     for directory in valid_directories {
-        track_file_paths.extend(find_track_files(&directory))
+        track_file_paths.extend(find_track_files(&directory));
     }
 
     info!(
@@ -45,7 +45,7 @@ pub async fn scan_files_in_directory(
             (read_track_properties(&track_file_path), track_file_path)
         });
 
-        read_track_metadata_thread_tasks.push(track_metadata_thread_task)
+        read_track_metadata_thread_tasks.push(track_metadata_thread_task);
     }
 
     for read_track_metadata_thread_task in read_track_metadata_thread_tasks {
@@ -56,12 +56,12 @@ pub async fn scan_files_in_directory(
                     "Could not read track metadata for file {:?}: {}",
                     &track_file_path,
                     &error.to_string()
-                )
+                );
             }
             Err(error) => {
-                error!("Metadata read panicked: {}", &error.to_string())
+                error!("Metadata read panicked: {}", &error.to_string());
             }
-        };
+        }
     }
 
     info!(

@@ -52,11 +52,12 @@ pub enum PlaybackRepeatMode {
 }
 
 impl PlaybackRepeatMode {
+    #[must_use]
     pub fn next(&self) -> Self {
         match self {
-            PlaybackRepeatMode::NoRepeat => PlaybackRepeatMode::RepeatAll,
-            PlaybackRepeatMode::RepeatAll => PlaybackRepeatMode::RepeatOne,
-            PlaybackRepeatMode::RepeatOne => PlaybackRepeatMode::NoRepeat,
+            Self::NoRepeat => Self::RepeatAll,
+            Self::RepeatAll => Self::RepeatOne,
+            Self::RepeatOne => Self::NoRepeat,
         }
     }
 }
@@ -68,10 +69,11 @@ pub enum PlaybackQueueOrder {
 }
 
 impl PlaybackQueueOrder {
+    #[must_use]
     pub fn next(&self) -> Self {
         match self {
-            PlaybackQueueOrder::Sequential => PlaybackQueueOrder::Shuffle,
-            PlaybackQueueOrder::Shuffle => PlaybackQueueOrder::Sequential,
+            Self::Sequential => Self::Shuffle,
+            Self::Shuffle => Self::Sequential,
         }
     }
 }
@@ -146,9 +148,12 @@ impl PlaybackBar {
 
                 self.current_position_generation_threshold = ctx.playback_engine_generation;
 
-                if PlaybackControllerStatus::Playing == *ctx.playback_controller_status {
+                if matches!(
+                    ctx.playback_controller_status,
+                    PlaybackControllerStatus::Playing
+                ) {
                     outcomes.push(Outcome::Playback(PlaybackOutcome::Pause));
-                };
+                }
             }
             Message::PlaybackProgressed(position) => {
                 self.current_position = position;
@@ -189,11 +194,12 @@ impl PlaybackBar {
             Message::CycleQueueOrder => {
                 self.queue_order = self.queue_order.next();
             }
-        };
+        }
 
         (task, outcomes)
     }
 
+    #[allow(clippy::single_match)]
     #[instrument(skip(self), level = "debug")]
     pub fn on_event(&mut self, event: &Event, ctx: PlaybackBarEventContext) -> Task<Message> {
         let task = Task::none();
@@ -219,18 +225,22 @@ impl PlaybackBar {
         let mut current_position = 0.0;
 
         let mut track_name_label = String::new();
-        let mut track_duration_timestamp = "0:00".to_owned();
-        let mut current_position_timestamp = "0:00".to_owned();
+        let (track_duration_timestamp, current_position_timestamp) =
+            ctx.current_playing_track.as_ref().map_or_else(
+                || ("0:00".to_owned(), "0:00".to_owned()),
+                |track| {
+                    total_frames = track.frames as f64;
+                    current_position = self.current_position;
+                    track_name_label = get_track_label(track);
 
-        if let Some(track) = ctx.current_playing_track {
-            total_frames = track.frames as f64;
-            current_position = self.current_position;
-            track_name_label = get_track_label(track);
-
-            track_duration_timestamp = get_track_duration_label(track);
-            current_position_timestamp =
-                format_duration((current_position / track.sample_rate as f64).floor() as u64)
-        }
+                    (
+                        get_track_duration_label(track),
+                        format_duration(
+                            (current_position / track.sample_rate as f64).floor() as u64
+                        ),
+                    )
+                },
+            );
 
         let play_previous = button(icon(icons::PLAY_PREVIOUS));
         let play_next = button(icon(icons::PLAY_NEXT));
@@ -239,10 +249,8 @@ impl PlaybackBar {
             PlaybackBarStatus::Playing => button(icon(icons::PAUSE)).on_press(Message::Pause),
         };
 
-        let current_time_label = format!(
-            "{} / {}",
-            current_position_timestamp, track_duration_timestamp
-        );
+        let current_time_label =
+            format!("{current_position_timestamp} / {track_duration_timestamp}");
 
         let repeat_mode_icon = match self.repeat_mode {
             PlaybackRepeatMode::NoRepeat => 'N', //Placeholder

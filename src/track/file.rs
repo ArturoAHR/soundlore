@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
@@ -8,10 +9,8 @@ use symphonia::core::codecs::CodecParameters;
 use symphonia::core::errors::Error as SymphoniaError;
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, TrackType};
-use symphonia::core::io::MediaSourceStream;
-use symphonia::core::meta::well_known::{
-    METADATA_ID_APEV1, METADATA_ID_APEV2, METADATA_ID_ID3V1, METADATA_ID_ID3V2,
-};
+use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};
+use symphonia::core::meta::well_known::{METADATA_ID_APEV2, METADATA_ID_ID3V1, METADATA_ID_ID3V2};
 use symphonia::core::meta::{MetadataId, MetadataOptions, StandardTag, Tag};
 use symphonia::default::get_codecs;
 use thiserror::Error;
@@ -52,13 +51,13 @@ pub enum TrackPropertiesReadError {
 
 impl From<std::io::Error> for TrackPropertiesReadError {
     fn from(error: std::io::Error) -> Self {
-        TrackPropertiesReadError::Io(Arc::new(error))
+        Self::Io(Arc::new(error))
     }
 }
 
 impl From<SymphoniaError> for TrackPropertiesReadError {
     fn from(error: SymphoniaError) -> Self {
-        TrackPropertiesReadError::Symphonia(Arc::new(error))
+        Self::Symphonia(Arc::new(error))
     }
 }
 
@@ -71,11 +70,12 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
     let file_path = path.to_string_lossy().to_string();
     let file_format = path
         .extension()
-        .and_then(|e| e.to_str())
-        .map(|s| s.to_lowercase())
-        .ok_or_else(|| TrackPropertiesReadError::MissingExtension)?;
+        .and_then(OsStr::to_str)
+        .map(str::to_lowercase)
+        .ok_or(TrackPropertiesReadError::MissingExtension)?;
 
-    let media_source_stream = MediaSourceStream::new(Box::new(file), Default::default());
+    let media_source_stream =
+        MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
 
     let mut hint = Hint::new();
     hint.with_extension(&file_format);
@@ -89,36 +89,36 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
 
     let track = format
         .first_track_known_codec(TrackType::Audio)
-        .ok_or_else(|| TrackPropertiesReadError::MissingAudioTrack)?;
+        .ok_or(TrackPropertiesReadError::MissingAudioTrack)?;
 
     let Some(CodecParameters::Audio(codec_params)) = track.codec_params.as_ref() else {
-        return Err(TrackPropertiesReadError::MissingCodecParameters.into());
+        return Err(TrackPropertiesReadError::MissingCodecParameters);
     };
     let duration_secs = track
         .num_frames
         .zip(codec_params.sample_rate)
         .map(|(frames, rate)| frames as f64 / rate as f64)
-        .ok_or_else(|| TrackPropertiesReadError::MissingDuration)?;
+        .ok_or(TrackPropertiesReadError::MissingDuration)?;
 
     // TODO: Get frame count from decoding if num_frames isn't populated.
     let frames = track
         .num_frames
-        .ok_or_else(|| TrackPropertiesReadError::MissingDuration)? as i64;
+        .ok_or(TrackPropertiesReadError::MissingDuration)? as i64;
 
     let codec = get_codecs()
         .get_audio_decoder(codec_params.codec)
         .map(|decoder| decoder.codec.info.short_name.to_owned())
-        .ok_or_else(|| TrackPropertiesReadError::UnknownCodec)?;
+        .ok_or(TrackPropertiesReadError::UnknownCodec)?;
 
     let sample_rate = codec_params
         .sample_rate
         .map(|s| s as i64)
-        .ok_or_else(|| TrackPropertiesReadError::MissingSampleRate)?;
+        .ok_or(TrackPropertiesReadError::MissingSampleRate)?;
     let channels = codec_params
         .channels
         .as_ref()
         .map(|c| c.count() as i64)
-        .ok_or_else(|| TrackPropertiesReadError::MissingChannels)?;
+        .ok_or(TrackPropertiesReadError::MissingChannels)?;
 
     let bit_depth = codec_params.bits_per_sample.map(|b| b as i64);
     let bitrate_kbps = if duration_secs > 0.0 {
@@ -134,8 +134,8 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
 
         codec,
         frames,
-        channels,
         sample_rate,
+        channels,
         bit_depth,
         bitrate_kbps,
 
@@ -147,17 +147,17 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
     // Extract Revision Tags here since cloning the whole Metadata Revision is expensive (it may have images)
     {
         let mut metadata = format.metadata();
-        loop {
-            let Some(_) = metadata.current().map(|revision| revision.info.metadata) else {
-                break;
-            };
-
+        while metadata
+            .current()
+            .map(|revision| revision.info.metadata)
+            .is_some()
+        {
             if let Some(old_revision) = metadata.pop() {
-                revision_tags.push((old_revision.info.metadata, old_revision.media.tags))
+                revision_tags.push((old_revision.info.metadata, old_revision.media.tags));
             } else {
                 let latest_revision = metadata
                     .current()
-                    .ok_or_else(|| TrackPropertiesReadError::UnexpectedError)?;
+                    .ok_or(TrackPropertiesReadError::UnexpectedError)?;
 
                 revision_tags.push((
                     latest_revision.info.metadata,
@@ -172,10 +172,9 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
     // Sort the revision tags so that newer ones are applied last.
     revision_tags.sort_by_key(|(id, _)| match *id {
         METADATA_ID_ID3V1 => 0,
-        METADATA_ID_APEV1 => 1,
         METADATA_ID_APEV2 => 2,
         METADATA_ID_ID3V2 => 3,
-        _ => 1,
+        _ => 1, // Falls back to 1 (includes METADATA_ID_APEV1)
     });
 
     for (_, tags) in revision_tags {
@@ -216,15 +215,13 @@ fn extract_revision_tags(tags: &Vec<Tag>, track_properties: &mut TrackProperties
                 StandardTag::DiscTotal(value) => {
                     track_properties.disc_total = Some(*value as i64);
                 }
-                StandardTag::RecordingYear(value) => {
-                    if track_properties.year.is_none() {
-                        track_properties.year = Some(*value as i64);
-                    }
+                StandardTag::RecordingYear(value) if track_properties.year.is_none() => {
+                    track_properties.year = Some(*value as i64);
                 }
-                StandardTag::RecordingDate(value) | StandardTag::ReleaseDate(value) => {
-                    if track_properties.year.is_none() {
-                        track_properties.year = value.get(..4).and_then(|s| s.parse().ok());
-                    }
+                StandardTag::RecordingDate(value) | StandardTag::ReleaseDate(value)
+                    if track_properties.year.is_none() =>
+                {
+                    track_properties.year = value.get(..4).and_then(|s| s.parse().ok());
                 }
                 StandardTag::Genre(value) => {
                     track_properties.genre = Some(fix_latin1_utf8_mojibake(value));

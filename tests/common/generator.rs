@@ -9,7 +9,7 @@ use std::{
 use ffmpeg_sidecar::{command::FfmpegCommand, download::auto_download};
 use std::fs::create_dir_all;
 
-pub fn generate_audio_file_fixtures(path: &PathBuf) {
+pub fn generate_audio_file_fixtures(path: &Path) {
     auto_download().expect("Could not download ffmpeg to generate audio file fixtures.");
 
     let all_formats_files_path = path.join("all_formats");
@@ -22,11 +22,11 @@ pub fn generate_audio_file_fixtures(path: &PathBuf) {
     generate_metadata_variants_files(&metadata_variants_files_path);
     generate_corrupt_files(&corrupt_files_path);
     generate_partially_corrupt_files(&partially_corrupt_files_path);
-    generate_sample_rate_and_channels_variants_files(&sample_rate_and_channels_variants_file_path)
+    generate_sample_rate_and_channels_variants_files(&sample_rate_and_channels_variants_file_path);
 }
 
 fn generate_all_formats_files(output_path: &PathBuf) {
-    create_dir_all(&output_path)
+    create_dir_all(output_path)
         .expect("Could not create all formats audio file fixtures directory.");
 
     // WAV audio file
@@ -79,7 +79,7 @@ fn generate_all_formats_files(output_path: &PathBuf) {
 }
 
 fn generate_metadata_variants_files(output_path: &PathBuf) {
-    create_dir_all(&output_path)
+    create_dir_all(output_path)
         .expect("Could not create metadata variants audio file fixtures directory.");
 
     // No tags
@@ -163,7 +163,7 @@ fn generate_metadata_variants_files(output_path: &PathBuf) {
 }
 
 fn generate_corrupt_files(output_path: &PathBuf) {
-    create_dir_all(&output_path).expect("Could not create corrupt audio file fixtures directory.");
+    create_dir_all(output_path).expect("Could not create corrupt audio file fixtures directory.");
 
     // Not an audio file
     fs::write(output_path.join("not_audio.mp3"), b"plain text")
@@ -194,7 +194,7 @@ fn generate_corrupt_files(output_path: &PathBuf) {
 
     // Unsupported formats
     fs::write(output_path.join("text.txt"), b"plain text").expect("Could not create text file");
-    fs::write(output_path.join("cover.jpg"), &[0xff, 0xd8, 0xff, 0xe0])
+    fs::write(output_path.join("cover.jpg"), [0xff, 0xd8, 0xff, 0xe0])
         .expect("Could not create image");
 
     // Hidden metadata / garbage
@@ -250,27 +250,27 @@ fn generate_partially_corrupt_files(output_path: &PathBuf) {
 }
 
 fn generate_sample_rate_and_channels_variants_files(output_path: &PathBuf) {
-    create_dir_all(&output_path)
+    create_dir_all(output_path)
         .expect("Could not create all formats audio file fixtures directory.");
 
-    let sample_rates = vec!["48000", "44100"];
-    let channel_counts = vec!["1", "2"];
+    let sample_rates = ["48000", "44100"];
+    let channel_counts = ["1", "2"];
 
-    for sample_rate in sample_rates.iter() {
-        for channels in channel_counts.iter() {
-            let channel_count_name = match *channels {
+    for sample_rate in sample_rates {
+        for channels in channel_counts {
+            let channel_count_name = match channels {
                 "1" => "mono",
                 "2" => "stereo",
                 _ => "unknown",
             };
 
-            let file_name = format!("{}_{}", sample_rate, channel_count_name);
+            let file_name = format!("{sample_rate}_{channel_count_name}");
 
             // WAV audio file
             let mut arguments = generate_default_file_creation_arguments();
             extend_arguments(&mut arguments, vec!["-c:a", "pcm_s16le"]);
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.wav", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.wav")));
 
             // MP3 audio file
             let mut arguments = generate_default_file_creation_arguments();
@@ -279,31 +279,31 @@ fn generate_sample_rate_and_channels_variants_files(output_path: &PathBuf) {
                 vec!["-c:a", "libmp3lame", "-b:a", "128k", "-id3v2_version", "3"],
             );
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.mp3", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.mp3")));
 
             // OGG Vorbis audio file
             let mut arguments = generate_default_file_creation_arguments();
             extend_arguments(&mut arguments, vec!["-c:a", "libvorbis"]);
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.ogg", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.ogg")));
 
             // FLAC audio file
             let mut arguments = generate_default_file_creation_arguments();
             extend_arguments(&mut arguments, vec!["-c:a", "flac"]);
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.flac", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.flac")));
 
             // M4A audio file
             let mut arguments = generate_default_file_creation_arguments();
             extend_arguments(&mut arguments, vec!["-c:a", "aac", "-b:a", "128k"]);
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.m4a", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.m4a")));
 
             // AAC audio file (Should drop all tags)
             let mut arguments = generate_default_file_creation_arguments();
             extend_arguments(&mut arguments, vec!["-c:a", "aac", "-b:a", "128k"]);
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.aac", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.aac")));
 
             // AIFF
             let mut arguments = generate_default_file_creation_arguments();
@@ -312,7 +312,7 @@ fn generate_sample_rate_and_channels_variants_files(output_path: &PathBuf) {
                 vec!["-c:a", "pcm_s16be", "-write_id3v2", "1"],
             );
             extend_arguments(&mut arguments, vec!["-ar", sample_rate, "-ac", channels]);
-            run_ffmpeg(arguments, &output_path.join(format!("{}.aiff", file_name)));
+            run_ffmpeg(arguments, &output_path.join(format!("{file_name}.aiff")));
         }
     }
 }
@@ -322,7 +322,7 @@ fn extend_arguments(arguments: &mut Vec<String>, new_arguments: Vec<impl Into<St
         new_arguments
             .iter()
             .cloned()
-            .map(|argument| argument.into())
+            .map(Into::<String>::into)
             .collect::<Vec<String>>(),
     );
 }

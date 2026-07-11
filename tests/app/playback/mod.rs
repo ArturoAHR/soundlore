@@ -29,11 +29,11 @@ fn decodes_different_sample_rates_and_channels() {
 
     let mut test_cases = Vec::new();
 
-    for output_sample_rate in output_sample_rates.iter() {
-        for output_channels in output_channel_counts.iter() {
-            for input_sample_rate in sample_rates.iter() {
-                for input_channels in channel_counts.iter() {
-                    for format in formats.iter() {
+    for output_sample_rate in output_sample_rates {
+        for output_channels in output_channel_counts {
+            for input_sample_rate in sample_rates {
+                for input_channels in channel_counts {
+                    for format in formats {
                         let input_sample_rate = *input_sample_rate;
                         let input_channels = *input_channels;
                         let output_sample_rate = *output_sample_rate;
@@ -62,7 +62,7 @@ fn decodes_different_sample_rates_and_channels() {
                 input_channels,
                 output_sample_rate,
                 output_channels,
-                format.to_owned(),
+                format,
             );
         },
     );
@@ -73,7 +73,7 @@ fn test_playback_controller_play(
     input_channels: u16,
     output_sample_rate: u32,
     output_channels: u16,
-    format: String,
+    format: &str,
 ) {
     let mut playback = TestPlayback::build(output_sample_rate, output_channels);
 
@@ -81,7 +81,7 @@ fn test_playback_controller_play(
 
     let total_output_samples = output_sample_rate as usize * output_channels as usize;
 
-    let file_name = get_file_name(input_sample_rate, input_channels, &format);
+    let file_name = get_file_name(input_sample_rate, input_channels, format);
     let file_path = audio_file_fixtures_path
         .all_sample_rates_and_channels
         .join(&file_name);
@@ -92,15 +92,14 @@ fn test_playback_controller_play(
     loop {
         playback.consume_samples_buffer();
 
+        #[allow(clippy::collapsible_if)]
         if playback.is_sample_buffer_empty() {
             if let Ok(event) = playback.playback_controller.poll_event() {
-                match event {
-                    Some(PlaybackControllerEvent::EndOfTrack) => break,
-                    _ => {
-                        thread::sleep(Duration::from_millis(10));
-                        continue;
-                    }
+                if matches!(event, Some(PlaybackControllerEvent::EndOfTrack)) {
+                    break;
                 }
+
+                thread::sleep(Duration::from_millis(10));
             }
         }
     }
@@ -124,7 +123,7 @@ fn performs_seek_correctly() {
 
     let mut test_cases = Vec::new();
 
-    for format in formats.iter() {
+    for format in formats {
         let format = *format;
 
         let test_case = (
@@ -145,7 +144,7 @@ fn performs_seek_correctly() {
                 input_channels,
                 output_sample_rate,
                 output_channels,
-                format.to_owned(),
+                format,
             );
         },
     );
@@ -156,7 +155,7 @@ fn test_playback_controller_seek(
     input_channels: u16,
     output_sample_rate: u32,
     output_channels: u16,
-    format: String,
+    format: &str,
 ) {
     let mut playback = TestPlayback::build(output_sample_rate, output_channels);
 
@@ -165,7 +164,7 @@ fn test_playback_controller_seek(
     let total_track_frames = input_sample_rate as usize;
     let total_output_samples = output_sample_rate as usize * output_channels as usize;
 
-    let file_name = get_file_name(input_sample_rate, input_channels, &format);
+    let file_name = get_file_name(input_sample_rate, input_channels, format);
     let file_path = audio_file_fixtures_path
         .all_sample_rates_and_channels
         .join(&file_name);
@@ -187,20 +186,19 @@ fn test_playback_controller_seek(
     loop {
         playback.consume_samples_buffer();
 
+        #[allow(clippy::collapsible_if)]
         if playback.is_sample_buffer_empty() {
             if let Ok(event) = playback.playback_controller.poll_event() {
-                match event {
-                    Some(PlaybackControllerEvent::EndOfTrack) => break,
-                    _ => {
-                        thread::sleep(Duration::from_millis(10));
-                        continue;
-                    }
+                if matches!(event, Some(PlaybackControllerEvent::EndOfTrack)) {
+                    break;
                 }
+
+                thread::sleep(Duration::from_millis(10));
             }
         }
     }
 
-    match format.as_ref() {
+    match format {
         "mp3" => assert_sample_count(
             playback.sample_count(),
             total_output_samples / 2,
@@ -213,5 +211,5 @@ fn test_playback_controller_seek(
             &file_name,
             Some(5),
         ), // 5% of tolerance by default
-    };
+    }
 }

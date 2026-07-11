@@ -24,7 +24,7 @@ impl App {
         let component_task = task.map(app::Message::StatusBar);
 
         // if outcomes.len() == 0 {
-        return component_task;
+        component_task
         // };
 
         // let mut tasks = vec![component_task];

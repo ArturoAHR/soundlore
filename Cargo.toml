@@ -11,6 +11,14 @@ edition = "2024"
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "soundlore_lib"
 
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+missing_const_for_fn = "allow"
+must_use_candidate = "allow"
+suboptimal_flops = "allow"
+
 [dependencies]
 iced = { version = "0.14.0", features = ["tokio", "advanced"] }
 iced_aw = { version = "0.14.1", default-features = false, features = ["menu", "context_menu", "quad"] }

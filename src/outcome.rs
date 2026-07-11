@@ -82,8 +82,7 @@ impl App {
                     .ok_or_else(|| AppError::TrackNotFound {
                         id: Some(track_id),
                         path: None,
-                    })?
-                    .to_owned();
+                    })?;
 
                 let event_tasks = self.broadcast(AttemptedPlayingTrack);
 

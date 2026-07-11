@@ -29,19 +29,16 @@ fn assert_column_widths(expected_column_widths: &[f64], actual_column_widths: &[
             return false;
         }
 
-        return true;
+        true
     };
 
     assert!(
         verification_closure(expected_column_widths, actual_column_widths),
-        "Column widths do not match within {:.2?} pixel tolerance:
+        "Column widths do not match within {IMPRECISION_TOLERANCE:.2?} pixel tolerance:
 
-        Expected: {:.2?}
-        Actual: {:.2?}
+        Expected: {expected_column_widths:.2?}
+        Actual: {actual_column_widths:.2?}
         ",
-        IMPRECISION_TOLERANCE,
-        expected_column_widths,
-        actual_column_widths
     );
 }
 
@@ -51,14 +48,11 @@ fn assert_container_width_fit(container_width: f64, column_widths: &[f64]) {
     assert!(
         container_width - IMPRECISION_TOLERANCE <= column_width_sum
             && column_width_sum <= container_width + IMPRECISION_TOLERANCE,
-        "Column widths do not fit in the container width within {:.2?} pixel tolerance:
+        "Column widths do not fit in the container width within {IMPRECISION_TOLERANCE:.2?} pixel tolerance:
 
-        Expected: {:.2?}
-        Actual: {:.2?}
+        Expected: {container_width:.2?}
+        Actual: {column_width_sum:.2?}
         ",
-        IMPRECISION_TOLERANCE,
-        container_width,
-        column_width_sum
     );
 }
 
@@ -69,7 +63,7 @@ fn should_return_unchanged_widths_if_passed_in_columns_widths_fit_the_container(
 
     let columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(&column_widths, &resulting_column_widths);
@@ -80,12 +74,13 @@ fn should_return_unchanged_widths_if_passed_in_non_resizable_columns_widths_fit_
     let column_widths = [200.0, 200.0, 200.0, 200.0, 200.0];
     let container_width = 1000.0;
 
-    let mut columns = generate_column_width_specifications(&column_widths, 100.0);
-    columns
-        .iter_mut()
-        .for_each(|column| *column = ColumnWidth::Fixed { width: 200.0 });
+    let columns = generate_column_width_specifications(&column_widths, 100.0);
+    let fixed_columns = columns
+        .iter()
+        .map(|_| ColumnWidth::Fixed { width: 200.0 })
+        .collect();
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, fixed_columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(&column_widths, &resulting_column_widths);
@@ -97,12 +92,13 @@ fn should_return_unchanged_widths_if_all_columns_are_not_resizable_and_the_sum_i
     let column_widths = [200.0, 200.0, 200.0, 200.0, 200.0];
     let container_width = 2000.0;
 
-    let mut columns = generate_column_width_specifications(&column_widths, 100.0);
-    columns
-        .iter_mut()
-        .for_each(|column| *column = ColumnWidth::Fixed { width: 200.0 });
+    let columns = generate_column_width_specifications(&column_widths, 100.0);
+    let fixed_columns = columns
+        .iter()
+        .map(|_| ColumnWidth::Fixed { width: 200.0 })
+        .collect();
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, fixed_columns);
 
     assert_column_widths(&column_widths, &resulting_column_widths);
 }
@@ -115,7 +111,7 @@ fn should_return_proportionally_increased_widths_if_column_width_sum_is_less_tha
 
     let columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(
@@ -151,7 +147,7 @@ fn should_return_proportionally_increased_widths_if_column_width_sum_is_less_tha
 
     let columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(
@@ -188,7 +184,7 @@ fn should_return_proportionally_decreased_widths_if_column_width_sum_is_more_tha
 
     let columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(
@@ -224,7 +220,7 @@ fn should_return_proportionally_decreased_widths_if_column_width_sum_is_more_tha
 
     let columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(
@@ -298,7 +294,7 @@ fn should_fix_resizable_widths_that_go_below_minimum_that_would_have_fit_the_con
 
     let columns = generate_column_width_specifications(&column_widths, 100.0);
 
-    let resulting_column_widths = get_column_widths(container_width, columns.clone());
+    let resulting_column_widths = get_column_widths(container_width, columns);
 
     assert_container_width_fit(container_width, &resulting_column_widths);
     assert_column_widths(

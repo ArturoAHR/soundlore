@@ -24,8 +24,8 @@ impl AudioChannelConverter {
             return Ok(samples
                 .iter()
                 .zip(samples)
-                .flat_map(|(l, r)| [l, r])
-                .cloned()
+                .flat_map(Into::<[_; 2]>::into)
+                .copied()
                 .collect());
         }
 
@@ -39,9 +39,9 @@ impl AudioChannelConverter {
                 .collect());
         }
 
-        return Err(AudioChannelConverterError::UnsupportedConversion(
+        Err(AudioChannelConverterError::UnsupportedConversion(
             input_channels,
             output_channels,
-        ));
+        ))
     }
 }

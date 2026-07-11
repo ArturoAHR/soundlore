@@ -17,10 +17,9 @@ pub fn are_pane_widths_valid(
     let queue_track_information_pane_ratio =
         (1.0 - explorer_main_ratio) * (1.0 - main_queue_track_information_ratio);
 
-    let explorer_pane_width = explorer_pane_ratio * window_width as f64;
-    let main_pane_width = main_pane_ratio * window_width as f64;
-    let queue_track_information_pane_width =
-        queue_track_information_pane_ratio * window_width as f64;
+    let explorer_pane_width = explorer_pane_ratio * window_width;
+    let main_pane_width = main_pane_ratio * window_width;
+    let queue_track_information_pane_width = queue_track_information_pane_ratio * window_width;
 
     explorer_pane_width >= minimum_width
         && main_pane_width >= minimum_width

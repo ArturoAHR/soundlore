@@ -92,7 +92,7 @@ impl AudioDecoder {
         let audio_track = demuxer
             .as_ref()
             .first_track_known_codec(TrackType::Audio)
-            .ok_or_else(|| AudioDecoderError::MissingAudioTrack)?;
+            .ok_or(AudioDecoderError::MissingAudioTrack)?;
 
         let Some(CodecParameters::Audio(codec_parameters)) = audio_track.codec_params.as_ref()
         else {
@@ -100,7 +100,7 @@ impl AudioDecoder {
         };
 
         let decoder =
-            get_codecs().make_audio_decoder(&codec_parameters, &AudioDecoderOptions::default())?;
+            get_codecs().make_audio_decoder(codec_parameters, &AudioDecoderOptions::default())?;
 
         Ok(Self {
             pending_events: Vec::new(),

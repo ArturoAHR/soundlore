@@ -11,8 +11,8 @@ pub fn format_duration(seconds: u64) -> String {
     let seconds = seconds % 60;
 
     if hours > 0 {
-        format!("{}:{:02}:{:02}", hours, minutes, seconds)
+        format!("{hours}:{minutes:02}:{seconds:02}")
     } else {
-        format!("{}:{:02}", minutes, seconds)
+        format!("{minutes}:{seconds:02}")
     }
 }

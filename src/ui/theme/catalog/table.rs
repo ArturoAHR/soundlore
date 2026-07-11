@@ -93,9 +93,7 @@ impl Catalog for Theme {
                 CellStatus::Selected => theme.palette.text_selected,
             };
 
-            CellStyle {
-                text_color: text_color.into(),
-            }
+            CellStyle { text_color }
         })
     }
 

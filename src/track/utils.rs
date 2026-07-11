@@ -24,8 +24,8 @@ pub fn fix_latin1_utf8_mojibake(s: &str) -> String {
 pub fn get_track_label(track: &Track) -> String {
     format!(
         "{} - {}",
-        track.artist.clone().unwrap_or("Unknown".to_owned()),
-        track.title.clone().unwrap_or("Untitled".to_owned())
+        track.artist.clone().unwrap_or_else(|| "Unknown".to_owned()),
+        track.title.clone().unwrap_or_else(|| "Untitled".to_owned())
     )
 }
 

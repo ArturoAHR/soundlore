@@ -27,7 +27,7 @@ pub static ALL_FORMATS_EXPECTED_TRACKS: LazyLock<Vec<ExpectedTrack>> = LazyLock:
 
             // ReplayGain
             replaygain_track_gain_db: Some(-6.54),
-            replaygain_track_peak: Some(0.987654),
+            replaygain_track_peak: Some(0.987_654),
             replaygain_album_gain_db: Some(-7.2),
             replaygain_album_peak: Some(0.999),
 
@@ -60,7 +60,7 @@ pub static ALL_FORMATS_EXPECTED_TRACKS: LazyLock<Vec<ExpectedTrack>> = LazyLock:
 
             // ReplayGain
             replaygain_track_gain_db: Some(-6.54),
-            replaygain_track_peak: Some(0.987654),
+            replaygain_track_peak: Some(0.987_654),
             replaygain_album_gain_db: Some(-7.2),
             replaygain_album_peak: Some(0.999),
 
@@ -93,7 +93,7 @@ pub static ALL_FORMATS_EXPECTED_TRACKS: LazyLock<Vec<ExpectedTrack>> = LazyLock:
 
             // ReplayGain
             replaygain_track_gain_db: Some(-6.54),
-            replaygain_track_peak: Some(0.987654),
+            replaygain_track_peak: Some(0.987_654),
             replaygain_album_gain_db: Some(-7.2),
             replaygain_album_peak: Some(0.999),
 
@@ -126,7 +126,7 @@ pub static ALL_FORMATS_EXPECTED_TRACKS: LazyLock<Vec<ExpectedTrack>> = LazyLock:
 
             // ReplayGain
             replaygain_track_gain_db: Some(-6.54),
-            replaygain_track_peak: Some(0.987654),
+            replaygain_track_peak: Some(0.987_654),
             replaygain_album_gain_db: Some(-7.2),
             replaygain_album_peak: Some(0.999),
 
@@ -535,7 +535,7 @@ pub static PARTIALLY_CORRUPT_EXPECTED_TRACKS: LazyLock<Vec<ExpectedTrack>> = Laz
 
             // ReplayGain
             replaygain_track_gain_db: Some(-6.54),
-            replaygain_track_peak: Some(0.987654),
+            replaygain_track_peak: Some(0.987_654),
             replaygain_album_gain_db: Some(-7.2),
             replaygain_album_peak: Some(0.999),
 
@@ -601,7 +601,7 @@ pub static PARTIALLY_CORRUPT_EXPECTED_TRACKS: LazyLock<Vec<ExpectedTrack>> = Laz
 
             // ReplayGain
             replaygain_track_gain_db: Some(-6.54),
-            replaygain_track_peak: Some(0.987654),
+            replaygain_track_peak: Some(0.987_654),
             replaygain_album_gain_db: Some(-7.2),
             replaygain_album_peak: Some(0.999),
 

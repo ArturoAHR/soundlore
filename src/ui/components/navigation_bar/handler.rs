@@ -21,9 +21,9 @@ impl App {
         let (task, outcomes) = self.navigation_bar.update(message);
         let component_task = task.map(app::Message::NavigationBar);
 
-        if outcomes.len() == 0 {
+        if outcomes.is_empty() {
             return component_task;
-        };
+        }
 
         let mut tasks = vec![component_task];
         for outcome in outcomes {

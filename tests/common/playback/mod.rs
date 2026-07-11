@@ -34,7 +34,7 @@ impl TestPlayback {
         }
     }
 
-    pub fn consume_samples_buffer(&mut self) -> Vec<f32> {
+    pub fn consume_samples_buffer(&self) -> Vec<f32> {
         let mut playback_engine = self.playback_engine.borrow_mut();
 
         playback_engine.consume()

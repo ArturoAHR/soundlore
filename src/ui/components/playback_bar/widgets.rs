@@ -11,12 +11,13 @@ use crate::ui::{
 
 pub fn volume_bar<'a>(volume_percentage: u8, muted: bool) -> Element<'a, Message, Theme, Renderer> {
     let mut volume_percentage = volume_percentage.clamp(0, 100);
-    let mut volume_icon = icons::VOLUME;
 
-    if muted || volume_percentage == 0 {
+    let volume_icon = if muted || volume_percentage == 0 {
         volume_percentage = 0;
-        volume_icon = icons::VOLUME_MUTED;
-    }
+        icons::VOLUME_MUTED
+    } else {
+        icons::VOLUME
+    };
 
     container(
         row![

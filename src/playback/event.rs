@@ -18,6 +18,10 @@ pub enum PlaybackControllerEvent {
 }
 
 impl PlaybackController {
+    /// Polls the audio pipeline event receiver
+    ///
+    /// # Errors
+    /// Returns an error if the pipeline event receiver fails its poll attempt
     #[instrument(skip(self), err)]
     pub fn poll_event(
         &mut self,
@@ -36,6 +40,7 @@ impl PlaybackController {
 
         match audio_pipeline_event {
             AudioPipelineThreadEvent::StartedAudioPipeline => {
+                #[allow(clippy::collapsible_if)]
                 if *self.playback_engine.status() == PlaybackEngineStatus::Paused {
                     if let Err(error) = self.playback_engine.play() {
                         error!(
@@ -49,6 +54,7 @@ impl PlaybackController {
                 Ok(Some(PlaybackControllerEvent::StartedPlayback))
             }
             AudioPipelineThreadEvent::StoppedAudioPipeline => {
+                #[allow(clippy::collapsible_if)]
                 if *self.playback_engine.status() == PlaybackEngineStatus::Playing {
                     if let Err(error) = self.playback_engine.pause() {
                         error!(

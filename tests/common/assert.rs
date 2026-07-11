@@ -6,7 +6,7 @@ use crate::common::models::ExpectedTrack;
 pub fn assert_tracks(expected_tracks: &[ExpectedTrack], tracks: &[Track]) {
     assert_eq!(expected_tracks.len(), tracks.len());
 
-    for expected_track in expected_tracks.iter() {
+    for expected_track in expected_tracks {
         let track = tracks
             .iter()
             .find(|track| {
@@ -14,10 +14,7 @@ pub fn assert_tracks(expected_tracks: &[ExpectedTrack], tracks: &[Track]) {
                     .file_path
                     .ends_with(&format!("/{}", expected_track.file_name))
             })
-            .expect(&format!(
-                "Could not find track {}",
-                expected_track.file_name
-            ));
+            .unwrap_or_else(|| panic!("Could not find track {}", expected_track.file_name));
 
         assert_eq!(expected_track.file_format, track.file_format);
         assert_eq!(expected_track.codec, track.codec);

@@ -8,13 +8,14 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum Event {
     AttemptedPlayingTrack,
-    ActiveTrackChanged(Option<Track>),
+    ActiveTrackChanged(Box<Option<Track>>),
     StartedPlayback,
     StoppedPlayback,
     EndOfTrack,
 }
 
 impl App {
+    #[allow(clippy::needless_pass_by_value)]
     pub fn broadcast(&mut self, event: Event) -> Task<Message> {
         Task::batch(vec![
             self.notify_explorer_pane(&event),
