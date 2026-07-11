@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use iced::{
     Element,
-    advanced::{mouse::Click, renderer, widget::Tree},
+    advanced::{renderer, widget::Tree},
 };
 
 use crate::ui::widgets::table::widget::update::TableClick;

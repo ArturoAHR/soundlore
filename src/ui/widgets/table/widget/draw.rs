@@ -269,7 +269,6 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
         let scroll_thumb_bounds = get_scroll_thumb_bounds(
             effective_scroll_area_bounds,
             widget.row_height * widget.records.len() as f32,
-            body_bounds.height,
             state.offset_y,
         );
 
@@ -277,7 +276,9 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
             vertical_scroll_status: ScrollStatus::Default,
         };
 
-        if cursor.is_over(scroll_thumb_bounds) {
+        if let Some(scroll_thumb_bounds) = scroll_thumb_bounds
+            && cursor.is_over(scroll_thumb_bounds)
+        {
             scroll_state.vertical_scroll_status = ScrollStatus::Hovered;
         }
 
@@ -291,13 +292,15 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
             scroll_style.vertical_scroll.background,
         );
 
-        renderer.fill_quad(
-            Quad {
-                bounds: scroll_thumb_bounds,
-                border: scroll_style.vertical_scroll.thumb_border,
-                ..Default::default()
-            },
-            scroll_style.vertical_scroll.thumb_background,
-        );
+        if let Some(scroll_thumb_bounds) = scroll_thumb_bounds {
+            renderer.fill_quad(
+                Quad {
+                    bounds: scroll_thumb_bounds,
+                    border: scroll_style.vertical_scroll.thumb_border,
+                    ..Default::default()
+                },
+                scroll_style.vertical_scroll.thumb_background,
+            );
+        }
     });
 }
