@@ -15,6 +15,7 @@ use crate::ui::widgets::table::state::State;
 
 pub mod draw;
 pub mod layout;
+mod scroll;
 pub mod update;
 
 use draw::*;

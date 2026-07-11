@@ -7,10 +7,12 @@ use iced::{
         widget::Tree,
     },
 };
+use itertools::izip;
 
 use crate::ui::widgets::table::{
     BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table,
     state::{HEADERS_ROW_IDENTIFIER, Identifiable},
+    widget::scroll::get_scroll_thumb_bounds,
 };
 
 use crate::ui::widgets::table::state::State;
@@ -90,12 +92,12 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
             );
         }
 
-        for (visible_row_number, (row_id, row_offset)) in widget.records
-            [widget.visible_row_range.clone()]
-        .iter()
-        .map(|record| record.id())
-        .zip(&widget.row_offsets)
-        .enumerate()
+        let visible_row_ids = widget.records[widget.visible_row_range.clone()]
+            .iter()
+            .map(|record| record.id());
+
+        for (visible_row_number, row_id, row_offset) in
+            izip!(0.., visible_row_ids, &widget.row_offsets)
         {
             let row_bounds = Rectangle {
                 x: body_bounds.x,
@@ -169,13 +171,14 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                 table_style.header_background,
             );
 
-            for (((cell, cell_layout), column_id), column_offset) in widget
-                .header_cells
-                .iter()
-                .zip(header_cell_layouts)
-                .zip(widget.columns.iter().map(|column| &column.id))
-                .zip(&widget.column_offsets)
-            {
+            let column_ids = widget.columns.iter().map(|column| &column.id);
+
+            for (cell, cell_layout, column_id, column_offset) in izip!(
+                &widget.header_cells,
+                header_cell_layouts,
+                column_ids,
+                &widget.column_offsets
+            ) {
                 // Cell bounds need to be intersected with table header bounds in case the current
                 // cell is the right most column header one.
                 let Some(cell_bounds) = cell_layout.bounds().intersection(&header_bounds) else {
@@ -256,22 +259,19 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     };
 
     renderer.with_layer(scroll_bounds, |renderer| {
-        let effective_scroll_area_height = scroll_bounds.height - widget.header_height;
-        let scroll_thumb_height = (effective_scroll_area_height
-            * (body_bounds.height / (widget.row_height * widget.records.len() as f32)))
-            .max(40.0);
-        let scroll_thumb_offset = (effective_scroll_area_height - scroll_thumb_height)
-            * (state.offset_y
-                / (widget.row_height * widget.records.len() as f32 - body_bounds.height));
-        let scroll_thumb_horizontal_padding = widget.scroll_width * 0.25;
-        let scroll_thumb_width = widget.scroll_width - scroll_thumb_horizontal_padding * 2.0;
-
-        let scroll_thumb_bounds = Rectangle {
-            x: scroll_bounds.x + scroll_thumb_horizontal_padding,
-            y: scroll_bounds.y + widget.header_height + scroll_thumb_offset,
-            width: scroll_thumb_width,
-            height: scroll_thumb_height,
+        let effective_scroll_area_bounds = Rectangle {
+            x: scroll_bounds.x,
+            y: scroll_bounds.y + widget.header_height,
+            width: scroll_bounds.width,
+            height: scroll_bounds.height - widget.header_height,
         };
+
+        let scroll_thumb_bounds = get_scroll_thumb_bounds(
+            effective_scroll_area_bounds,
+            widget.row_height * widget.records.len() as f32,
+            body_bounds.height,
+            state.offset_y,
+        );
 
         let mut scroll_state = ScrollState {
             vertical_scroll_status: ScrollStatus::Default,
