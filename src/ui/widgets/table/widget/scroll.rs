@@ -62,7 +62,7 @@ mod tests {
                 y: 0.0
             },
             scroll_thumb_bounds
-        )
+        );
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
                 y: 10.0 // Scrolled 1% of the available scroll height
             },
             scroll_thumb_bounds
-        )
+        );
     }
 
     #[test]
@@ -94,7 +94,7 @@ mod tests {
                 y: 900.0
             },
             scroll_thumb_bounds
-        )
+        );
     }
 
     #[test]
@@ -110,14 +110,14 @@ mod tests {
                 y: 900.0
             },
             scroll_thumb_bounds
-        )
+        );
     }
 
     #[test]
     fn should_get_vertical_scroll_thumb_bounds_with_scroll_thumb_height_clamped_for_very_long_contents()
      {
         let scroll_thumb_bounds =
-            get_scroll_thumb_bounds(TEST_SCROLL_BOUNDS, 100000.0, 0.0).unwrap();
+            get_scroll_thumb_bounds(TEST_SCROLL_BOUNDS, 100_000.0, 0.0).unwrap();
 
         assert_eq!(
             Rectangle {
@@ -127,7 +127,7 @@ mod tests {
                 y: 0.0
             },
             scroll_thumb_bounds
-        )
+        );
     }
 
     #[test]
@@ -135,7 +135,7 @@ mod tests {
      {
         let scroll_thumb_bounds = get_scroll_thumb_bounds(TEST_SCROLL_BOUNDS, 1000.0, 100.0);
 
-        assert!(scroll_thumb_bounds.is_none())
+        assert!(scroll_thumb_bounds.is_none());
     }
 
     #[test]
@@ -143,13 +143,13 @@ mod tests {
      {
         let scroll_thumb_bounds = get_scroll_thumb_bounds(TEST_SCROLL_BOUNDS, 900.0, 100.0);
 
-        assert!(scroll_thumb_bounds.is_none())
+        assert!(scroll_thumb_bounds.is_none());
     }
 
     #[test]
     fn should_not_get_vertical_scroll_thumb_bounds_if_total_content_length_is_too_small() {
         let scroll_thumb_bounds = get_scroll_thumb_bounds(TEST_SCROLL_BOUNDS, 0.1, 100.0);
 
-        assert!(scroll_thumb_bounds.is_none())
+        assert!(scroll_thumb_bounds.is_none());
     }
 }

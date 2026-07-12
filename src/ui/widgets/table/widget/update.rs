@@ -90,37 +90,65 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                     let table_click =
                         get_table_click(widget, layout, tree, cursor_position, mouse::Button::Left);
 
-                    if matches!(table_click.clicked_area, Some(TableArea::Body)) {
-                        let visible_records = &widget.records[widget.visible_row_range.clone()];
-                        let visible_row_offsets = widget
-                            .row_offsets
-                            .iter()
-                            .map(|&row_offset| row_offset + bounds.y);
+                    let Some(clicked_area) = table_click.clicked_area else {
+                        return;
+                    };
 
-                        let Some(clicked_row_id) = visible_records
-                            .iter()
-                            .zip(visible_row_offsets)
-                            .find_map(|(record, row_start)| {
-                                let row_end = row_start + widget.row_height;
+                    match clicked_area {
+                        TableArea::Header => {
+                            let Some(clicked_column_id) =
+                                widget.columns.iter().zip(&widget.column_offsets).find_map(
+                                    |(column, &column_start)| {
+                                        let column_end = column_start + column.width;
 
-                                (row_start <= cursor_position.y && cursor_position.y <= row_end)
-                                    .then(|| record.id())
-                            })
-                        else {
-                            return;
-                        };
+                                        (column_start <= cursor_position.x
+                                            && cursor_position.x <= column_end)
+                                            .then_some(&column.id)
+                                    },
+                                )
+                            else {
+                                return;
+                            };
 
-                        if let Some(on_row_select) = widget.on_row_select.as_ref() {
-                            shell.publish(on_row_select(vec![clicked_row_id.to_owned()]));
-                            shell.capture_event();
+                            if let Some(on_header_cell_click) = widget.on_header_cell_click.as_ref()
+                            {
+                                shell.publish(on_header_cell_click(clicked_column_id.to_owned()));
+                                shell.capture_event();
+                            }
                         }
+                        TableArea::Body => {
+                            let visible_records = &widget.records[widget.visible_row_range.clone()];
+                            let visible_row_offsets = widget
+                                .row_offsets
+                                .iter()
+                                .map(|&row_offset| row_offset + bounds.y);
 
-                        if let Some(on_row_double_click) = widget.on_row_double_click.as_ref()
-                            && matches!(table_click.click.kind(), click::Kind::Double)
-                        {
-                            shell.publish(on_row_double_click(clicked_row_id.to_owned()));
-                            shell.capture_event();
+                            let Some(clicked_row_id) = visible_records
+                                .iter()
+                                .zip(visible_row_offsets)
+                                .find_map(|(record, row_start)| {
+                                    let row_end = row_start + widget.row_height;
+
+                                    (row_start <= cursor_position.y && cursor_position.y <= row_end)
+                                        .then(|| record.id())
+                                })
+                            else {
+                                return;
+                            };
+
+                            if let Some(on_row_select) = widget.on_row_select.as_ref() {
+                                shell.publish(on_row_select(vec![clicked_row_id.to_owned()]));
+                                shell.capture_event();
+                            }
+
+                            if let Some(on_row_double_click) = widget.on_row_double_click.as_ref()
+                                && matches!(table_click.click.kind(), click::Kind::Double)
+                            {
+                                shell.publish(on_row_double_click(clicked_row_id.to_owned()));
+                                shell.capture_event();
+                            }
                         }
+                        TableArea::Scroll => {}
                     }
                 }
                 _ => {}
@@ -152,7 +180,7 @@ where
         state
             .previous_click
             .as_ref()
-            .and_then(|table_click| Some(table_click.click)),
+            .map(|table_click| table_click.click),
     );
 
     let grid_bounds = Rectangle {
@@ -184,10 +212,11 @@ where
     };
 
     let mut clicked_area = None;
-    for (bounds, table_area) in vec![body_bounds, header_bounds, scroll_bounds]
-        .iter()
-        .zip(vec![TableArea::Body, TableArea::Header, TableArea::Scroll].into_iter())
-    {
+    for (bounds, table_area) in [body_bounds, header_bounds, scroll_bounds].iter().zip([
+        TableArea::Body,
+        TableArea::Header,
+        TableArea::Scroll,
+    ]) {
         if bounds.contains(cursor_position) {
             clicked_area = Some(table_area);
         }

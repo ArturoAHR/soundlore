@@ -18,9 +18,9 @@ pub mod layout;
 mod scroll;
 pub mod update;
 
-use draw::*;
-use layout::*;
-use update::*;
+use draw::draw;
+use layout::layout;
+use update::update;
 
 impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Table<'a, T, Message, Theme, Renderer>
@@ -59,7 +59,7 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        draw(self, tree, renderer, theme, style, layout, cursor, viewport)
+        draw(self, tree, renderer, theme, style, layout, cursor, viewport);
     }
 
     fn update(
