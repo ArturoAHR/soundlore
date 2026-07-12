@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use iced::{
     Element,
     advanced::{renderer, widget::Tree},
+    keyboard,
 };
 
 use crate::ui::widgets::table::widget::update::TableClick;
@@ -26,8 +27,9 @@ pub struct State {
 
     /// Last mouse click (used to determine double clicks)
     pub previous_click: Option<TableClick>,
-    // /// Current mouse click (used for dragging)
-    // pub current_click: Option<Click>
+
+    /// Currently pressed keyboard modifiers
+    pub keyboard_modifiers: keyboard::Modifiers,
 }
 
 #[derive(Default)]

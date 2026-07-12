@@ -154,6 +154,9 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                 _ => {}
             }
         }
+        Event::Keyboard(iced::keyboard::Event::ModifiersChanged(modifiers)) => {
+            state.keyboard_modifiers = *modifiers;
+        }
         _ => {}
     }
 }
