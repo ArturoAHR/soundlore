@@ -137,7 +137,7 @@ impl App {
 
                 navigation_bar: NavigationBar {},
                 explorer_pane: ExplorerPane {},
-                main_pane: MainPane {},
+                main_pane: MainPane::new(),
                 queue_pane: QueuePane {},
                 track_information_pane: TrackInformationPane {},
                 status_bar: StatusBar {},

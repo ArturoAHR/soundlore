@@ -42,7 +42,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
         height: bounds.height,
     };
 
-    let table_style = theme.table_style(&widget.table_class);
+    let table_style = theme.table_style(&widget.class);
 
     // Render background
     renderer.fill_quad(
@@ -67,8 +67,16 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
     // Clipping body cells to table body bounds
     renderer.with_layer(body_bounds, |renderer| {
+        let visible_row_ids = widget.records[widget.visible_row_range.clone()]
+            .iter()
+            .map(Identifiable::id);
+
         // Render table body rows background
-        for (row_number, row_offset) in widget.visible_row_range.clone().zip(&widget.row_offsets) {
+        for (row_number, row_id, row_offset) in izip!(
+            widget.visible_row_range.clone(),
+            visible_row_ids.clone(),
+            &widget.row_offsets
+        ) {
             let row_bounds = Rectangle {
                 x: body_bounds.x,
                 y: body_bounds.y + row_offset - widget.header_height,
@@ -76,7 +84,9 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                 height: widget.row_height,
             };
 
-            let row_status = if cursor.is_over(row_bounds) {
+            let row_status = if widget.selected_rows.contains(row_id) {
+                BodyRowStatus::Selected
+            } else if cursor.is_over(row_bounds) {
                 BodyRowStatus::Hovered
             } else {
                 BodyRowStatus::Default
@@ -92,10 +102,6 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                 row_style.background,
             );
         }
-
-        let visible_row_ids = widget.records[widget.visible_row_range.clone()]
-            .iter()
-            .map(Identifiable::id);
 
         for (visible_row_number, row_id, row_offset) in
             izip!(0.., visible_row_ids, &widget.row_offsets)
@@ -121,7 +127,9 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
                     continue;
                 };
 
-                let cell_status = if cursor.is_over(row_bounds) {
+                let cell_status = if widget.selected_rows.contains(row_id) {
+                    CellStatus::Selected
+                } else if cursor.is_over(row_bounds) {
                     CellStatus::Hovered
                 } else {
                     CellStatus::Default

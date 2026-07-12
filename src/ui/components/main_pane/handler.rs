@@ -4,19 +4,16 @@ use crate::{
     app::{self, App},
     event::Event,
     ui::{
-        components::main_pane::{MainPaneViewContext, Message, Outcome},
+        components::main_pane::{Message, Outcome},
         theme::Theme,
     },
 };
 
 impl App {
     pub fn view_main_pane(&self) -> Element<'_, app::Message, Theme, Renderer> {
-        let context = MainPaneViewContext {
-            theme: &self.theme,
-            tracks: &self.tracks,
-        };
-
-        self.main_pane.view(context).map(app::Message::MainPane)
+        self.main_pane
+            .view(&self.theme, &self.tracks)
+            .map(app::Message::MainPane)
     }
 
     pub fn handle_main_pane(&mut self, message: Message) -> Task<app::Message> {

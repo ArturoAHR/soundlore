@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::{
     Element, Length, Renderer, Task, alignment,
     widget::{container, text},
@@ -19,11 +21,15 @@ use crate::{
 pub mod handler;
 
 #[derive(Debug)]
-pub struct MainPane {}
+pub struct MainPane {
+    pub selected_track_ids: Vec<TableIdentifier>,
+}
 
 #[derive(Debug, Clone)]
 pub enum Message {
     TrackRowDoubleClicked(TableIdentifier),
+    TrackRowSelected(HashSet<String>),
+    ColumnHeaderCellClicked(TableIdentifier),
 }
 
 #[derive(Debug, Clone)]
@@ -32,15 +38,15 @@ pub enum Outcome {
 }
 
 #[derive(Debug)]
-pub struct MainPaneViewContext<'a> {
-    pub theme: &'a Theme,
-    pub tracks: &'a Vec<Track>,
-}
-
-#[derive(Debug)]
 pub struct MainPaneUpdateContext {}
 
 impl MainPane {
+    pub fn new() -> Self {
+        Self {
+            selected_track_ids: Vec::new(),
+        }
+    }
+
     #[instrument(skip(self), level = "debug")]
     pub fn update(&mut self, event: Message) -> (Task<Message>, Vec<Outcome>) {
         let task = Task::none();
@@ -50,6 +56,10 @@ impl MainPane {
             Message::TrackRowDoubleClicked(track_id) => {
                 outcomes.push(Outcome::Playback(PlaybackOutcome::Play(track_id)));
             }
+            Message::TrackRowSelected(selected_track_ids) => {
+                self.selected_track_ids = selected_track_ids.into_iter().collect();
+            }
+            Message::ColumnHeaderCellClicked(_column_id) => {}
         }
 
         (task, outcomes)
@@ -62,7 +72,8 @@ impl MainPane {
 
     pub fn view<'a>(
         &'a self,
-        ctx: MainPaneViewContext<'a>,
+        _theme: &'a Theme,
+        tracks: &'a [Track],
     ) -> Element<'a, Message, Theme, Renderer> {
         let columns = vec![
             column(
@@ -100,13 +111,19 @@ impl MainPane {
             .align_x(alignment::Horizontal::Right),
         ];
 
-        container(table(columns, ctx.tracks).on_row_double_click(Message::TrackRowDoubleClicked))
-            .height(Length::Fill)
-            .width(Length::Fill)
-            .style(|theme: &Theme| container::Style {
-                background: Some(theme.palette.surface.into()),
-                ..container::Style::default()
-            })
-            .into()
+        container(
+            table(columns, tracks)
+                .selected_rows(&self.selected_track_ids[..])
+                .on_row_select(Message::TrackRowSelected)
+                .on_row_double_click(Message::TrackRowDoubleClicked)
+                .on_header_cell_click(Message::ColumnHeaderCellClicked),
+        )
+        .height(Length::Fill)
+        .width(Length::Fill)
+        .style(|theme: &Theme| container::Style {
+            background: Some(theme.palette.surface.into()),
+            ..container::Style::default()
+        })
+        .into()
     }
 }

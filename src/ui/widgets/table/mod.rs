@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::{collections::HashSet, ops::Range};
 
 use iced::{
     Element, Length, Padding,
@@ -29,9 +29,9 @@ where
     row_height: f32,
     scroll_width: f32,
 
-    selected_rows: Option<&'a [TableIdentifier]>,
+    selected_rows: HashSet<&'a TableIdentifier>,
     /// Returns the set of table body row identifiers that are currently selected every time the set changes.
-    on_row_select: Option<Box<dyn Fn(Vec<TableIdentifier>) -> Message + 'a>>,
+    on_row_select: Option<Box<dyn Fn(HashSet<TableIdentifier>) -> Message + 'a>>,
     on_header_cell_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
     on_row_double_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
 
@@ -49,7 +49,7 @@ where
     cell_padding: Padding,
     header_cell_padding: Padding,
 
-    table_class: Theme::TableClass<'a>,
+    class: Theme::TableClass<'a>,
     scroll_class: Theme::ScrollClass<'a>,
     body_row_class: Theme::BodyRowClass<'a>,
     cell_class: Theme::CellClass<'a>,
@@ -74,7 +74,7 @@ where
             header_cells = Vec::with_capacity(columns.len());
 
             for column in &mut columns {
-                header_cells.push(column.header.take().unwrap_or(Space::new().into()))
+                header_cells.push(column.header.take().unwrap_or_else(|| Space::new().into()));
             }
         }
 
@@ -87,7 +87,7 @@ where
             row_height: 30.0,
             scroll_width: 12.0,
 
-            selected_rows: None,
+            selected_rows: HashSet::new(),
             on_row_select: None,
             on_header_cell_click: None,
             on_row_double_click: None,
@@ -105,25 +105,28 @@ where
             header_cell_padding: [0.0, 8.0].into(),
             cell_padding: [0.0, 8.0].into(),
 
-            table_class: Theme::default_table(),
+            class: Theme::default_table(),
             scroll_class: Theme::default_scroll(),
             body_row_class: Theme::default_body_row(),
             cell_class: Theme::default_cell(),
         }
     }
 
+    #[must_use]
     pub fn height(mut self, height: impl Into<Length>) -> Self {
         self.height = height.into();
 
         self
     }
 
+    #[must_use]
     pub fn width(mut self, width: impl Into<Length>) -> Self {
         self.width = width.into();
 
         self
     }
 
+    #[must_use]
     pub fn header_height(mut self, header_height: impl Into<f32>) -> Self {
         if self.has_header {
             self.header_height = header_height.into();
@@ -132,51 +135,56 @@ where
         self
     }
 
+    #[must_use]
     pub fn row_height(mut self, row_height: impl Into<f32>) -> Self {
         self.row_height = row_height.into();
 
         self
     }
 
+    #[must_use]
     pub fn scroll_width(mut self, scroll_width: impl Into<f32>) -> Self {
         self.scroll_width = scroll_width.into();
 
         self
     }
 
+    #[must_use]
     pub fn cell_padding(mut self, padding: impl Into<Padding>) -> Self {
         self.cell_padding = padding.into();
 
         self
     }
 
+    #[must_use]
     pub fn header_cell_padding(mut self, padding: impl Into<Padding>) -> Self {
         self.header_cell_padding = padding.into();
 
         self
     }
 
+    #[must_use]
     pub fn selected_rows(mut self, selected_rows: impl Into<&'a [TableIdentifier]>) -> Self {
         let selected_rows = selected_rows.into();
 
-        if selected_rows.is_empty() {
-            self.selected_rows = None;
-        } else {
-            self.selected_rows = Some(selected_rows);
+        if !selected_rows.is_empty() {
+            self.selected_rows = HashSet::from_iter(selected_rows);
         }
 
         self
     }
 
+    #[must_use]
     pub fn on_row_select(
         mut self,
-        on_row_select: impl Fn(Vec<TableIdentifier>) -> Message + 'a,
+        on_row_select: impl Fn(HashSet<TableIdentifier>) -> Message + 'a,
     ) -> Self {
         self.on_row_select = Some(Box::new(on_row_select));
 
         self
     }
 
+    #[must_use]
     pub fn on_row_double_click(
         mut self,
         on_row_double_click: impl Fn(TableIdentifier) -> Message + 'a,
@@ -186,6 +194,7 @@ where
         self
     }
 
+    #[must_use]
     pub fn on_header_cell_click(
         mut self,
         on_header_cell_click: impl Fn(TableIdentifier) -> Message + 'a,
@@ -195,15 +204,17 @@ where
         self
     }
 
+    #[must_use]
     pub fn style(mut self, function: impl Fn(&Theme) -> TableStyle + 'a) -> Self
     where
         Theme::TableClass<'a>: From<TableStyleFn<'a, Theme>>,
     {
-        self.table_class = (Box::new(function) as TableStyleFn<'a, Theme>).into();
+        self.class = (Box::new(function) as TableStyleFn<'a, Theme>).into();
 
         self
     }
 
+    #[must_use]
     pub fn scroll_style(
         mut self,
         function: impl Fn(&Theme, ScrollState) -> ScrollStyle + 'a,
@@ -216,6 +227,7 @@ where
         self
     }
 
+    #[must_use]
     pub fn body_row_style(
         mut self,
         function: impl Fn(&Theme, BodyRowStatus, usize) -> BodyRowStyle + 'a,
@@ -228,6 +240,7 @@ where
         self
     }
 
+    #[must_use]
     pub fn cell_style(
         mut self,
         function: impl Fn(&Theme, CellStatus, CellType) -> CellStyle + 'a,
@@ -254,10 +267,13 @@ where
     }
 }
 
+pub type ColumnCellView<'a, T, Message, Theme, Renderer> =
+    dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a;
+
 pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
     id: TableIdentifier,
     header: Option<Element<'a, Message, Theme, Renderer>>,
-    view: Box<dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a>,
+    view: Box<ColumnCellView<'a, T, Message, Theme, Renderer>>,
     width: f32,
     min_width: f32,
     align_x: alignment::Horizontal,
@@ -268,68 +284,77 @@ pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
     cell_padding: Option<Padding>,
 }
 
-impl<'a, T, Message, Theme, Renderer> Column<'a, T, Message, Theme, Renderer> {
+impl<T, Message, Theme, Renderer> Column<'_, T, Message, Theme, Renderer> {
     pub fn get_column_width(&self) -> ColumnWidth {
         if self.resizable {
             ColumnWidth::Resizable {
-                width: self.width as f64,
-                min_width: self.min_width as f64,
+                width: From::<f32>::from(self.width),
+                min_width: From::<f32>::from(self.min_width),
             }
         } else {
             ColumnWidth::Fixed {
-                width: self.width as f64,
+                width: From::<f32>::from(self.width),
             }
         }
     }
 
+    #[must_use]
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = id.into();
 
         self
     }
 
+    #[must_use]
     pub fn width(mut self, width: impl Into<f32>) -> Self {
         self.width = width.into();
 
         self
     }
 
+    #[must_use]
     pub fn min_width(mut self, min_width: impl Into<f32>) -> Self {
         self.min_width = min_width.into();
 
         self
     }
 
+    #[must_use]
     pub fn align_x(mut self, alignment: impl Into<alignment::Horizontal>) -> Self {
         self.align_x = alignment.into();
 
         self
     }
 
+    #[must_use]
     pub fn align_y(mut self, alignment: impl Into<alignment::Vertical>) -> Self {
         self.align_y = alignment.into();
 
         self
     }
 
+    #[must_use]
     pub fn resizable(mut self, resizable: bool) -> Self {
         self.resizable = resizable;
 
         self
     }
 
+    #[must_use]
     pub fn sortable(mut self, sortable: bool) -> Self {
         self.sortable = sortable;
 
         self
     }
 
+    #[must_use]
     pub fn cell_padding(mut self, padding: impl Into<Padding>) -> Self {
         self.cell_padding = Some(padding.into());
 
         self
     }
 
+    #[must_use]
     pub fn header_padding(mut self, padding: impl Into<Padding>) -> Self {
         self.header_padding = Some(padding.into());
 

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use iced::{
     Event, Point, Rectangle,
     advanced::{
@@ -43,6 +45,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
     Renderer: renderer::Renderer,
 {
     let state = tree.state.downcast_mut::<State>();
+    let keyboard_modifiers = state.keyboard_modifiers;
     let bounds = layout.bounds();
 
     match event {
@@ -53,7 +56,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                 match event {
                     mouse::Event::ButtonPressed(mouse::Button::Left) => {
                         if let Some(on_row_select) = widget.on_row_select.as_ref() {
-                            shell.publish(on_row_select(vec![]));
+                            shell.publish(on_row_select(HashSet::new()));
                         }
                     }
                     _ => {}
@@ -137,8 +140,21 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                             };
 
                             if let Some(on_row_select) = widget.on_row_select.as_ref() {
-                                shell.publish(on_row_select(vec![clicked_row_id.to_owned()]));
                                 shell.capture_event();
+
+                                if keyboard_modifiers.is_empty() {
+                                    shell.publish(on_row_select(HashSet::from_iter([
+                                        clicked_row_id.to_owned(),
+                                    ])));
+                                }
+
+                                if keyboard_modifiers.control() {
+                                    // Implement toggling selection here
+                                }
+
+                                if keyboard_modifiers.shift() {
+                                    // Implement multiple selection here
+                                }
                             }
 
                             if let Some(on_row_double_click) = widget.on_row_double_click.as_ref()
