@@ -53,14 +53,6 @@ pub fn update<'a, T, Message, Theme, Renderer>(
         iced::Event::Mouse(event) => {
             // Cursor is outside of table
             if !cursor.is_over(bounds) {
-                match event {
-                    mouse::Event::ButtonPressed(mouse::Button::Left) => {
-                        if let Some(on_row_select) = widget.on_row_select.as_ref() {
-                            shell.publish(on_row_select(HashSet::new()));
-                        }
-                    }
-                    _ => {}
-                }
                 return;
             }
 
