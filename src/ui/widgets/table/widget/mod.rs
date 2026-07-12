@@ -13,6 +13,7 @@ use crate::ui::widgets::table::{Catalog, Table, state::Identifiable};
 
 use crate::ui::widgets::table::state::State;
 
+pub mod bounds;
 pub mod draw;
 pub mod layout;
 mod scroll;

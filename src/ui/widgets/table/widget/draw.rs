@@ -12,7 +12,13 @@ use itertools::izip;
 use crate::ui::widgets::table::{
     BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table,
     state::{HEADERS_ROW_IDENTIFIER, Identifiable},
-    widget::scroll::get_scroll_thumb_bounds,
+    widget::{
+        bounds::{
+            get_effective_scroll_area_bounds, get_table_body_bounds, get_table_body_row_bounds,
+            get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
+        },
+        scroll::get_scroll_thumb_bounds,
+    },
 };
 
 use crate::ui::widgets::table::state::State;
@@ -35,12 +41,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     let state = tree.state.downcast_ref::<State>();
     let bounds = layout.bounds();
 
-    let grid_bounds = Rectangle {
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width - widget.scroll_width,
-        height: bounds.height,
-    };
+    let grid_bounds = get_table_grid_bounds(bounds, widget.scroll_width);
 
     let table_style = theme.table_style(&widget.class);
 
@@ -58,12 +59,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
     let mut body_cell_layouts = layout.children().skip(widget.columns.len());
 
-    let body_bounds = Rectangle {
-        x: grid_bounds.x,
-        y: grid_bounds.y + widget.header_height,
-        width: grid_bounds.width,
-        height: grid_bounds.height - widget.header_height,
-    };
+    let body_bounds = get_table_body_bounds(grid_bounds, widget.header_height);
 
     // Clipping body cells to table body bounds
     renderer.with_layer(body_bounds, |renderer| {
@@ -77,12 +73,12 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
             visible_row_ids.clone(),
             &widget.row_offsets
         ) {
-            let row_bounds = Rectangle {
-                x: body_bounds.x,
-                y: body_bounds.y + row_offset - widget.header_height,
-                width: body_bounds.width,
-                height: widget.row_height,
-            };
+            let row_bounds = get_table_body_row_bounds(
+                body_bounds,
+                widget.header_height,
+                widget.row_height,
+                *row_offset,
+            );
 
             let row_status = if widget.selected_rows.contains(row_id) {
                 BodyRowStatus::Selected
@@ -106,12 +102,12 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
         for (visible_row_number, row_id, row_offset) in
             izip!(0.., visible_row_ids, &widget.row_offsets)
         {
-            let row_bounds = Rectangle {
-                x: body_bounds.x,
-                y: body_bounds.y + row_offset - widget.header_height,
-                width: body_bounds.width,
-                height: widget.row_height,
-            };
+            let row_bounds = get_table_body_row_bounds(
+                body_bounds,
+                widget.header_height,
+                widget.row_height,
+                *row_offset,
+            );
 
             let row_body_cell_range = visible_row_number * widget.columns.len()
                 ..(visible_row_number + 1) * widget.columns.len();
@@ -163,12 +159,7 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
     let header_cell_layouts = layout.children().take(widget.columns.len());
 
     if widget.has_header {
-        let header_bounds = Rectangle {
-            x: grid_bounds.x,
-            y: grid_bounds.y,
-            width: grid_bounds.width,
-            height: widget.header_height,
-        };
+        let header_bounds = get_table_header_bounds(grid_bounds, widget.header_height);
 
         // Clipping body cells to table header bounds
         renderer.with_layer(header_bounds, |renderer| {
@@ -262,20 +253,11 @@ pub fn draw<'a, T, Message, Theme, Renderer>(
 
     // Scrollbar
 
-    let scroll_bounds = Rectangle {
-        x: bounds.x + grid_bounds.width,
-        y: bounds.y,
-        width: widget.scroll_width,
-        height: bounds.height,
-    };
+    let scroll_bounds = get_table_scroll_bounds(bounds, widget.scroll_width);
 
     renderer.with_layer(scroll_bounds, |renderer| {
-        let effective_scroll_area_bounds = Rectangle {
-            x: scroll_bounds.x,
-            y: scroll_bounds.y + widget.header_height,
-            width: scroll_bounds.width,
-            height: scroll_bounds.height - widget.header_height,
-        };
+        let effective_scroll_area_bounds =
+            get_effective_scroll_area_bounds(scroll_bounds, widget.header_height);
 
         let scroll_thumb_bounds = get_scroll_thumb_bounds(
             effective_scroll_area_bounds,
