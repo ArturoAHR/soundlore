@@ -60,7 +60,7 @@ where
 
     // Column Width Resolution
 
-    let container_width = grid_limits.max().width as f64;
+    let container_width = From::<f32>::from(grid_limits.max().width);
     let column_widths = widget
         .columns
         .iter()
@@ -182,7 +182,7 @@ where
         }
     }
 
-    state.cell_state.prune(row_ids);
+    state.cell_state.prune(&row_ids);
 
     Node::with_children(limits.max(), nodes)
 }
