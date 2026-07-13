@@ -17,6 +17,7 @@ pub mod bounds;
 pub mod draw;
 pub mod layout;
 mod scroll;
+pub mod select;
 pub mod update;
 
 use draw::draw;
