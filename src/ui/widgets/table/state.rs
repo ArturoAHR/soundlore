@@ -25,6 +25,9 @@ pub struct State {
     /// Table vertical scroll offset
     pub offset_y: f32,
 
+    /// The id of the row used as an anchor for multi-selection operations
+    pub selection_anchor_row_id: Option<TableIdentifier>,
+
     /// Last mouse click (used to determine double clicks)
     pub previous_click: Option<TableClick>,
 

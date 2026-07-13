@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use iced::{
     Event, Point, Rectangle,
     advanced::{
@@ -10,7 +8,9 @@ use iced::{
     },
 };
 
-use crate::ui::widgets::table::{Catalog, Table, state::Identifiable};
+use crate::ui::widgets::table::{
+    Catalog, Table, state::Identifiable, widget::select::get_new_selected_row_ids,
+};
 
 use crate::ui::widgets::table::state::State;
 
@@ -82,8 +82,15 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                 // Selection / Clicking
                 mouse::Event::ButtonPressed(mouse::Button::Left) => {
-                    let table_click =
-                        get_table_click(widget, layout, tree, cursor_position, mouse::Button::Left);
+                    let table_click = get_table_click(
+                        widget,
+                        layout,
+                        state.previous_click,
+                        cursor_position,
+                        mouse::Button::Left,
+                    );
+
+                    state.previous_click = Some(table_click);
 
                     let Some(clicked_area) = table_click.clicked_area else {
                         return;
@@ -134,19 +141,25 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                             if let Some(on_row_select) = widget.on_row_select.as_ref() {
                                 shell.capture_event();
 
-                                if keyboard_modifiers.is_empty() {
-                                    shell.publish(on_row_select(HashSet::from_iter([
-                                        clicked_row_id.to_owned(),
-                                    ])));
-                                }
+                                let row_ids = widget.records.iter().map(Identifiable::id);
+                                let default_anchor_row_id = String::new();
+                                let anchor_row_id = state
+                                    .selection_anchor_row_id
+                                    .as_ref()
+                                    .or_else(|| widget.records.first().map(Identifiable::id))
+                                    .unwrap_or(&default_anchor_row_id);
 
-                                if keyboard_modifiers.control() {
-                                    // Implement toggling selection here
-                                }
+                                let (selected_row_ids, anchor_row_id) = get_new_selected_row_ids(
+                                    row_ids,
+                                    &widget.selected_rows,
+                                    clicked_row_id,
+                                    anchor_row_id,
+                                    keyboard_modifiers,
+                                );
 
-                                if keyboard_modifiers.shift() {
-                                    // Implement multiple selection here
-                                }
+                                state.selection_anchor_row_id = Some(anchor_row_id);
+
+                                shell.publish(on_row_select(selected_row_ids));
                             }
 
                             if let Some(on_row_double_click) = widget.on_row_double_click.as_ref()
@@ -172,7 +185,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 fn get_table_click<'a, T, Message, Theme, Renderer>(
     widget: &Table<'a, T, Message, Theme, Renderer>,
     layout: Layout<'_>,
-    tree: &mut Tree,
+    previous_click: Option<TableClick>,
     cursor_position: Point,
     button: mouse::Button,
 ) -> TableClick
@@ -182,16 +195,12 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    let state = tree.state.downcast_mut::<State>();
     let bounds = layout.bounds();
 
     let click = Click::new(
         cursor_position,
         button,
-        state
-            .previous_click
-            .as_ref()
-            .map(|table_click| table_click.click),
+        previous_click.map(|table_click| table_click.click),
     );
 
     let grid_bounds = Rectangle {
@@ -233,12 +242,8 @@ where
         }
     }
 
-    let table_click = TableClick {
+    TableClick {
         clicked_area,
         click,
-    };
-
-    state.previous_click = Some(table_click);
-
-    table_click
+    }
 }
