@@ -51,23 +51,24 @@ pub fn update<'a, T, Message, Theme, Renderer>(
     match event {
         // Scrolling
         iced::Event::Mouse(event) => {
-            // Cursor is outside of table
-            if !cursor.is_over(bounds) {
-                return;
-            }
-
             let Some(cursor_position) = cursor.position() else {
                 return;
             };
 
             match event {
                 iced::mouse::Event::WheelScrolled { delta } => {
+                    // Cursor is outside of table
+                    if !cursor.is_over(bounds) {
+                        return;
+                    }
+
+                    // Mousepad scrolling is significantly faster than mouse scroll.
                     let delta_y = match delta {
-                        iced::mouse::ScrollDelta::Lines { x: _, y }
-                        | iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
+                        iced::mouse::ScrollDelta::Lines { x: _, y } => *y * 15.0,
+                        iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
                     };
 
-                    state.offset_y += delta_y * widget.row_height * -0.7;
+                    state.offset_y += delta_y * widget.row_height * -0.15;
                     state.offset_y = state.offset_y.clamp(
                         0.0,
                         (widget.row_height * widget.records.len() as f32
@@ -82,6 +83,11 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                 // Selection / Clicking
                 mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                    // Cursor is outside of table
+                    if !cursor.is_over(bounds) {
+                        return;
+                    }
+
                     let table_click = get_table_click(
                         widget,
                         layout,
