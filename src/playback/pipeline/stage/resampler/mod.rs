@@ -6,7 +6,7 @@ use rubato::{
     audioadapter_buffers::{SizeError, direct::InterleavedSlice},
 };
 use thiserror::Error;
-use tracing::{info, instrument, trace};
+use tracing::{debug, instrument, trace};
 
 use crate::playback::constants::{RESAMPLER_CHUNK_SIZE, RESAMPLER_SUB_CHUNK_SIZE};
 use crate::playback::pipeline::AudioFormat;
@@ -94,7 +94,7 @@ impl AudioResampler {
 
         let status = AudioResamplerStatus::Warmup(resampler.output_delay());
 
-        info!("Built resampler",);
+        debug!("Built resampler",);
 
         Ok(Self {
             resampler,

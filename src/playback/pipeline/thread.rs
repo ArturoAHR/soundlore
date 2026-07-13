@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     path::Path,
     sync::{Arc, atomic::AtomicU64},
     time::Duration,
@@ -18,7 +19,6 @@ use crate::{
     track::models::Track,
 };
 
-#[derive(Debug)]
 pub enum AudioPipelineThreadCommand {
     Play(Track),
     Pause,
@@ -33,6 +33,38 @@ pub enum AudioPipelineThreadCommand {
         audio_engine_producer: Producer<f32>,
     },
     Exit,
+}
+
+impl fmt::Debug for AudioPipelineThreadCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Play(track) => f
+                .debug_tuple("Play")
+                .field(&format_args!(
+                    "Track {{ id: {:?}, file_path: {:?} }}",
+                    track.id, track.file_path
+                ))
+                .finish(),
+            Self::Pause => f.write_str("Pause"),
+            Self::Resume => f.write_str("Resume"),
+            Self::PlayNext => f.write_str("PlayNext"),
+            Self::PlayPrevious => f.write_str("PlayPrevious"),
+            Self::Seek(timestamp) => f.debug_tuple("Seek").field(timestamp).finish(),
+            Self::Stop => f.write_str("Stop"),
+            Self::ChangeNextTrack(track) => f
+                .debug_tuple("ChangeNextTrack")
+                .field(&format_args!(
+                    "Track {{ id: {:?}, file_path: {:?} }}",
+                    track.id, track.file_path
+                ))
+                .finish(),
+            Self::ChangeOutput { output, .. } => f
+                .debug_struct("ChangeOutput")
+                .field("output", output)
+                .finish_non_exhaustive(),
+            Self::Exit => f.write_str("Exit"),
+        }
+    }
 }
 
 pub enum AudioPipelineProcessDirective {
