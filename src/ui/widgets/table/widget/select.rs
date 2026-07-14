@@ -1,7 +1,7 @@
 use std::{
     cmp::{max, min},
     collections::HashSet,
-    hash::{BuildHasher, Hash},
+    hash::Hash,
     iter,
 };
 
@@ -33,16 +33,15 @@ impl SelectOperation {
     }
 }
 
-pub fn select_values<'a, T, S>(
+pub fn select_values<'a, T>(
     values: impl Iterator<Item = &'a T> + Clone,
-    current_selected_values: &HashSet<&T, S>,
+    current_selected_values: impl Iterator<Item = &'a T> + Clone,
     target_value: &T,
     anchor_value: &T,
     select_operation: SelectOperation,
 ) -> (HashSet<T>, T)
 where
     T: Clone + PartialEq + Eq + Hash + 'a,
-    S: BuildHasher,
 {
     if values.clone().next().is_none() {
         return get_default_return(current_selected_values, anchor_value);
@@ -84,11 +83,12 @@ where
             )
         }
         SelectOperation::Toggle => {
-            if current_selected_values.contains(target_value) {
+            if current_selected_values
+                .clone()
+                .any(|selected_value| selected_value == target_value)
+            {
                 (
                     current_selected_values
-                        .iter()
-                        .copied()
                         .filter(|&row_id| row_id != target_value)
                         .cloned()
                         .collect(),
@@ -97,15 +97,14 @@ where
             } else {
                 (
                     iter::once(target_value.to_owned())
-                        .chain(current_selected_values.iter().copied().cloned())
+                        .chain(current_selected_values.cloned())
                         .collect(),
                     target_value.to_owned(),
                 )
             }
         }
         SelectOperation::Union => {
-            let mut new_selected_row_ids: HashSet<T> =
-                current_selected_values.iter().copied().cloned().collect();
+            let mut new_selected_row_ids: HashSet<T> = current_selected_values.cloned().collect();
 
             let start_index = min(target_row_index, anchor_row_index);
             let end_index = max(target_row_index, anchor_row_index);
@@ -122,16 +121,15 @@ where
     }
 }
 
-fn get_default_return<T, S: BuildHasher>(
-    selected_row_ids: &HashSet<&T, S>,
+fn get_default_return<'a, T>(
+    selected_row_ids: impl Iterator<Item = &'a T> + Clone,
     anchor_row_id: &T,
 ) -> (HashSet<T>, T)
 where
-    T: Clone + PartialEq + Eq + Hash,
-    S: BuildHasher,
+    T: Clone + PartialEq + Eq + Hash + 'a,
 {
     (
-        selected_row_ids.iter().copied().cloned().collect(),
+        selected_row_ids.cloned().collect(),
         anchor_row_id.to_owned(),
     )
 }
@@ -218,16 +216,15 @@ mod tests {
     #[test]
     fn should_get_selected_rows_without_modifiers() {
         let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
-            &selected_row_ids,
+            row_ids.iter(),
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Single,
@@ -243,14 +240,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("a").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Single,
@@ -266,14 +262,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Single,
@@ -288,14 +283,14 @@ mod tests {
         let row_ids = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Toggle,
@@ -311,14 +306,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("a").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "a".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Toggle,
@@ -335,14 +329,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Toggle,
@@ -359,14 +352,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("acdefgh").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Toggle,
@@ -381,14 +373,14 @@ mod tests {
         let row_ids = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Range,
@@ -404,14 +396,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Range,
@@ -427,14 +418,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("c").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "c".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Range,
@@ -449,14 +439,14 @@ mod tests {
         let row_ids = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "c".to_owned();
         let anchor_row_id = "!".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Range,
@@ -471,14 +461,14 @@ mod tests {
         let row_ids = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -494,14 +484,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("cdef").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -517,14 +506,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("abc").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -541,14 +529,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("wxyz").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -563,14 +550,14 @@ mod tests {
         let row_ids_source = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids_source);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -587,14 +574,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids_source);
 
         let selected_row_ids: Vec<String> = get_iterator("gdrfxz").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -610,14 +596,14 @@ mod tests {
         let row_ids = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids);
 
-        let selected_row_ids: HashSet<&String> = HashSet::new();
+        let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "c".to_owned();
         let anchor_row_id = "!".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -633,14 +619,13 @@ mod tests {
         let row_ids = get_row_ids(&row_ids);
 
         let selected_row_ids: Vec<String> = get_iterator("gdrfxz").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "!".to_owned();
         let anchor_row_id = "z".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Union,
@@ -655,14 +640,13 @@ mod tests {
         let row_ids = Vec::new();
 
         let selected_row_ids: Vec<String> = get_iterator("def").collect();
-        let selected_row_ids: HashSet<&String> = selected_row_ids.iter().collect();
 
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
-            &selected_row_ids,
+            selected_row_ids.iter(),
             &target_row_id,
             &anchor_row_id,
             SelectOperation::Single,

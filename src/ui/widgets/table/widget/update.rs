@@ -159,7 +159,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                                 let (selected_row_ids, anchor_row_id) = select_values(
                                     row_ids,
-                                    &widget.selected_rows,
+                                    widget.selected_rows.iter().copied(),
                                     clicked_row_id,
                                     anchor_row_id,
                                     SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
