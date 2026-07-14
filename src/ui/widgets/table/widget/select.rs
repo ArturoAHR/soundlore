@@ -9,44 +9,45 @@ use iced::keyboard;
 
 use crate::ui::widgets::table::state::TableIdentifier;
 
-enum SelectKeyboardModifier {
-    Default,
-    Control,
-    Shift,
-    ControlShift,
+#[derive(Debug, Clone, Copy)]
+pub enum SelectOperation {
+    Single,
+    Toggle,
+    Range,
+    Union,
 }
 
-impl SelectKeyboardModifier {
+impl SelectOperation {
     pub fn from_keyboard_modifiers(keyboard_modifiers: keyboard::Modifiers) -> Self {
         if keyboard_modifiers.command() && keyboard_modifiers.shift() {
-            return Self::ControlShift;
+            return Self::Union;
         }
 
         if keyboard_modifiers.command() {
-            return Self::Control;
+            return Self::Toggle;
         }
 
         if keyboard_modifiers.shift() {
-            return Self::Shift;
+            return Self::Range;
         }
 
-        Self::Default
+        Self::Single
     }
 }
 
-pub fn get_new_selected_row_ids<'a, S: BuildHasher>(
+pub fn select_row_ids<'a, S: BuildHasher>(
     row_ids: impl Iterator<Item = &'a TableIdentifier> + Clone,
-    selected_row_ids: &HashSet<&TableIdentifier, S>,
+    current_selected_row_ids: &HashSet<&TableIdentifier, S>,
     target_row_id: &TableIdentifier,
     anchor_row_id: &TableIdentifier,
-    keyboard_modifiers: keyboard::Modifiers,
+    select_operation: SelectOperation,
 ) -> (HashSet<TableIdentifier>, TableIdentifier) {
     if row_ids.clone().next().is_none() {
-        return get_default_return(selected_row_ids, anchor_row_id);
+        return get_default_return(current_selected_row_ids, anchor_row_id);
     }
 
     let Some(target_row_index) = row_ids.clone().position(|row_id| row_id == target_row_id) else {
-        return get_default_return(selected_row_ids, anchor_row_id);
+        return get_default_return(current_selected_row_ids, anchor_row_id);
     };
 
     let mut anchor_row_id = anchor_row_id;
@@ -62,15 +63,12 @@ pub fn get_new_selected_row_ids<'a, S: BuildHasher>(
         anchor_row_id = first_row_id;
     }
 
-    let select_keyboard_modifiers =
-        SelectKeyboardModifier::from_keyboard_modifiers(keyboard_modifiers);
-
-    match select_keyboard_modifiers {
-        SelectKeyboardModifier::Default => (
+    match select_operation {
+        SelectOperation::Single => (
             HashSet::from_iter([target_row_id.to_owned()]),
             target_row_id.to_owned(),
         ),
-        SelectKeyboardModifier::Shift => {
+        SelectOperation::Range => {
             let start_index = min(target_row_index, anchor_row_index);
             let end_index = max(target_row_index, anchor_row_index);
 
@@ -83,10 +81,10 @@ pub fn get_new_selected_row_ids<'a, S: BuildHasher>(
                 anchor_row_id.to_owned(),
             )
         }
-        SelectKeyboardModifier::Control => {
-            if selected_row_ids.contains(target_row_id) {
+        SelectOperation::Toggle => {
+            if current_selected_row_ids.contains(target_row_id) {
                 (
-                    selected_row_ids
+                    current_selected_row_ids
                         .iter()
                         .copied()
                         .filter(|&row_id| row_id != target_row_id)
@@ -97,15 +95,15 @@ pub fn get_new_selected_row_ids<'a, S: BuildHasher>(
             } else {
                 (
                     iter::once(target_row_id.to_owned())
-                        .chain(selected_row_ids.iter().copied().cloned())
+                        .chain(current_selected_row_ids.iter().copied().cloned())
                         .collect(),
                     target_row_id.to_owned(),
                 )
             }
         }
-        SelectKeyboardModifier::ControlShift => {
+        SelectOperation::Union => {
             let mut new_selected_row_ids: HashSet<TableIdentifier> =
-                selected_row_ids.iter().copied().cloned().collect();
+                current_selected_row_ids.iter().copied().cloned().collect();
 
             let start_index = min(target_row_index, anchor_row_index);
             let end_index = max(target_row_index, anchor_row_index);
@@ -135,6 +133,8 @@ fn get_default_return<S: BuildHasher>(
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+
+    use crate::assert_matches;
 
     use super::*;
 
@@ -178,6 +178,37 @@ mod tests {
     }
 
     #[test]
+    fn should_get_correct_select_operation_from_keyboard_modifiers() {
+        let keyboard_modifiers = keyboard::Modifiers::empty();
+        assert_matches!(
+            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
+            SelectOperation::Single
+        );
+
+        let mut keyboard_modifiers = keyboard::Modifiers::empty();
+        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
+        assert_matches!(
+            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
+            SelectOperation::Toggle
+        );
+
+        let mut keyboard_modifiers = keyboard::Modifiers::empty();
+        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
+        assert_matches!(
+            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
+            SelectOperation::Range
+        );
+
+        let mut keyboard_modifiers = keyboard::Modifiers::empty();
+        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
+        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
+        assert_matches!(
+            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
+            SelectOperation::Union
+        );
+    }
+
+    #[test]
     fn should_get_selected_rows_without_modifiers() {
         let row_ids = get_row_ids_source();
         let row_ids = get_row_ids(&row_ids);
@@ -187,14 +218,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let keyboard_modifiers = keyboard::Modifiers::empty();
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Single,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -212,14 +241,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let keyboard_modifiers = keyboard::Modifiers::empty();
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Single,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -237,14 +264,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let keyboard_modifiers = keyboard::Modifiers::empty();
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Single,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -261,15 +286,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Toggle,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -287,15 +309,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "a".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Toggle,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "");
@@ -314,15 +333,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Toggle,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "acdefgh");
@@ -341,15 +357,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Toggle,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "cdefgh");
@@ -366,15 +379,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Range,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -392,15 +402,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Range,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -418,15 +425,12 @@ mod tests {
         let target_row_id = "c".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Range,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "c");
@@ -443,15 +447,12 @@ mod tests {
         let target_row_id = "c".to_owned();
         let anchor_row_id = "!".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Range,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -468,16 +469,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -495,16 +492,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abcdef");
@@ -522,16 +515,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -550,16 +539,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abcwxyz");
@@ -576,16 +561,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, &row_ids_source.join(""));
@@ -604,16 +585,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, &row_ids_source.join(""));
@@ -631,16 +608,12 @@ mod tests {
         let target_row_id = "c".to_owned();
         let anchor_row_id = "!".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -658,16 +631,12 @@ mod tests {
         let target_row_id = "!".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let mut keyboard_modifiers = keyboard::Modifiers::empty();
-        keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
-        keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids,
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Union,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "gdrfxz");
@@ -684,14 +653,12 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let keyboard_modifiers = keyboard::Modifiers::empty();
-
-        let (new_selected_row_ids, new_anchor_row_id) = get_new_selected_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
             row_ids.iter(),
             &selected_row_ids,
             &target_row_id,
             &anchor_row_id,
-            keyboard_modifiers,
+            SelectOperation::Single,
         );
 
         assert_selected_row_ids(new_selected_row_ids, "def");

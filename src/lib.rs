@@ -9,5 +9,6 @@ pub mod library;
 pub mod log;
 pub mod outcome;
 pub mod playback;
+pub mod test;
 pub mod track;
 pub mod ui;
