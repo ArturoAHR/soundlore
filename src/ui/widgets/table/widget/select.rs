@@ -1,13 +1,11 @@
 use std::{
     cmp::{max, min},
     collections::HashSet,
-    hash::BuildHasher,
+    hash::{BuildHasher, Hash},
     iter,
 };
 
 use iced::keyboard;
-
-use crate::ui::widgets::table::state::TableIdentifier;
 
 #[derive(Debug, Clone, Copy)]
 pub enum SelectOperation {
@@ -35,28 +33,32 @@ impl SelectOperation {
     }
 }
 
-pub fn select_row_ids<'a, S: BuildHasher>(
-    row_ids: impl Iterator<Item = &'a TableIdentifier> + Clone,
-    current_selected_row_ids: &HashSet<&TableIdentifier, S>,
-    target_row_id: &TableIdentifier,
-    anchor_row_id: &TableIdentifier,
+pub fn select_values<'a, T, S>(
+    values: impl Iterator<Item = &'a T> + Clone,
+    current_selected_values: &HashSet<&T, S>,
+    target_value: &T,
+    anchor_value: &T,
     select_operation: SelectOperation,
-) -> (HashSet<TableIdentifier>, TableIdentifier) {
-    if row_ids.clone().next().is_none() {
-        return get_default_return(current_selected_row_ids, anchor_row_id);
+) -> (HashSet<T>, T)
+where
+    T: Clone + PartialEq + Eq + Hash + 'a,
+    S: BuildHasher,
+{
+    if values.clone().next().is_none() {
+        return get_default_return(current_selected_values, anchor_value);
     }
 
-    let Some(target_row_index) = row_ids.clone().position(|row_id| row_id == target_row_id) else {
-        return get_default_return(current_selected_row_ids, anchor_row_id);
+    let Some(target_row_index) = values.clone().position(|row_id| row_id == target_value) else {
+        return get_default_return(current_selected_values, anchor_value);
     };
 
-    let mut anchor_row_id = anchor_row_id;
-    let anchor_row_index = row_ids
+    let mut anchor_row_id = anchor_value;
+    let anchor_row_index = values
         .clone()
         .position(|row_id| row_id == anchor_row_id)
         .unwrap_or(0);
 
-    if let Some(first_row_id) = row_ids.clone().next()
+    if let Some(first_row_id) = values.clone().next()
         && anchor_row_index == 0
         && first_row_id != anchor_row_id
     {
@@ -65,15 +67,15 @@ pub fn select_row_ids<'a, S: BuildHasher>(
 
     match select_operation {
         SelectOperation::Single => (
-            HashSet::from_iter([target_row_id.to_owned()]),
-            target_row_id.to_owned(),
+            HashSet::from_iter([target_value.to_owned()]),
+            target_value.to_owned(),
         ),
         SelectOperation::Range => {
             let start_index = min(target_row_index, anchor_row_index);
             let end_index = max(target_row_index, anchor_row_index);
 
             (
-                row_ids
+                values
                     .skip(start_index)
                     .take(end_index - start_index + 1)
                     .cloned()
@@ -82,34 +84,34 @@ pub fn select_row_ids<'a, S: BuildHasher>(
             )
         }
         SelectOperation::Toggle => {
-            if current_selected_row_ids.contains(target_row_id) {
+            if current_selected_values.contains(target_value) {
                 (
-                    current_selected_row_ids
+                    current_selected_values
                         .iter()
                         .copied()
-                        .filter(|&row_id| row_id != target_row_id)
+                        .filter(|&row_id| row_id != target_value)
                         .cloned()
                         .collect(),
-                    target_row_id.to_owned(),
+                    target_value.to_owned(),
                 )
             } else {
                 (
-                    iter::once(target_row_id.to_owned())
-                        .chain(current_selected_row_ids.iter().copied().cloned())
+                    iter::once(target_value.to_owned())
+                        .chain(current_selected_values.iter().copied().cloned())
                         .collect(),
-                    target_row_id.to_owned(),
+                    target_value.to_owned(),
                 )
             }
         }
         SelectOperation::Union => {
-            let mut new_selected_row_ids: HashSet<TableIdentifier> =
-                current_selected_row_ids.iter().copied().cloned().collect();
+            let mut new_selected_row_ids: HashSet<T> =
+                current_selected_values.iter().copied().cloned().collect();
 
             let start_index = min(target_row_index, anchor_row_index);
             let end_index = max(target_row_index, anchor_row_index);
 
             new_selected_row_ids.extend(
-                row_ids
+                values
                     .skip(start_index)
                     .take(end_index - start_index + 1)
                     .cloned(),
@@ -120,10 +122,14 @@ pub fn select_row_ids<'a, S: BuildHasher>(
     }
 }
 
-fn get_default_return<S: BuildHasher>(
-    selected_row_ids: &HashSet<&TableIdentifier, S>,
-    anchor_row_id: &TableIdentifier,
-) -> (HashSet<TableIdentifier>, TableIdentifier) {
+fn get_default_return<T, S: BuildHasher>(
+    selected_row_ids: &HashSet<&T, S>,
+    anchor_row_id: &T,
+) -> (HashSet<T>, T)
+where
+    T: Clone + PartialEq + Eq + Hash,
+    S: BuildHasher,
+{
     (
         selected_row_ids.iter().copied().cloned().collect(),
         anchor_row_id.to_owned(),
@@ -135,6 +141,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::assert_matches;
+    use crate::ui::widgets::table::state::TableIdentifier;
 
     use super::*;
 
@@ -218,7 +225,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -241,7 +248,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -264,7 +271,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -286,7 +293,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -309,7 +316,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "a".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -333,7 +340,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -357,7 +364,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -379,7 +386,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -402,7 +409,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -425,7 +432,7 @@ mod tests {
         let target_row_id = "c".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -447,7 +454,7 @@ mod tests {
         let target_row_id = "c".to_owned();
         let anchor_row_id = "!".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -469,7 +476,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -492,7 +499,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -515,7 +522,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -539,7 +546,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "c".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -561,7 +568,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -585,7 +592,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -608,7 +615,7 @@ mod tests {
         let target_row_id = "c".to_owned();
         let anchor_row_id = "!".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -631,7 +638,7 @@ mod tests {
         let target_row_id = "!".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids,
             &selected_row_ids,
             &target_row_id,
@@ -653,7 +660,7 @@ mod tests {
         let target_row_id = "a".to_owned();
         let anchor_row_id = "z".to_owned();
 
-        let (new_selected_row_ids, new_anchor_row_id) = select_row_ids(
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             &selected_row_ids,
             &target_row_id,

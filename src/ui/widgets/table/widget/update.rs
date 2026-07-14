@@ -11,7 +11,7 @@ use iced::{
 use crate::ui::widgets::table::{
     Catalog, Table,
     state::Identifiable,
-    widget::select::{SelectOperation, select_row_ids},
+    widget::select::{SelectOperation, select_values},
 };
 
 use crate::ui::widgets::table::state::State;
@@ -157,7 +157,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                     .or_else(|| widget.records.first().map(Identifiable::id))
                                     .unwrap_or(&default_anchor_row_id);
 
-                                let (selected_row_ids, anchor_row_id) = select_row_ids(
+                                let (selected_row_ids, anchor_row_id) = select_values(
                                     row_ids,
                                     &widget.selected_rows,
                                     clicked_row_id,
