@@ -1,3 +1,23 @@
 [jobs.clippy-strict]
 command = ["cargo", "clippy", "--", "-D", "clippy::pedantic", "-D", "clippy::nursery"]
 need_stdout = false
+
+[jobs.test]
+command = ["cargo", "test", "--lib", "--bins", "--color", "always"]
+need_stdout = true
+
+[jobs.test-all]
+command = ["cargo", "test", "--color", "always"]
+need_stdout = true
+
+[jobs.nextest]
+command = ["cargo", "nextest", "run", "--lib", "--bins"]
+need_stdout = true
+
+[jobs.nextest-all]
+command = ["cargo", "nextest", "run"]
+need_stdout = true
+
+[keybindings]
+shift-t = "job:test-all"
+shift-n = "job:nextest-all"
