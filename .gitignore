@@ -1,8 +1,4 @@
 /target/
 /dist
 *.db
-/todo
-/iced
-/iced_aw
 .env
-.zed/settings.json
