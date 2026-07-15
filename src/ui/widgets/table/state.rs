@@ -33,6 +33,28 @@ pub struct State {
 
     /// Currently pressed keyboard modifiers
     pub keyboard_modifiers: keyboard::Modifiers,
+
+    pub focus_state: FocusState,
+}
+
+pub struct FocusState {
+    pub widget: bool,
+    pub window: bool,
+}
+
+impl FocusState {
+    pub fn is_focused(&self) -> bool {
+        self.widget && self.window
+    }
+}
+
+impl Default for FocusState {
+    fn default() -> Self {
+        Self {
+            widget: false,
+            window: true,
+        }
+    }
 }
 
 #[derive(Default)]

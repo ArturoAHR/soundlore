@@ -6,6 +6,7 @@ use iced::{
         renderer::{self},
         widget::Tree,
     },
+    keyboard, window,
 };
 
 use crate::ui::widgets::table::{
@@ -84,104 +85,150 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                 }
 
                 // Selection / Clicking
-                mouse::Event::ButtonPressed(mouse::Button::Left) => {
+                mouse::Event::ButtonPressed(button) => {
                     // Cursor is outside of table
                     if !cursor.is_over(bounds) {
+                        state.focus_state.widget = false;
+
                         return;
                     }
 
-                    let table_click = get_table_click(
-                        widget,
-                        layout,
-                        state.previous_click,
-                        cursor_position,
-                        mouse::Button::Left,
-                    );
+                    state.focus_state.widget = true;
+                    state.focus_state.window = true;
 
-                    state.previous_click = Some(table_click);
+                    match button {
+                        mouse::Button::Left => {
+                            let table_click = get_table_click(
+                                widget,
+                                layout,
+                                state.previous_click,
+                                cursor_position,
+                                mouse::Button::Left,
+                            );
 
-                    let Some(clicked_area) = table_click.clicked_area else {
-                        return;
-                    };
+                            state.previous_click = Some(table_click);
 
-                    match clicked_area {
-                        TableArea::Header => {
-                            let Some(clicked_column_id) =
-                                widget.columns.iter().zip(&widget.column_offsets).find_map(
-                                    |(column, &column_start)| {
-                                        let column_end = column_start + column.width;
-
-                                        (column_start <= cursor_position.x
-                                            && cursor_position.x <= column_end)
-                                            .then_some(&column.id)
-                                    },
-                                )
-                            else {
+                            let Some(clicked_area) = table_click.clicked_area else {
                                 return;
                             };
 
-                            if let Some(on_header_cell_click) = widget.on_header_cell_click.as_ref()
-                            {
-                                shell.publish(on_header_cell_click(clicked_column_id.to_owned()));
-                                shell.capture_event();
+                            match clicked_area {
+                                TableArea::Header => {
+                                    let Some(clicked_column_id) =
+                                        widget.columns.iter().zip(&widget.column_offsets).find_map(
+                                            |(column, &column_start)| {
+                                                let column_end = column_start + column.width;
+
+                                                (column_start <= cursor_position.x
+                                                    && cursor_position.x <= column_end)
+                                                    .then_some(&column.id)
+                                            },
+                                        )
+                                    else {
+                                        return;
+                                    };
+
+                                    if let Some(on_header_cell_click) =
+                                        widget.on_header_cell_click.as_ref()
+                                    {
+                                        shell.publish(on_header_cell_click(
+                                            clicked_column_id.to_owned(),
+                                        ));
+                                        shell.capture_event();
+                                    }
+                                }
+                                TableArea::Body => {
+                                    let visible_records =
+                                        &widget.records[widget.visible_row_range.clone()];
+                                    let visible_row_offsets = widget
+                                        .row_offsets
+                                        .iter()
+                                        .map(|&row_offset| row_offset + bounds.y);
+
+                                    let Some(clicked_row_id) = visible_records
+                                        .iter()
+                                        .zip(visible_row_offsets)
+                                        .find_map(|(record, row_start)| {
+                                            let row_end = row_start + widget.row_height;
+
+                                            (row_start <= cursor_position.y
+                                                && cursor_position.y <= row_end)
+                                                .then(|| record.id())
+                                        })
+                                    else {
+                                        return;
+                                    };
+
+                                    if let Some(on_row_select) = widget.on_row_select.as_ref() {
+                                        shell.capture_event();
+
+                                        let row_ids = widget.records.iter().map(Identifiable::id);
+
+                                        let (selected_row_ids, anchor_row_id) = select_values(
+                                            row_ids,
+                                            widget.selected_rows.iter().copied(),
+                                            SelectOperation::from_keyboard_modifiers(
+                                                keyboard_modifiers,
+                                                clicked_row_id,
+                                                state.selection_anchor_row_id.as_ref(),
+                                            ),
+                                        );
+
+                                        state.selection_anchor_row_id = anchor_row_id;
+
+                                        shell.publish(on_row_select(selected_row_ids));
+                                    }
+
+                                    if let Some(on_row_double_click) =
+                                        widget.on_row_double_click.as_ref()
+                                        && matches!(table_click.click.kind(), click::Kind::Double)
+                                    {
+                                        shell.publish(on_row_double_click(
+                                            clicked_row_id.to_owned(),
+                                        ));
+                                        shell.capture_event();
+                                    }
+                                }
+                                TableArea::Scroll => {}
                             }
                         }
-                        TableArea::Body => {
-                            let visible_records = &widget.records[widget.visible_row_range.clone()];
-                            let visible_row_offsets = widget
-                                .row_offsets
-                                .iter()
-                                .map(|&row_offset| row_offset + bounds.y);
-
-                            let Some(clicked_row_id) = visible_records
-                                .iter()
-                                .zip(visible_row_offsets)
-                                .find_map(|(record, row_start)| {
-                                    let row_end = row_start + widget.row_height;
-
-                                    (row_start <= cursor_position.y && cursor_position.y <= row_end)
-                                        .then(|| record.id())
-                                })
-                            else {
-                                return;
-                            };
-
-                            if let Some(on_row_select) = widget.on_row_select.as_ref() {
-                                shell.capture_event();
-
-                                let row_ids = widget.records.iter().map(Identifiable::id);
-
-                                let (selected_row_ids, anchor_row_id) = select_values(
-                                    row_ids,
-                                    widget.selected_rows.iter().copied(),
-                                    SelectOperation::from_keyboard_modifiers(
-                                        keyboard_modifiers,
-                                        clicked_row_id,
-                                        state.selection_anchor_row_id.as_ref(),
-                                    ),
-                                );
-
-                                state.selection_anchor_row_id = anchor_row_id;
-
-                                shell.publish(on_row_select(selected_row_ids));
-                            }
-
-                            if let Some(on_row_double_click) = widget.on_row_double_click.as_ref()
-                                && matches!(table_click.click.kind(), click::Kind::Double)
-                            {
-                                shell.publish(on_row_double_click(clicked_row_id.to_owned()));
-                                shell.capture_event();
-                            }
-                        }
-                        TableArea::Scroll => {}
+                        _ => {}
                     }
                 }
                 _ => {}
             }
         }
-        Event::Keyboard(iced::keyboard::Event::ModifiersChanged(modifiers)) => {
+        Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. })
+            if matches!(key.as_ref(), keyboard::Key::Character("a"))
+                && *modifiers == keyboard::Modifiers::COMMAND =>
+        {
+            if let Some(on_row_select) = widget.on_row_select.as_ref()
+                && state.focus_state.is_focused()
+            {
+                shell.capture_event();
+
+                let row_ids = widget.records.iter().map(Identifiable::id);
+
+                let (selected_row_ids, anchor_row_id) = select_values(
+                    row_ids,
+                    widget.selected_rows.iter().copied(),
+                    SelectOperation::All {
+                        anchor_value: state.selection_anchor_row_id.as_ref(),
+                    },
+                );
+
+                state.selection_anchor_row_id = anchor_row_id;
+
+                shell.publish(on_row_select(selected_row_ids));
+            }
+        }
+        Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
             state.keyboard_modifiers = *modifiers;
         }
+        Event::Window(window::Event::Unfocused) => {
+            state.focus_state.window = false;
+        }
+        Event::Window(window::Event::Focused) => state.focus_state.window = true,
         _ => {}
     }
 }
