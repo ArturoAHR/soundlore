@@ -60,7 +60,7 @@ impl<'a, T> SelectOperation<'a, T> {
 pub fn select_values<'a, T>(
     values: impl Iterator<Item = &'a T> + Clone,
     current_selected_values: impl Iterator<Item = &'a T> + Clone,
-    select_operation: SelectOperation<T>,
+    select_operation: SelectOperation<'a, T>,
 ) -> (HashSet<T>, Option<T>)
 where
     T: Clone + PartialEq + Eq + Hash + 'a,
@@ -94,7 +94,7 @@ where
                     .take(end_index - start_index + 1)
                     .cloned()
                     .collect(),
-                Some(anchor_value),
+                Some(anchor_value.clone()),
             )
         }
         SelectOperation::Toggle { target_value } => {
@@ -141,7 +141,7 @@ where
                     .cloned(),
             );
 
-            (new_selected_row_ids, Some(anchor_value))
+            (new_selected_row_ids, Some(anchor_value.clone()))
         }
         SelectOperation::All { anchor_value } => (values.cloned().collect(), anchor_value.cloned()),
     }
@@ -153,8 +153,8 @@ where
 /// If the values iterator given to this function is empty the function will panic
 fn get_anchor<'a, T>(
     values: impl Iterator<Item = &'a T> + Clone,
-    anchor_value: Option<&T>,
-) -> (T, usize)
+    anchor_value: Option<&'a T>,
+) -> (&'a T, usize)
 where
     T: Clone + PartialEq + Eq + Hash + 'a,
 {
@@ -162,10 +162,10 @@ where
         .and_then(|anchor_value| {
             let anchor_value_index = values.clone().position(|value| value == anchor_value)?;
 
-            Some((anchor_value.to_owned(), anchor_value_index))
+            Some((anchor_value, anchor_value_index))
         })
         .unwrap_or_else(|| {
-            let first_value = values.take(1).next().cloned();
+            let first_value = values.take(1).next();
 
             first_value.map_or_else(
                 || panic!("Cannot derive selection anchor value from empty value set"),
