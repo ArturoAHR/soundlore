@@ -154,9 +154,11 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                 let (selected_row_ids, anchor_row_id) = select_values(
                                     row_ids,
                                     widget.selected_rows.iter().copied(),
-                                    clicked_row_id,
-                                    state.selection_anchor_row_id.as_ref(),
-                                    SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
+                                    SelectOperation::from_keyboard_modifiers(
+                                        keyboard_modifiers,
+                                        clicked_row_id,
+                                        state.selection_anchor_row_id.as_ref(),
+                                    ),
                                 );
 
                                 state.selection_anchor_row_id = anchor_row_id;

@@ -7,56 +7,82 @@ use std::{
 
 use iced::keyboard;
 
-#[derive(Debug, Clone, Copy)]
-pub enum SelectOperation {
-    Single,
-    Toggle,
-    Range,
-    Union,
+#[derive(Debug)]
+pub enum SelectOperation<'a, T> {
+    Single {
+        target_value: &'a T,
+    },
+    Toggle {
+        target_value: &'a T,
+    },
+    Range {
+        target_value: &'a T,
+        anchor_value: Option<&'a T>,
+    },
+    Union {
+        target_value: &'a T,
+        anchor_value: Option<&'a T>,
+    },
+    All {
+        anchor_value: Option<&'a T>,
+    },
 }
 
-impl SelectOperation {
-    pub fn from_keyboard_modifiers(keyboard_modifiers: keyboard::Modifiers) -> Self {
+impl<'a, T> SelectOperation<'a, T> {
+    pub fn from_keyboard_modifiers(
+        keyboard_modifiers: keyboard::Modifiers,
+        target_value: &'a T,
+        anchor_value: Option<&'a T>,
+    ) -> Self {
         if keyboard_modifiers.command() && keyboard_modifiers.shift() {
-            return Self::Union;
+            return Self::Union {
+                target_value,
+                anchor_value,
+            };
         }
 
         if keyboard_modifiers.command() {
-            return Self::Toggle;
+            return Self::Toggle { target_value };
         }
 
         if keyboard_modifiers.shift() {
-            return Self::Range;
+            return Self::Range {
+                target_value,
+                anchor_value,
+            };
         }
 
-        Self::Single
+        Self::Single { target_value }
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn select_values<'a, T>(
     values: impl Iterator<Item = &'a T> + Clone,
     current_selected_values: impl Iterator<Item = &'a T> + Clone,
-    target_value: &T,
-    anchor_value: Option<&T>,
-    select_operation: SelectOperation,
+    select_operation: SelectOperation<T>,
 ) -> (HashSet<T>, Option<T>)
 where
     T: Clone + PartialEq + Eq + Hash + 'a,
 {
     if values.clone().next().is_none() {
-        return get_default_return(current_selected_values, anchor_value);
+        return get_default_return(current_selected_values, None);
     }
 
-    let Some(target_value_index) = values.clone().position(|value| value == target_value) else {
-        return get_default_return(current_selected_values, anchor_value);
-    };
-
     match select_operation {
-        SelectOperation::Single => (
+        SelectOperation::Single { target_value } => (
             HashSet::from_iter([target_value.to_owned()]),
             Some(target_value.to_owned()),
         ),
-        SelectOperation::Range => {
+        SelectOperation::Range {
+            target_value,
+            anchor_value,
+        } => {
+            let Some(target_value_index) = values.clone().position(|value| value == target_value)
+            else {
+                return get_default_return(current_selected_values, anchor_value);
+            };
+
             let (anchor_value, anchor_value_index) = get_anchor(values.clone(), anchor_value);
 
             let start_index = min(target_value_index, anchor_value_index);
@@ -71,7 +97,7 @@ where
                 Some(anchor_value),
             )
         }
-        SelectOperation::Toggle => {
+        SelectOperation::Toggle { target_value } => {
             if current_selected_values
                 .clone()
                 .any(|selected_value| selected_value == target_value)
@@ -92,7 +118,15 @@ where
                 )
             }
         }
-        SelectOperation::Union => {
+        SelectOperation::Union {
+            target_value,
+            anchor_value,
+        } => {
+            let Some(target_value_index) = values.clone().position(|value| value == target_value)
+            else {
+                return get_default_return(current_selected_values, anchor_value);
+            };
+
             let (anchor_value, anchor_value_index) = get_anchor(values.clone(), anchor_value);
 
             let mut new_selected_row_ids: HashSet<T> = current_selected_values.cloned().collect();
@@ -109,6 +143,7 @@ where
 
             (new_selected_row_ids, Some(anchor_value))
         }
+        SelectOperation::All { anchor_value } => (values.cloned().collect(), anchor_value.cloned()),
     }
 }
 
@@ -198,32 +233,57 @@ mod tests {
 
     #[test]
     fn should_get_correct_select_operation_from_keyboard_modifiers() {
+        let target_value = String::new();
+        let anchor_value = None;
+
         let keyboard_modifiers = keyboard::Modifiers::empty();
         assert_matches!(
-            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
-            SelectOperation::Single
+            SelectOperation::from_keyboard_modifiers(
+                keyboard_modifiers,
+                &target_value,
+                anchor_value.as_ref()
+            ),
+            SelectOperation::Single { target_value: _ }
         );
 
         let mut keyboard_modifiers = keyboard::Modifiers::empty();
         keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
         assert_matches!(
-            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
-            SelectOperation::Toggle
+            SelectOperation::from_keyboard_modifiers(
+                keyboard_modifiers,
+                &target_value,
+                anchor_value.as_ref()
+            ),
+            SelectOperation::Toggle { target_value: _ }
         );
 
         let mut keyboard_modifiers = keyboard::Modifiers::empty();
         keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
         assert_matches!(
-            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
-            SelectOperation::Range
+            SelectOperation::from_keyboard_modifiers(
+                keyboard_modifiers,
+                &target_value,
+                anchor_value.as_ref()
+            ),
+            SelectOperation::Range {
+                target_value: _,
+                anchor_value: _
+            }
         );
 
         let mut keyboard_modifiers = keyboard::Modifiers::empty();
         keyboard_modifiers.insert(keyboard::Modifiers::SHIFT);
         keyboard_modifiers.insert(keyboard::Modifiers::COMMAND);
         assert_matches!(
-            SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
-            SelectOperation::Union
+            SelectOperation::from_keyboard_modifiers(
+                keyboard_modifiers,
+                &target_value,
+                anchor_value.as_ref()
+            ),
+            SelectOperation::Union {
+                target_value: _,
+                anchor_value: _
+            }
         );
     }
 
@@ -234,14 +294,13 @@ mod tests {
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Single,
+            SelectOperation::Single {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -255,14 +314,13 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("a").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Single,
+            SelectOperation::Single {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -276,14 +334,13 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Single,
+            SelectOperation::Single {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -297,14 +354,13 @@ mod tests {
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Toggle,
+            SelectOperation::Toggle {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "a");
@@ -318,14 +374,13 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("a").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("a".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Toggle,
+            SelectOperation::Toggle {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "");
@@ -340,14 +395,13 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Toggle,
+            SelectOperation::Toggle {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "acdefgh");
@@ -362,14 +416,13 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("acdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Toggle,
+            SelectOperation::Toggle {
+                target_value: &target_row_id,
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "cdefgh");
@@ -388,9 +441,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Range,
+            SelectOperation::Range {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -409,9 +463,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Range,
+            SelectOperation::Range {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -430,9 +485,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Range,
+            SelectOperation::Range {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "c");
@@ -451,9 +507,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Range,
+            SelectOperation::Range {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -472,9 +529,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -493,9 +551,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abcdef");
@@ -514,9 +573,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -536,9 +596,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abcwxyz");
@@ -557,9 +618,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, &row_ids.join(""));
@@ -579,9 +641,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, &row_ids.join(""));
@@ -601,9 +664,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "abc");
@@ -622,9 +686,10 @@ mod tests {
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Union,
+            SelectOperation::Union {
+                target_value: &target_row_id,
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
         assert_selected_row_ids(new_selected_row_ids, "gdrfxz");
@@ -638,17 +703,57 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("def").collect();
 
         let target_row_id = "a".to_owned();
+
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
+            row_ids.iter(),
+            selected_row_ids.iter(),
+            SelectOperation::Single {
+                target_value: &target_row_id,
+            },
+        );
+
+        assert_selected_row_ids(new_selected_row_ids, "def");
+        assert_matches!(new_anchor_row_id, None);
+    }
+
+    #[test]
+    fn should_select_all_values_when_performing_select_all_operation() {
+        let row_ids = get_row_ids();
+
+        let selected_row_ids: Vec<String> = Vec::new();
+
         let anchor_row_id = Some("z".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
-            &target_row_id,
-            anchor_row_id.as_ref(),
-            SelectOperation::Single,
+            SelectOperation::All {
+                anchor_value: anchor_row_id.as_ref(),
+            },
         );
 
-        assert_selected_row_ids(new_selected_row_ids, "def");
+        assert_selected_row_ids(new_selected_row_ids, "abcdefghijklmnopqrstuvwxyz");
+        assert_anchor_row_id(new_anchor_row_id, "z");
+    }
+
+    #[test]
+    fn should_select_all_values_when_performing_select_all_operation_with_already_selected_values()
+    {
+        let row_ids = get_row_ids();
+
+        let selected_row_ids: Vec<String> = get_iterator("def").collect();
+
+        let anchor_row_id = Some("z".to_owned());
+
+        let (new_selected_row_ids, new_anchor_row_id) = select_values(
+            row_ids.iter(),
+            selected_row_ids.iter(),
+            SelectOperation::All {
+                anchor_value: anchor_row_id.as_ref(),
+            },
+        );
+
+        assert_selected_row_ids(new_selected_row_ids, "abcdefghijklmnopqrstuvwxyz");
         assert_anchor_row_id(new_anchor_row_id, "z");
     }
 }
