@@ -37,9 +37,9 @@ pub fn select_values<'a, T>(
     values: impl Iterator<Item = &'a T> + Clone,
     current_selected_values: impl Iterator<Item = &'a T> + Clone,
     target_value: &T,
-    anchor_value: &T,
+    anchor_value: Option<&T>,
     select_operation: SelectOperation,
-) -> (HashSet<T>, T)
+) -> (HashSet<T>, Option<T>)
 where
     T: Clone + PartialEq + Eq + Hash + 'a,
 {
@@ -47,31 +47,20 @@ where
         return get_default_return(current_selected_values, anchor_value);
     }
 
-    let Some(target_row_index) = values.clone().position(|row_id| row_id == target_value) else {
+    let Some(target_value_index) = values.clone().position(|value| value == target_value) else {
         return get_default_return(current_selected_values, anchor_value);
     };
-
-    let mut anchor_row_id = anchor_value;
-    let anchor_row_index = values
-        .clone()
-        .position(|row_id| row_id == anchor_row_id)
-        .unwrap_or(0);
-
-    if let Some(first_row_id) = values.clone().next()
-        && anchor_row_index == 0
-        && first_row_id != anchor_row_id
-    {
-        anchor_row_id = first_row_id;
-    }
 
     match select_operation {
         SelectOperation::Single => (
             HashSet::from_iter([target_value.to_owned()]),
-            target_value.to_owned(),
+            Some(target_value.to_owned()),
         ),
         SelectOperation::Range => {
-            let start_index = min(target_row_index, anchor_row_index);
-            let end_index = max(target_row_index, anchor_row_index);
+            let (anchor_value, anchor_value_index) = get_anchor(values.clone(), anchor_value);
+
+            let start_index = min(target_value_index, anchor_value_index);
+            let end_index = max(target_value_index, anchor_value_index);
 
             (
                 values
@@ -79,7 +68,7 @@ where
                     .take(end_index - start_index + 1)
                     .cloned()
                     .collect(),
-                anchor_row_id.to_owned(),
+                Some(anchor_value),
             )
         }
         SelectOperation::Toggle => {
@@ -92,22 +81,24 @@ where
                         .filter(|&row_id| row_id != target_value)
                         .cloned()
                         .collect(),
-                    target_value.to_owned(),
+                    Some(target_value.to_owned()),
                 )
             } else {
                 (
                     iter::once(target_value.to_owned())
                         .chain(current_selected_values.cloned())
                         .collect(),
-                    target_value.to_owned(),
+                    Some(target_value.to_owned()),
                 )
             }
         }
         SelectOperation::Union => {
+            let (anchor_value, anchor_value_index) = get_anchor(values.clone(), anchor_value);
+
             let mut new_selected_row_ids: HashSet<T> = current_selected_values.cloned().collect();
 
-            let start_index = min(target_row_index, anchor_row_index);
-            let end_index = max(target_row_index, anchor_row_index);
+            let start_index = min(target_value_index, anchor_value_index);
+            let end_index = max(target_value_index, anchor_value_index);
 
             new_selected_row_ids.extend(
                 values
@@ -116,21 +107,48 @@ where
                     .cloned(),
             );
 
-            (new_selected_row_ids, anchor_row_id.to_owned())
+            (new_selected_row_ids, Some(anchor_value))
         }
     }
 }
 
+/// Gets the anchor value and anchor value index from given values
+///
+/// # Panics
+/// If the values iterator given to this function is empty the function will panic
+fn get_anchor<'a, T>(
+    values: impl Iterator<Item = &'a T> + Clone,
+    anchor_value: Option<&T>,
+) -> (T, usize)
+where
+    T: Clone + PartialEq + Eq + Hash + 'a,
+{
+    anchor_value
+        .and_then(|anchor_value| {
+            let anchor_value_index = values.clone().position(|value| value == anchor_value)?;
+
+            Some((anchor_value.to_owned(), anchor_value_index))
+        })
+        .unwrap_or_else(|| {
+            let first_value = values.take(1).next().cloned();
+
+            first_value.map_or_else(
+                || panic!("Cannot derive selection anchor value from empty value set"),
+                |value| (value, 0),
+            )
+        })
+}
+
 fn get_default_return<'a, T>(
-    selected_row_ids: impl Iterator<Item = &'a T> + Clone,
-    anchor_row_id: &T,
-) -> (HashSet<T>, T)
+    current_selected_values: impl Iterator<Item = &'a T> + Clone,
+    anchor_value: Option<&T>,
+) -> (HashSet<T>, Option<T>)
 where
     T: Clone + PartialEq + Eq + Hash + 'a,
 {
     (
-        selected_row_ids.cloned().collect(),
-        anchor_row_id.to_owned(),
+        current_selected_values.cloned().collect(),
+        anchor_value.cloned(),
     )
 }
 
@@ -147,12 +165,8 @@ mod tests {
         input.chars().map(Into::<String>::into)
     }
 
-    fn get_row_ids_source() -> Vec<TableIdentifier> {
+    fn get_row_ids() -> Vec<TableIdentifier> {
         get_iterator("abcdefghijklmnopqrstuvwxyz").collect()
-    }
-
-    fn get_row_ids(row_ids: &[TableIdentifier]) -> impl Iterator<Item = &TableIdentifier> + Clone {
-        row_ids.iter()
     }
 
     #[allow(clippy::needless_pass_by_value)]
@@ -178,8 +192,8 @@ mod tests {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn assert_anchor_row_id(anchor_row_id: TableIdentifier, expected_anchor_row_id: &str) {
-        assert_eq!(anchor_row_id, expected_anchor_row_id.to_owned());
+    fn assert_anchor_row_id(anchor_row_id: Option<TableIdentifier>, expected_anchor_row_id: &str) {
+        assert_eq!(anchor_row_id.unwrap(), expected_anchor_row_id.to_owned());
     }
 
     #[test]
@@ -215,18 +229,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_without_modifiers() {
-        let row_ids = get_row_ids_source();
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Single,
         );
 
@@ -236,19 +250,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_without_modifiers_for_an_already_selected_row() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("a").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Single,
         );
 
@@ -258,19 +271,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_without_modifiers_and_not_include_previously_selected_rows() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Single,
         );
 
@@ -280,19 +292,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_control_modifier_to_select() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Toggle,
         );
 
@@ -302,19 +313,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_control_modifier_to_unselect() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("a").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "a".to_owned();
+        let anchor_row_id = Some("a".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Toggle,
         );
 
@@ -325,19 +335,18 @@ mod tests {
     #[test]
     fn should_get_selected_rows_with_control_modifier_to_select_and_maintain_existing_selected_rows()
      {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Toggle,
         );
 
@@ -348,19 +357,18 @@ mod tests {
     #[test]
     fn should_get_selected_rows_with_control_modifier_to_unselect_and_maintain_existing_selected_rows()
      {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("acdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Toggle,
         );
 
@@ -370,19 +378,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_shift_modifier_to_select() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Range,
         );
 
@@ -392,19 +399,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_shift_modifier_to_select_with_already_selected_rows() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("cdefgh").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Range,
         );
 
@@ -414,19 +420,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_shift_modifier_to_select_already_selected_row() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("c").collect();
 
         let target_row_id = "c".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Range,
         );
 
@@ -436,19 +441,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_shift_modifier_when_anchor_row_id_is_not_in_row_ids() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "c".to_owned();
-        let anchor_row_id = "!".to_owned();
+        let anchor_row_id = Some("!".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Range,
         );
 
@@ -458,19 +462,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
@@ -480,19 +483,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier_with_already_selected_rows() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("cdef").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
@@ -502,19 +504,18 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier_selecting_already_selected_rows() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("abc").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
@@ -525,19 +526,18 @@ mod tests {
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier_selecting_a_set_of_non_contiguous_rows()
      {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("wxyz").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "c".to_owned();
+        let anchor_row_id = Some("c".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
@@ -547,65 +547,62 @@ mod tests {
 
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier_selecting_the_whole_table() {
-        let row_ids_source = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids_source);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "z".to_owned();
+        let anchor_row_id = Some("z".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
-        assert_selected_row_ids(new_selected_row_ids, &row_ids_source.join(""));
+        assert_selected_row_ids(new_selected_row_ids, &row_ids.join(""));
         assert_anchor_row_id(new_anchor_row_id, "z");
     }
 
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier_selecting_the_whole_table_with_existing_selections()
      {
-        let row_ids_source = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids_source);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("gdrfxz").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "z".to_owned();
+        let anchor_row_id = Some("z".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
-        assert_selected_row_ids(new_selected_row_ids, &row_ids_source.join(""));
+        assert_selected_row_ids(new_selected_row_ids, &row_ids.join(""));
         assert_anchor_row_id(new_anchor_row_id, "z");
     }
 
     #[test]
     fn should_get_selected_rows_with_control_and_shift_modifier_when_anchor_row_id_is_not_in_row_ids()
      {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: HashSet<String> = HashSet::new();
 
         let target_row_id = "c".to_owned();
-        let anchor_row_id = "!".to_owned();
+        let anchor_row_id = Some("!".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
@@ -615,19 +612,18 @@ mod tests {
 
     #[test]
     fn should_return_selected_rows_given_when_target_row_id_is_not_found_in_row_ids() {
-        let row_ids = get_row_ids_source();
-        let row_ids = get_row_ids(&row_ids);
+        let row_ids = get_row_ids();
 
         let selected_row_ids: Vec<String> = get_iterator("gdrfxz").collect();
 
         let target_row_id = "!".to_owned();
-        let anchor_row_id = "z".to_owned();
+        let anchor_row_id = Some("z".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
-            row_ids,
+            row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Union,
         );
 
@@ -642,13 +638,13 @@ mod tests {
         let selected_row_ids: Vec<String> = get_iterator("def").collect();
 
         let target_row_id = "a".to_owned();
-        let anchor_row_id = "z".to_owned();
+        let anchor_row_id = Some("z".to_owned());
 
         let (new_selected_row_ids, new_anchor_row_id) = select_values(
             row_ids.iter(),
             selected_row_ids.iter(),
             &target_row_id,
-            &anchor_row_id,
+            anchor_row_id.as_ref(),
             SelectOperation::Single,
         );
 

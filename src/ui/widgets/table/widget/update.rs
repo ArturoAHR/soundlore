@@ -150,22 +150,16 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                 shell.capture_event();
 
                                 let row_ids = widget.records.iter().map(Identifiable::id);
-                                let default_anchor_row_id = String::new();
-                                let anchor_row_id = state
-                                    .selection_anchor_row_id
-                                    .as_ref()
-                                    .or_else(|| widget.records.first().map(Identifiable::id))
-                                    .unwrap_or(&default_anchor_row_id);
 
                                 let (selected_row_ids, anchor_row_id) = select_values(
                                     row_ids,
                                     widget.selected_rows.iter().copied(),
                                     clicked_row_id,
-                                    anchor_row_id,
+                                    state.selection_anchor_row_id.as_ref(),
                                     SelectOperation::from_keyboard_modifiers(keyboard_modifiers),
                                 );
 
-                                state.selection_anchor_row_id = Some(anchor_row_id);
+                                state.selection_anchor_row_id = anchor_row_id;
 
                                 shell.publish(on_row_select(selected_row_ids));
                             }
