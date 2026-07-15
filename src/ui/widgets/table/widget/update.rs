@@ -2,7 +2,7 @@ use iced::{
     Event, Point, Rectangle,
     advanced::{
         Clipboard, Layout, Shell,
-        mouse::{self, Click, Cursor, click},
+        mouse::{self, Cursor, click},
         renderer::{self},
         widget::Tree,
     },
@@ -12,23 +12,13 @@ use iced::{
 use crate::ui::widgets::table::{
     Catalog, Table,
     state::Identifiable,
-    widget::select::{SelectOperation, select_values},
+    widget::{
+        mouse::{TableArea, TableClick},
+        select::{SelectOperation, select_values},
+    },
 };
 
 use crate::ui::widgets::table::state::State;
-
-#[derive(Debug, Clone, Copy)]
-pub struct TableClick {
-    pub clicked_area: Option<TableArea>,
-    pub click: Click,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum TableArea {
-    Header,
-    Body,
-    Scroll,
-}
 
 #[allow(clippy::single_match)]
 pub fn update<'a, T, Message, Theme, Renderer>(
@@ -59,7 +49,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
             };
 
             match event {
-                iced::mouse::Event::WheelScrolled { delta } => {
+                mouse::Event::WheelScrolled { delta } => {
                     // Cursor is outside of table
                     if !cursor.is_over(bounds) {
                         return;
@@ -67,8 +57,8 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                     // Mousepad scrolling is significantly faster than mouse scroll.
                     let delta_y = match delta {
-                        iced::mouse::ScrollDelta::Lines { x: _, y } => *y * 15.0,
-                        iced::mouse::ScrollDelta::Pixels { x: _, y } => *y,
+                        mouse::ScrollDelta::Lines { x: _, y } => *y * 15.0,
+                        mouse::ScrollDelta::Pixels { x: _, y } => *y,
                     };
 
                     state.offset_y += delta_y * widget.row_height * -0.15;
@@ -106,9 +96,9 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                 mouse::Button::Left,
                             );
 
-                            state.previous_click = Some(table_click);
+                            state.current_click = Some(table_click);
 
-                            let Some(clicked_area) = table_click.clicked_area else {
+                            let Some(clicked_area) = table_click.table_area else {
                                 return;
                             };
 
@@ -192,8 +182,13 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                 TableArea::Scroll => {}
                             }
                         }
+
                         _ => {}
                     }
+                }
+
+                mouse::Event::ButtonReleased(_button) => {
+                    state.previous_click = state.current_click.take();
                 }
                 _ => {}
             }
@@ -236,7 +231,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 fn get_table_click<'a, T, Message, Theme, Renderer>(
     widget: &Table<'a, T, Message, Theme, Renderer>,
     layout: Layout<'_>,
-    previous_click: Option<TableClick>,
+    previous_table_click: Option<TableClick>,
     cursor_position: Point,
     button: mouse::Button,
 ) -> TableClick
@@ -248,53 +243,12 @@ where
 {
     let bounds = layout.bounds();
 
-    let click = Click::new(
+    let table_area = TableArea::get_position_table_area(
         cursor_position,
-        button,
-        previous_click.map(|table_click| table_click.click),
+        bounds,
+        widget.header_height,
+        widget.scroll_width,
     );
 
-    let grid_bounds = Rectangle {
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width - widget.scroll_width,
-        height: bounds.height,
-    };
-
-    let body_bounds = Rectangle {
-        x: grid_bounds.x,
-        y: grid_bounds.y + widget.header_height,
-        width: grid_bounds.width,
-        height: grid_bounds.height - widget.header_height,
-    };
-
-    let header_bounds = Rectangle {
-        x: grid_bounds.x,
-        y: grid_bounds.y,
-        width: grid_bounds.width,
-        height: widget.header_height,
-    };
-
-    let scroll_bounds = Rectangle {
-        x: bounds.x + grid_bounds.width,
-        y: bounds.y,
-        width: widget.scroll_width,
-        height: bounds.height,
-    };
-
-    let mut clicked_area = None;
-    for (bounds, table_area) in [body_bounds, header_bounds, scroll_bounds].iter().zip([
-        TableArea::Body,
-        TableArea::Header,
-        TableArea::Scroll,
-    ]) {
-        if bounds.contains(cursor_position) {
-            clicked_area = Some(table_area);
-        }
-    }
-
-    TableClick {
-        clicked_area,
-        click,
-    }
+    TableClick::new(cursor_position, button, table_area, previous_table_click)
 }

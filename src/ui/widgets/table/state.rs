@@ -6,7 +6,7 @@ use iced::{
     keyboard,
 };
 
-use crate::ui::widgets::table::widget::update::TableClick;
+use crate::ui::widgets::table::widget::mouse::TableClick;
 
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
 
@@ -22,18 +22,22 @@ pub struct State {
     /// normal children state management.
     pub cell_state: CellState,
 
-    /// Table vertical scroll offset
+    /// Table vertical scroll offset.
     pub offset_y: f32,
 
-    /// The id of the row used as an anchor for multi-selection operations
+    /// The id of the row used as an anchor for multi-selection operations.
     pub selection_anchor_row_id: Option<TableIdentifier>,
 
-    /// Last mouse click (used to determine double clicks)
+    /// Last mouse click (used to determine double clicks).
     pub previous_click: Option<TableClick>,
 
-    /// Currently pressed keyboard modifiers
+    /// Tracks the start point of a dragging action.
+    pub current_click: Option<TableClick>,
+
+    /// Currently pressed keyboard modifiers.
     pub keyboard_modifiers: keyboard::Modifiers,
 
+    /// Table and Window focus status.
     pub focus_state: FocusState,
 }
 
