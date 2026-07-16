@@ -1,42 +1,79 @@
 set dotenv-load
+
 # Run
 run:
-    cargo run
+  cargo run --features development
 
 # Hot Reload
 watch:
-    cargo watch -x check -x run
+  cargo watch -i "target/*" -i "*.log" -x check -x "run --features development"
 
 # Hot Reload with Testing in the Loop
 watch-test:
-    cargo watch -x check -x test -x run
+  cargo watch -i "target/*" -i "*.log" -x check -x "test --lib" -x "run --features development"
 
 # Run tests
 test:
-    cargo test
+  cargo test --color always
+
+# Run unit tests
+unit-test:
+  cargo test --lib --color always
+
+# Run tests (nextest)
+nextest:
+  cargo nextest run
+
+# Run unit tests
+unit-nextest:
+  cargo nextest run --lib
+
+# Watch tests
+test-watch:
+  cargo watch -i "target/*" -i "*.log" -x check -x test
+
+# Watch unit tests
+unit-test-watch:
+  cargo watch -i "target/*" -i "*.log" -x check -x "test --lib"
+
+# Watch tests
+nextest-watch:
+  cargo watch -i "target/*" -i "*.log" -x check -x "nextest run"
+
+# Watch unit tests
+unit-nextest-watch:
+  cargo watch -i "target/*" -i "*.log" -x check -x "nextest run --lib"
 
 # Run coverage
 coverage:
-    cargo +nightly llvm-cov
+  cargo +nightly llvm-cov
 
 # Build release
 build:
-    cargo build --release
+  cargo build --release
 
 # Format + lint
 check:
-    cargo fmt --check
-    cargo clippy
+  cargo fmt --check
+  cargo clippy
+
+# Format + lint strict
+check-strict:
+  cargo fmt --check
+  cargo clippy -- -D clippy::pedantic -D clippy::nursery
 
 # Checking deps for vulnerabilities
 audit:
-    cargo audit
+  cargo audit
 
+# Add migration
 migrate name:
   sqlx migrate add {{name}}
 
+# Reset database and reapply migrations
 reset-db:
   sqlx database reset -y
 
+# Drop database
 drop-db:
   sqlx database drop -y
