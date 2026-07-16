@@ -70,7 +70,6 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                             .max(0.0),
                     );
 
-                    shell.invalidate_layout();
                     shell.request_redraw();
                     shell.capture_event();
                 }
@@ -169,7 +168,6 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                         scroll_area_offset,
                                     );
 
-                                    shell.invalidate_layout();
                                     shell.request_redraw();
                                     shell.capture_event();
                                 }
@@ -183,6 +181,16 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                 mouse::Event::ButtonReleased(_button) => {
                     state.previous_click = state.current_click.take();
+
+                    if state
+                        .previous_click
+                        .iter()
+                        .any(|click| click.table_area.is_some())
+                    {
+                        shell.invalidate_layout();
+                        shell.request_redraw();
+                        shell.capture_event();
+                    }
                 }
 
                 mouse::Event::CursorMoved { position } => {
@@ -245,8 +253,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                     scroll_area_offset,
                                 );
 
-                                shell.invalidate_layout();
-                                shell.request_redraw();
+                                shell.request_redraw_at(window::RedrawRequest::NextFrame);
                                 shell.capture_event();
                             }
                             TableArea::ScrollThumb {
@@ -261,8 +268,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                     scroll_area_end_offset,
                                 );
 
-                                shell.invalidate_layout();
-                                shell.request_redraw();
+                                shell.request_redraw_at(window::RedrawRequest::NextFrame);
                                 shell.capture_event();
                             }
                             _ => {}
@@ -296,8 +302,16 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                 shell.publish(on_row_select(selected_row_ids));
             }
         }
+
         Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
             state.keyboard_modifiers = *modifiers;
+        }
+        Event::Window(window::Event::RedrawRequested(_))
+            if (state.last_layout_offset_y - state.offset_y).abs() > 0.1 =>
+        {
+            shell.invalidate_layout();
+
+            state.last_layout_offset_y = state.offset_y;
         }
         Event::Window(window::Event::Unfocused) => {
             state.focus_state.window = false;

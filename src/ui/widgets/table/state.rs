@@ -39,6 +39,8 @@ pub struct State {
 
     /// Table and Window focus status.
     pub focus_state: FocusState,
+
+    pub last_layout_offset_y: f32,
 }
 
 pub struct FocusState {
