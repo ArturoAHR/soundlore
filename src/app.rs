@@ -187,7 +187,7 @@ impl App {
                         if are_pane_widths_valid(
                             split_ratio,
                             main_queue_split_ratio,
-                            self.window_size.width as f64,
+                            From::<f32>::from(self.window_size.width),
                             MIN_VERTICAL_SPLIT_PANE_WIDTH,
                         ) {
                             self.pane_split_ratio.explorer_main = split_ratio;
@@ -198,7 +198,7 @@ impl App {
                         if are_pane_widths_valid(
                             self.pane_split_ratio.explorer_main,
                             split_ratio,
-                            self.window_size.width as f64,
+                            From::<f32>::from(self.window_size.width),
                             MIN_VERTICAL_SPLIT_PANE_WIDTH,
                         ) {
                             self.pane_split_ratio.main_queue = split_ratio;
@@ -207,7 +207,7 @@ impl App {
                     PaneSplit::QueueTrackInformation => {
                         if are_pane_heights_valid(
                             split_ratio,
-                            self.window_size.height as f64,
+                            From::<f32>::from(self.window_size.height),
                             MIN_HORIZONTAL_SPLIT_PANE_HEIGHT,
                         ) {
                             self.pane_split_ratio.queue_track_information = split_ratio;
@@ -286,7 +286,12 @@ impl App {
             queue_pane,
             track_information_pane,
             self.pane_split_ratio.queue_track_information as f32,
-            |split_at| Message::SplitDragged(PaneSplit::QueueTrackInformation, split_at as f64),
+            |split_at| {
+                Message::SplitDragged(
+                    PaneSplit::QueueTrackInformation,
+                    From::<f32>::from(split_at),
+                )
+            },
         )
         .handle_width(5.0);
 
@@ -294,7 +299,7 @@ impl App {
             main_pane,
             queue_track_information_pane_split,
             self.pane_split_ratio.main_queue as f32,
-            |split_at| Message::SplitDragged(PaneSplit::MainQueue, split_at as f64),
+            |split_at| Message::SplitDragged(PaneSplit::MainQueue, From::<f32>::from(split_at)),
         )
         .handle_width(5.0);
 
@@ -302,7 +307,7 @@ impl App {
             explorer_pane,
             main_queue_pane_split,
             self.pane_split_ratio.explorer_main as f32,
-            |split_at| Message::SplitDragged(PaneSplit::ExplorerMain, split_at as f64),
+            |split_at| Message::SplitDragged(PaneSplit::ExplorerMain, From::<f32>::from(split_at)),
         )
         .handle_width(5.0);
 
