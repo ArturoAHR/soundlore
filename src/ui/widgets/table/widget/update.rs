@@ -13,6 +13,7 @@ use crate::ui::widgets::table::{
     Catalog, Table,
     state::Identifiable,
     widget::{
+        bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
         mouse::{TableArea, TableClick},
         select::{SelectOperation, select_values},
     },
@@ -91,6 +92,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                             let table_click = get_table_click(
                                 widget,
                                 layout,
+                                state.offset_y,
                                 state.previous_click,
                                 cursor_position,
                                 mouse::Button::Left,
@@ -179,7 +181,22 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                                         shell.capture_event();
                                     }
                                 }
-                                TableArea::Scroll => {}
+                                TableArea::Scroll {
+                                    scroll_area_offset: Some(scroll_area_offset),
+                                } => {
+                                    state.offset_y = get_scroll_offset(
+                                        widget,
+                                        layout,
+                                        cursor_position.y,
+                                        scroll_area_offset,
+                                        scroll_area_offset,
+                                    );
+
+                                    shell.invalidate_layout();
+                                    shell.request_redraw();
+                                    shell.capture_event();
+                                }
+                                _ => {}
                             }
                         }
 
@@ -189,6 +206,55 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                 mouse::Event::ButtonReleased(_button) => {
                     state.previous_click = state.current_click.take();
+                }
+
+                mouse::Event::CursorMoved { position } => {
+                    if let Some(mut current_table_click) = state.current_click
+                        && let Some(table_area) = current_table_click.table_area
+                    {
+                        current_table_click.current_position = *position;
+
+                        match table_area {
+                            TableArea::Scroll {
+                                scroll_area_offset: Some(scroll_area_offset),
+                            } => {
+                                state.offset_y = get_scroll_offset(
+                                    widget,
+                                    layout,
+                                    current_table_click.current_position.y,
+                                    scroll_area_offset,
+                                    scroll_area_offset,
+                                );
+
+                                shell.invalidate_layout();
+                                shell.request_redraw();
+                                shell.capture_event();
+                            }
+                            TableArea::ScrollThumb {
+                                scroll_area_start_offset,
+                                scroll_area_end_offset,
+                            } => {
+                                state.offset_y = get_scroll_offset(
+                                    widget,
+                                    layout,
+                                    current_table_click.current_position.y,
+                                    scroll_area_start_offset,
+                                    scroll_area_end_offset,
+                                );
+
+                                shell.invalidate_layout();
+                                shell.request_redraw();
+                                shell.capture_event();
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    // TODO
+                    // 1. Decide where to position detection of scroll thumb click and relative position where it was clicked
+                    // 2. Implement two modes of scroll, clicking on the rail bringing the thumb middle to the mouse
+                    // and scroll dragging the thumb. Delta between top and bottom of the scroll thumb determines the
+                    // effective dragging height interval where the mouse drag changes the offset. Clamp against those derived values.
                 }
                 _ => {}
             }
@@ -231,6 +297,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 fn get_table_click<'a, T, Message, Theme, Renderer>(
     widget: &Table<'a, T, Message, Theme, Renderer>,
     layout: Layout<'_>,
+    scroll_offset: f32,
     previous_table_click: Option<TableClick>,
     cursor_position: Point,
     button: mouse::Button,
@@ -248,7 +315,42 @@ where
         bounds,
         widget.header_height,
         widget.scroll_width,
+        widget.row_height * widget.records.len() as f32,
+        scroll_offset,
     );
 
     TableClick::new(cursor_position, button, table_area, previous_table_click)
+}
+
+fn get_scroll_offset<'a, T, Message, Theme, Renderer>(
+    widget: &Table<'a, T, Message, Theme, Renderer>,
+    layout: Layout<'_>,
+    position: f32,
+    scroll_area_start_offset: f32,
+    scroll_area_end_offset: f32,
+) -> f32
+where
+    T: Identifiable,
+    Message: 'a,
+    Theme: Catalog,
+    Renderer: renderer::Renderer,
+{
+    let bounds = layout.bounds();
+
+    let scroll_bounds = get_table_scroll_bounds(bounds, widget.scroll_width);
+    let effective_scroll_area_bounds =
+        get_effective_scroll_area_bounds(scroll_bounds, widget.header_height);
+    let total_scrollable_content_length =
+        widget.row_height * widget.records.len() as f32 - effective_scroll_area_bounds.height;
+
+    let minimum_height = effective_scroll_area_bounds.y + scroll_area_start_offset;
+    let maximum_height = (effective_scroll_area_bounds.y + effective_scroll_area_bounds.height
+        - scroll_area_end_offset)
+        .max(minimum_height);
+    let position = position.clamp(minimum_height, maximum_height);
+
+    let position_ratio =
+        ((position - minimum_height) / (maximum_height - minimum_height)).clamp(0.0, 1.0);
+
+    total_scrollable_content_length * position_ratio
 }

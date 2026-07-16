@@ -1,7 +1,11 @@
 use iced::{Point, Rectangle, advanced::mouse::Click, mouse};
 
-use crate::ui::widgets::table::widget::bounds::{
-    get_table_body_bounds, get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
+use crate::ui::widgets::table::widget::{
+    bounds::{
+        get_effective_scroll_area_bounds, get_table_body_bounds, get_table_grid_bounds,
+        get_table_header_bounds, get_table_scroll_bounds,
+    },
+    scroll::get_scroll_thumb_bounds,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -52,7 +56,13 @@ impl TableClick {
 pub enum TableArea {
     Header,
     Body,
-    Scroll,
+    Scroll {
+        scroll_area_offset: Option<f32>,
+    },
+    ScrollThumb {
+        scroll_area_start_offset: f32,
+        scroll_area_end_offset: f32,
+    },
 }
 
 impl TableArea {
@@ -61,11 +71,20 @@ impl TableArea {
         bounds: Rectangle,
         header_height: f32,
         scroll_width: f32,
+        total_scrollable_content_height: f32,
+        scroll_offset: f32,
     ) -> Option<Self> {
         let grid_bounds = get_table_grid_bounds(bounds, scroll_width);
         let header_bounds = get_table_header_bounds(grid_bounds, header_height);
         let body_bounds = get_table_body_bounds(grid_bounds, header_height);
         let scroll_bounds = get_table_scroll_bounds(bounds, scroll_width);
+        let effective_scroll_area_bounds =
+            get_effective_scroll_area_bounds(scroll_bounds, header_height);
+        let scroll_thumb_bounds = get_scroll_thumb_bounds(
+            effective_scroll_area_bounds,
+            total_scrollable_content_height,
+            scroll_offset,
+        );
 
         if header_bounds.contains(position) {
             return Some(Self::Header);
@@ -75,8 +94,25 @@ impl TableArea {
             return Some(Self::Body);
         }
 
+        if let Some(scroll_thumb_bounds) = scroll_thumb_bounds
+            && scroll_thumb_bounds.contains(position)
+        {
+            let scroll_area_start_offset = position.y - scroll_thumb_bounds.y;
+            let scroll_area_end_offset = scroll_thumb_bounds.height - scroll_area_start_offset;
+
+            return Some(Self::ScrollThumb {
+                scroll_area_start_offset,
+                scroll_area_end_offset,
+            });
+        }
+
         if scroll_bounds.contains(position) {
-            return Some(Self::Scroll);
+            return Some(Self::Scroll {
+                scroll_area_offset: scroll_thumb_bounds.map_or_else(
+                    || None,
+                    |scroll_thumb_bounds| Some(scroll_thumb_bounds.height / 2.0),
+                ),
+            });
         }
 
         None
