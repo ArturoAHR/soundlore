@@ -134,7 +134,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                                         let (selected_row_ids, anchor_row_id) = select_values(
                                             row_ids,
-                                            widget.selected_rows.iter().copied(),
+                                            widget.selected_rows.iter(),
                                             SelectOperation::from_keyboard_modifiers(
                                                 keyboard_modifiers,
                                                 clicked_row_id,
@@ -187,7 +187,6 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                         .iter()
                         .any(|click| click.table_area.is_some())
                     {
-                        shell.invalidate_layout();
                         shell.request_redraw();
                         shell.capture_event();
                     }
@@ -233,7 +232,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                                     let (selected_row_ids, anchor_row_id) = select_values(
                                         row_ids,
-                                        widget.selected_rows.iter().copied(),
+                                        widget.selected_rows.iter(),
                                         select_operation,
                                     );
 
@@ -291,7 +290,7 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                 let (selected_row_ids, anchor_row_id) = select_values(
                     row_ids,
-                    widget.selected_rows.iter().copied(),
+                    widget.selected_rows.iter(),
                     SelectOperation::All {
                         anchor_value: state.selection_anchor_row_id.as_ref(),
                     },

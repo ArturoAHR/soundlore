@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Range};
+use std::{collections::HashSet, ops::Range, sync::LazyLock};
 
 use iced::{
     Element, Length, Padding,
@@ -18,6 +18,9 @@ pub mod widget;
 
 pub use style::*;
 
+/// Static `HashSet` to be able to populate the field at initialization time.
+static EMPTY_SELECTION: LazyLock<HashSet<TableIdentifier>> = LazyLock::new(HashSet::new);
+
 pub struct Table<'a, T, Message, Theme, Renderer = iced::Renderer>
 where
     T: Identifiable,
@@ -29,7 +32,7 @@ where
     row_height: f32,
     scroll_width: f32,
 
-    selected_rows: HashSet<&'a TableIdentifier>,
+    selected_rows: &'a HashSet<TableIdentifier>,
     /// Returns the set of table body row identifiers that are currently selected every time the set changes.
     on_row_select: Option<Box<dyn Fn(HashSet<TableIdentifier>) -> Message + 'a>>,
     on_header_cell_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
@@ -87,7 +90,7 @@ where
             row_height: 30.0,
             scroll_width: 12.0,
 
-            selected_rows: HashSet::new(),
+            selected_rows: &EMPTY_SELECTION,
             on_row_select: None,
             on_header_cell_click: None,
             on_row_double_click: None,
@@ -164,12 +167,8 @@ where
     }
 
     #[must_use]
-    pub fn selected_rows(mut self, selected_rows: impl Into<&'a [TableIdentifier]>) -> Self {
-        let selected_rows = selected_rows.into();
-
-        if !selected_rows.is_empty() {
-            self.selected_rows = HashSet::from_iter(selected_rows);
-        }
+    pub fn selected_rows(mut self, selected_rows: &'a HashSet<TableIdentifier>) -> Self {
+        self.selected_rows = selected_rows;
 
         self
     }

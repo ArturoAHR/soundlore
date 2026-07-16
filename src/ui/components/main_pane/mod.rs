@@ -22,13 +22,13 @@ pub mod handler;
 
 #[derive(Debug)]
 pub struct MainPane {
-    pub selected_track_ids: Vec<TableIdentifier>,
+    pub selected_track_ids: HashSet<TableIdentifier>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     TrackRowDoubleClicked(TableIdentifier),
-    TrackRowSelected(HashSet<String>),
+    TrackRowSelected(HashSet<TableIdentifier>),
     ColumnHeaderCellClicked(TableIdentifier),
 }
 
@@ -43,7 +43,7 @@ pub struct MainPaneUpdateContext {}
 impl MainPane {
     pub fn new() -> Self {
         Self {
-            selected_track_ids: Vec::new(),
+            selected_track_ids: HashSet::new(),
         }
     }
 
@@ -113,7 +113,7 @@ impl MainPane {
 
         container(
             table(columns, tracks)
-                .selected_rows(&self.selected_track_ids[..])
+                .selected_rows(&self.selected_track_ids)
                 .on_row_select(Message::TrackRowSelected)
                 .on_row_double_click(Message::TrackRowDoubleClicked)
                 .on_header_cell_click(Message::ColumnHeaderCellClicked),
