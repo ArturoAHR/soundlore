@@ -192,6 +192,48 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                         current_table_click.current_position = *position;
 
                         match table_area {
+                            TableArea::Body => {
+                                // TODO (v2): Add scroll on moving the mouse up or down the table body past a certain threshold
+                                if let Some(on_row_select) = widget.on_row_select.as_ref() {
+                                    let Some(current_position_row_id) = get_row_id_at_position(
+                                        widget,
+                                        layout,
+                                        current_table_click.current_position,
+                                    ) else {
+                                        return;
+                                    };
+
+                                    let row_ids = widget.records.iter().map(Identifiable::id);
+
+                                    let mut select_operation =
+                                        SelectOperation::from_keyboard_modifiers(
+                                            keyboard_modifiers,
+                                            current_position_row_id,
+                                            state.selection_anchor_row_id.as_ref(),
+                                        );
+
+                                    if matches!(
+                                        select_operation,
+                                        SelectOperation::Single { .. }
+                                            | SelectOperation::Toggle { .. }
+                                    ) {
+                                        select_operation = SelectOperation::Range {
+                                            target_value: current_position_row_id,
+                                            anchor_value: state.selection_anchor_row_id.as_ref(),
+                                        }
+                                    }
+
+                                    let (selected_row_ids, anchor_row_id) = select_values(
+                                        row_ids,
+                                        widget.selected_rows.iter().copied(),
+                                        select_operation,
+                                    );
+
+                                    state.selection_anchor_row_id = anchor_row_id;
+
+                                    shell.publish(on_row_select(selected_row_ids));
+                                }
+                            }
                             TableArea::Scroll {
                                 scroll_area_offset: Some(scroll_area_offset),
                             } => {
