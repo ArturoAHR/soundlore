@@ -11,7 +11,7 @@ use iced::{
 
 use crate::ui::widgets::table::{
     Catalog, Table,
-    state::Identifiable,
+    state::{Identifiable, TableIdentifier},
     widget::{
         bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
         mouse::{TableArea, TableClick},
@@ -106,47 +106,24 @@ pub fn update<'a, T, Message, Theme, Renderer>(
 
                             match clicked_area {
                                 TableArea::Header => {
-                                    let Some(clicked_column_id) =
-                                        widget.columns.iter().zip(&widget.column_offsets).find_map(
-                                            |(column, &column_start)| {
-                                                let column_end = column_start + column.width;
-
-                                                (column_start <= cursor_position.x
-                                                    && cursor_position.x <= column_end)
-                                                    .then_some(&column.id)
-                                            },
-                                        )
-                                    else {
+                                    let Some(clicked_column_id) = get_header_column_id_at_position(
+                                        widget,
+                                        layout,
+                                        cursor_position,
+                                    ) else {
                                         return;
                                     };
 
                                     if let Some(on_header_cell_click) =
                                         widget.on_header_cell_click.as_ref()
                                     {
-                                        shell.publish(on_header_cell_click(
-                                            clicked_column_id.to_owned(),
-                                        ));
+                                        shell.publish(on_header_cell_click(clicked_column_id));
                                         shell.capture_event();
                                     }
                                 }
                                 TableArea::Body => {
-                                    let visible_records =
-                                        &widget.records[widget.visible_row_range.clone()];
-                                    let visible_row_offsets = widget
-                                        .row_offsets
-                                        .iter()
-                                        .map(|&row_offset| row_offset + bounds.y);
-
-                                    let Some(clicked_row_id) = visible_records
-                                        .iter()
-                                        .zip(visible_row_offsets)
-                                        .find_map(|(record, row_start)| {
-                                            let row_end = row_start + widget.row_height;
-
-                                            (row_start <= cursor_position.y
-                                                && cursor_position.y <= row_end)
-                                                .then(|| record.id())
-                                        })
+                                    let Some(clicked_row_id) =
+                                        get_row_id_at_position(widget, layout, cursor_position)
                                     else {
                                         return;
                                     };
@@ -249,12 +226,6 @@ pub fn update<'a, T, Message, Theme, Renderer>(
                             _ => {}
                         }
                     }
-
-                    // TODO
-                    // 1. Decide where to position detection of scroll thumb click and relative position where it was clicked
-                    // 2. Implement two modes of scroll, clicking on the rail bringing the thumb middle to the mouse
-                    // and scroll dragging the thumb. Delta between top and bottom of the scroll thumb determines the
-                    // effective dragging height interval where the mouse drag changes the offset. Clamp against those derived values.
                 }
                 _ => {}
             }
@@ -292,6 +263,64 @@ pub fn update<'a, T, Message, Theme, Renderer>(
         Event::Window(window::Event::Focused) => state.focus_state.window = true,
         _ => {}
     }
+}
+
+fn get_row_id_at_position<'a, T, Message, Theme, Renderer>(
+    widget: &Table<'a, T, Message, Theme, Renderer>,
+    layout: Layout<'_>,
+    position: Point<f32>,
+) -> Option<&'a TableIdentifier>
+where
+    T: Identifiable,
+    Message: 'a,
+    Theme: Catalog,
+    Renderer: renderer::Renderer,
+{
+    let bounds = layout.bounds();
+
+    let visible_records = &widget.records[widget.visible_row_range.clone()];
+    let visible_row_offsets = widget
+        .row_offsets
+        .iter()
+        .map(|&row_offset| row_offset + bounds.y);
+
+    visible_records
+        .iter()
+        .zip(visible_row_offsets)
+        .find_map(|(record, row_start)| {
+            let row_end = row_start + widget.row_height;
+
+            (row_start <= position.y && position.y <= row_end).then(|| record.id())
+        })
+}
+
+fn get_header_column_id_at_position<'a, T, Message, Theme, Renderer>(
+    widget: &Table<'a, T, Message, Theme, Renderer>,
+    layout: Layout<'_>,
+    position: Point<f32>,
+) -> Option<TableIdentifier>
+where
+    T: Identifiable,
+    Message: 'a,
+    Theme: Catalog,
+    Renderer: renderer::Renderer,
+{
+    let bounds = layout.bounds();
+
+    let column_offsets = widget
+        .column_offsets
+        .iter()
+        .map(|&column_offset| column_offset + bounds.x);
+
+    widget
+        .columns
+        .iter()
+        .zip(column_offsets)
+        .find_map(|(column, column_start)| {
+            let column_end = column_start + column.width;
+
+            (column_start <= position.x && position.x <= column_end).then_some(column.id.clone())
+        })
 }
 
 fn get_table_click<'a, T, Message, Theme, Renderer>(
