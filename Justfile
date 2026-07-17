@@ -14,35 +14,35 @@ watch-test:
 
 # Run tests
 test:
-  cargo test --color always
+  cargo test --color always --features testing
 
 # Run unit tests
 unit-test:
-  cargo test --lib --color always
+  cargo test --lib --color always --features testing
 
 # Run tests (nextest)
 nextest:
-  cargo nextest run
+  cargo nextest run --features testing
 
 # Run unit tests
 unit-nextest:
-  cargo nextest run --lib
+  cargo nextest run --lib --features testing
 
 # Watch tests
 test-watch:
-  cargo watch -i "target/*" -i "*.log" -x check -x test
+  cargo watch -i "target/*" -i "*.log" -x check -x "test --features testing"
 
 # Watch unit tests
 unit-test-watch:
-  cargo watch -i "target/*" -i "*.log" -x check -x "test --lib"
+  cargo watch -i "target/*" -i "*.log" -x check -x "test --lib --features testing"
 
 # Watch tests
 nextest-watch:
-  cargo watch -i "target/*" -i "*.log" -x check -x "nextest run"
+  cargo watch -i "target/*" -i "*.log" -x check -x "nextest run --features testing"
 
 # Watch unit tests
 unit-nextest-watch:
-  cargo watch -i "target/*" -i "*.log" -x check -x "nextest run --lib"
+  cargo watch -i "target/*" -i "*.log" -x check -x "nextest run --lib --features testing"
 
 # Run coverage
 coverage:
