@@ -1,6 +1,6 @@
 use std::{
     collections::HashSet,
-    sync::{LazyLock, RwLock},
+    sync::{LazyLock, Mutex},
 };
 
 use iced_test::simulator::Snapshot;
@@ -8,13 +8,13 @@ use iced_test::simulator::Snapshot;
 pub const SNAPSHOTS_DIRECTORY: &str = "snapshots/";
 pub const SNAPSHOTS_IMAGES_DIRECTORY: &str = "snapshots/images/";
 
-pub static SNAPSHOT_NAME_SET: LazyLock<RwLock<HashSet<String>>> =
-    LazyLock::new(|| RwLock::new(HashSet::new()));
+pub static SNAPSHOT_NAME_SET: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 fn get_snapshot_name(snapshot_name: String) -> String {
     let mut snapshot_name = snapshot_name;
 
-    let snapshot_names_used = SNAPSHOT_NAME_SET.read().unwrap();
+    let mut snapshot_names_used = SNAPSHOT_NAME_SET.lock().unwrap();
 
     if snapshot_names_used.contains(&snapshot_name) {
         let mut snapshot_name_index = 0;
@@ -28,9 +28,11 @@ fn get_snapshot_name(snapshot_name: String) -> String {
 
             break snapshot_name;
         };
-
-        drop(snapshot_names_used);
     }
+
+    snapshot_names_used.insert(snapshot_name.clone());
+
+    drop(snapshot_names_used);
 
     snapshot_name
 }
