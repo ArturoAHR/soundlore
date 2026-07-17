@@ -16,6 +16,9 @@ pub mod state;
 pub mod style;
 pub mod widget;
 
+#[cfg(test)]
+pub mod tests;
+
 pub use style::*;
 
 /// Static `HashSet` to be able to populate the field at initialization time.
