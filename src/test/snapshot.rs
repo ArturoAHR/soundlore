@@ -32,8 +32,6 @@ fn get_snapshot_name(snapshot_name: String) -> String {
 
     snapshot_names_used.insert(snapshot_name.clone());
 
-    drop(snapshot_names_used);
-
     snapshot_name
 }
 
