@@ -3,6 +3,7 @@ name = "soundlore"
 version = "0.1.0"
 description = "A fast local music library where you design your own tagging systems and every tag becomes a playlist you can mix."
 authors = ["ArturoAHR"]
+license = "MIT"
 edition = "2024"
 
 [lib]
