@@ -5,11 +5,14 @@ use iced_palace::widget::ellipsized_text;
 use iced_test::{Simulator, simulator::click};
 use pretty_assertions::assert_eq;
 
-use crate::ui::{
-    theme::Theme,
-    widgets::table::widget::{
-        bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
-        scroll::get_scroll_thumb_bounds,
+use crate::{
+    test::snapshot::assert_snapshot,
+    ui::{
+        theme::Theme,
+        widgets::table::widget::{
+            bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
+            scroll::get_scroll_thumb_bounds,
+        },
     },
 };
 
@@ -17,9 +20,9 @@ use super::*;
 
 const APP_SIZE: Size = Size::new(1000.0, 1000.0);
 const BOUNDS: Rectangle = Rectangle::new(Point { x: 0.0, y: 0.0 }, APP_SIZE);
-const ROW_HEIGHT: f32 = 50.0;
-const HEADER_HEIGHT: f32 = 50.0;
-const SCROLL_WIDTH: f32 = 50.0;
+const ROW_HEIGHT: f32 = 30.0;
+const HEADER_HEIGHT: f32 = 35.0;
+const SCROLL_WIDTH: f32 = 12.0;
 const TEST_ROW_COUNT: f32 = 10000.0;
 
 struct TestApp {
@@ -129,7 +132,8 @@ fn get_middle_of_table_grid_y() -> f32 {
 fn get_clickable_row_height(visible_row_number: usize, scroll_offset: f32) -> f32 {
     let row_offset_start = HEADER_HEIGHT - ROW_HEIGHT * (scroll_offset / ROW_HEIGHT).fract();
 
-    (row_offset_start + ROW_HEIGHT * visible_row_number as f32).clamp(ROW_HEIGHT, APP_SIZE.height)
+    (row_offset_start + ROW_HEIGHT * visible_row_number as f32)
+        .clamp(HEADER_HEIGHT + 1.0, APP_SIZE.height)
 }
 
 fn click_row_position(
@@ -239,6 +243,10 @@ fn should_select_first_row() {
     let first_row_id = app.rows[0].id().clone();
     let expected_selected_rows = vec![first_row_id];
 
+    let snapshot = ui.snapshot(&Theme::default()).unwrap();
+
+    assert_snapshot(&snapshot);
+
     for message in ui.into_messages() {
         assert_row_selection_message(&message, &expected_selected_rows);
 
@@ -257,6 +265,10 @@ fn should_double_click_first_row() {
 
     let first_row_id = app.rows[0].id().clone();
     let expected_selected_rows = vec![first_row_id.clone()];
+
+    let snapshot = ui.snapshot(&Theme::default()).unwrap();
+
+    assert_snapshot(&snapshot);
 
     for message in ui.into_messages() {
         assert_row_double_clicking_message(&message, &expected_selected_rows, &first_row_id);
@@ -281,6 +293,10 @@ fn should_scroll_to_and_select_table_row_at_the_half_of_the_table() {
 
     let selected_row_id = app.rows[row_number - 1].id().clone();
     let expected_selected_rows = vec![selected_row_id.clone()];
+
+    let snapshot = ui.snapshot(&Theme::default()).unwrap();
+
+    assert_snapshot(&snapshot);
 
     for message in ui.into_messages() {
         assert_row_double_clicking_message(&message, &expected_selected_rows, &selected_row_id);
