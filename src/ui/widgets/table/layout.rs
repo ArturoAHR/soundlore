@@ -20,169 +20,170 @@ use crate::ui::{
 
 use crate::ui::widgets::table::state::State;
 
-/// Creates the table cells with virtualization and the layout for the table, if the header
-/// is present, first column count child nodes are the header cell nodes.
-pub fn layout<'a, T, Message, Theme, Renderer>(
-    widget: &mut Table<'a, T, Message, Theme, Renderer>,
-    tree: &mut Tree,
-    renderer: &Renderer,
-    limits: &Limits,
-) -> Node
+impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
 where
     T: Identifiable,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    let grid_limits = limits.width(limits.max().width - widget.scroll_width);
-    let state = tree.state.downcast_mut::<State>();
+    /// Creates the table cells with virtualization and the layout for the table, if the header
+    /// is present, first column count child nodes are the header cell nodes.
+    pub(super) fn layout_impl(
+        &mut self,
+        tree: &mut Tree,
+        renderer: &Renderer,
+        limits: &Limits,
+    ) -> Node {
+        let grid_limits = limits.width(limits.max().width - self.scroll_width);
+        let state = tree.state.downcast_mut::<State>();
 
-    // Children Cell Generation
+        // Children Cell Generation
 
-    let mut visible_row_range = get_visible_range(
-        grid_limits.max().height,
-        widget.row_height,
-        widget.header_height,
-        state.offset_y,
-    );
+        let mut visible_row_range = get_visible_range(
+            grid_limits.max().height,
+            self.row_height,
+            self.header_height,
+            state.offset_y,
+        );
 
-    visible_row_range.start = visible_row_range.start.clamp(0, widget.records.len());
-    visible_row_range.end = visible_row_range.end.clamp(0, widget.records.len());
+        visible_row_range.start = visible_row_range.start.clamp(0, self.records.len());
+        visible_row_range.end = visible_row_range.end.clamp(0, self.records.len());
 
-    widget.visible_row_range = visible_row_range;
-    widget.body_cells = Vec::with_capacity(widget.visible_row_range.len() * widget.columns.len());
+        self.visible_row_range = visible_row_range;
+        self.body_cells = Vec::with_capacity(self.visible_row_range.len() * self.columns.len());
 
-    for record in &widget.records[widget.visible_row_range.clone()] {
-        for column in &widget.columns {
-            widget.body_cells.push((column.view)(record));
+        for record in &self.records[self.visible_row_range.clone()] {
+            for column in &self.columns {
+                self.body_cells.push((column.view)(record));
+            }
         }
-    }
 
-    // Column Width Resolution
+        // Column Width Resolution
 
-    let container_width = From::<f32>::from(grid_limits.max().width);
-    let column_widths = widget
-        .columns
-        .iter()
-        .map(Column::get_column_width)
-        .collect();
+        let container_width = From::<f32>::from(grid_limits.max().width);
+        let column_widths = self.columns.iter().map(Column::get_column_width).collect();
 
-    let column_widths = get_column_widths(container_width, column_widths);
+        let column_widths = get_column_widths(container_width, column_widths);
 
-    for (column, column_width) in widget.columns.iter_mut().zip(column_widths) {
-        column.width = column_width as f32;
-    }
+        for (column, column_width) in self.columns.iter_mut().zip(column_widths) {
+            column.width = column_width as f32;
+        }
 
-    // Get Cell Offsets
+        // Get Cell Offsets
 
-    widget.column_offsets = widget
-        .columns
-        .iter()
-        .scan(0.0, |offset_accumulator, column| {
-            let current_offset = *offset_accumulator;
+        self.column_offsets = self
+            .columns
+            .iter()
+            .scan(0.0, |offset_accumulator, column| {
+                let current_offset = *offset_accumulator;
 
-            *offset_accumulator += column.width;
+                *offset_accumulator += column.width;
 
-            Some(current_offset)
-        })
-        .collect();
+                Some(current_offset)
+            })
+            .collect();
 
-    // Determines where the rows start by subtracting from the header height the length
-    // the first row that is below overlapping it.
-    let row_offset_start =
-        widget.header_height - widget.row_height * (state.offset_y / widget.row_height).fract();
-    widget.row_offsets = (0..widget.visible_row_range.len())
-        .map(|visible_row_number| row_offset_start + widget.row_height * visible_row_number as f32)
-        .collect();
+        // Determines where the rows start by subtracting from the header height the length
+        // the first row that is below overlapping it.
+        let row_offset_start =
+            self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
+        self.row_offsets = (0..self.visible_row_range.len())
+            .map(|visible_row_number| {
+                row_offset_start + self.row_height * visible_row_number as f32
+            })
+            .collect();
 
-    // Child Node Generation
+        // Child Node Generation
 
-    let mut nodes = Vec::new();
+        let mut nodes = Vec::new();
 
-    if widget.has_header {
-        for (header_cell, column, column_offset) in izip!(
-            widget.header_cells.iter_mut(),
-            &widget.columns,
-            &widget.column_offsets
+        if self.has_header {
+            for (header_cell, column, column_offset) in izip!(
+                self.header_cells.iter_mut(),
+                &self.columns,
+                &self.column_offsets
+            ) {
+                let padding = column.header_padding.unwrap_or(self.header_cell_padding);
+
+                let limits = Limits::new(Size::ZERO, Size::new(column.width, self.header_height));
+                let tree = state.cell_state.get_mut_or_insert(
+                    HEADERS_ROW_IDENTIFIER,
+                    &column.id,
+                    header_cell,
+                );
+
+                let mut node = positioned(
+                    &limits,
+                    column.width,
+                    self.header_height,
+                    padding,
+                    |limits| {
+                        header_cell
+                            .as_widget_mut()
+                            .layout(tree, renderer, &limits.loose())
+                    },
+                    |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
+                );
+
+                node = node.move_to(Point::new(*column_offset, 0.0));
+
+                nodes.push(node);
+            }
+        }
+
+        let mut row_ids: HashSet<&String> = HashSet::new();
+
+        let header_row_id = HEADERS_ROW_IDENTIFIER.to_owned();
+        if self.has_header {
+            row_ids.insert(&header_row_id);
+        }
+
+        let visible_row_record_ids = self.records[self.visible_row_range.clone()]
+            .iter()
+            .map(Identifiable::id);
+        let row_body_cell_groups = self.body_cells.chunks_mut(self.columns.len());
+
+        for (record_id, row_offset, row_body_cells) in izip!(
+            visible_row_record_ids,
+            &self.row_offsets,
+            row_body_cell_groups
         ) {
-            let padding = column.header_padding.unwrap_or(widget.header_cell_padding);
+            row_ids.insert(record_id);
 
-            let limits = Limits::new(Size::ZERO, Size::new(column.width, widget.header_height));
-            let tree =
-                state
+            for (body_cell, column, column_offset) in izip!(
+                row_body_cells.iter_mut(),
+                &self.columns,
+                &self.column_offsets
+            ) {
+                let padding = column.cell_padding.unwrap_or(self.cell_padding);
+
+                let limits = Limits::new(Size::ZERO, Size::new(column.width, self.row_height));
+                let tree = state
                     .cell_state
-                    .get_mut_or_insert(HEADERS_ROW_IDENTIFIER, &column.id, header_cell);
+                    .get_mut_or_insert(record_id, &column.id, body_cell);
 
-            let mut node = positioned(
-                &limits,
-                column.width,
-                widget.header_height,
-                padding,
-                |limits| {
-                    header_cell
-                        .as_widget_mut()
-                        .layout(tree, renderer, &limits.loose())
-                },
-                |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
-            );
+                let mut node = positioned(
+                    &limits,
+                    column.width,
+                    self.row_height,
+                    padding,
+                    |limits| {
+                        body_cell
+                            .as_widget_mut()
+                            .layout(tree, renderer, &limits.loose())
+                    },
+                    |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
+                );
 
-            node = node.move_to(Point::new(*column_offset, 0.0));
+                node = node.move_to(Point::new(*column_offset, *row_offset));
 
-            nodes.push(node);
+                nodes.push(node);
+            }
         }
+
+        state.cell_state.prune(&row_ids);
+
+        Node::with_children(limits.max(), nodes)
     }
-
-    let mut row_ids: HashSet<&String> = HashSet::new();
-
-    let header_row_id = HEADERS_ROW_IDENTIFIER.to_owned();
-    if widget.has_header {
-        row_ids.insert(&header_row_id);
-    }
-
-    let visible_row_record_ids = widget.records[widget.visible_row_range.clone()]
-        .iter()
-        .map(Identifiable::id);
-    let row_body_cell_groups = widget.body_cells.chunks_mut(widget.columns.len());
-
-    for (record_id, row_offset, row_body_cells) in izip!(
-        visible_row_record_ids,
-        &widget.row_offsets,
-        row_body_cell_groups
-    ) {
-        row_ids.insert(record_id);
-
-        for (body_cell, column, column_offset) in izip!(
-            row_body_cells.iter_mut(),
-            &widget.columns,
-            &widget.column_offsets
-        ) {
-            let padding = column.cell_padding.unwrap_or(widget.cell_padding);
-
-            let limits = Limits::new(Size::ZERO, Size::new(column.width, widget.row_height));
-            let tree = state
-                .cell_state
-                .get_mut_or_insert(record_id, &column.id, body_cell);
-
-            let mut node = positioned(
-                &limits,
-                column.width,
-                widget.row_height,
-                padding,
-                |limits| {
-                    body_cell
-                        .as_widget_mut()
-                        .layout(tree, renderer, &limits.loose())
-                },
-                |node, size| node.align(column.align_x.into(), column.align_y.into(), size),
-            );
-
-            node = node.move_to(Point::new(*column_offset, *row_offset));
-
-            nodes.push(node);
-        }
-    }
-
-    state.cell_state.prune(&row_ids);
-
-    Node::with_children(limits.max(), nodes)
 }

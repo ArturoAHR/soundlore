@@ -26,10 +26,6 @@ pub mod scroll;
 mod select;
 pub mod update;
 
-use draw::draw;
-use layout::layout;
-use update::update;
-
 pub mod state;
 pub mod style;
 
@@ -405,7 +401,7 @@ where
     }
 
     fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
-        layout(self, tree, renderer, limits)
+        self.layout_impl(tree, renderer, limits)
     }
 
     fn draw(
@@ -418,7 +414,7 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        draw(self, tree, renderer, theme, style, layout, cursor, viewport);
+        self.draw_impl(tree, renderer, theme, style, layout, cursor, viewport);
     }
 
     fn update(
@@ -432,8 +428,8 @@ where
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
-        update(
-            self, tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+        self.update_impl(
+            tree, event, layout, cursor, renderer, clipboard, shell, viewport,
         );
     }
 }
