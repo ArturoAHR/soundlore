@@ -137,6 +137,7 @@ where
             && let Some(table_area) = current_table_click.table_area
         {
             current_table_click.current_position = cursor_position;
+            state.current_click = Some(current_table_click);
 
             match table_area {
                 TableArea::Body => {
