@@ -6,7 +6,7 @@ use iced::{
     keyboard,
 };
 
-use crate::ui::widgets::table::widget::mouse::TableClick;
+use crate::ui::widgets::table::mouse::TableClick;
 
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
 

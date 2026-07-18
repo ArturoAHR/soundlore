@@ -11,14 +11,12 @@ use itertools::izip;
 
 use crate::ui::widgets::table::{
     BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table,
-    state::{HEADERS_ROW_IDENTIFIER, Identifiable},
-    widget::{
-        bounds::{
-            get_effective_scroll_area_bounds, get_table_body_bounds, get_table_body_row_bounds,
-            get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
-        },
-        scroll::get_scroll_thumb_bounds,
+    bounds::{
+        get_effective_scroll_area_bounds, get_table_body_bounds, get_table_body_row_bounds,
+        get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
     },
+    scroll::get_scroll_thumb_bounds,
+    state::{HEADERS_ROW_IDENTIFIER, Identifiable},
 };
 
 use crate::ui::widgets::table::state::State;

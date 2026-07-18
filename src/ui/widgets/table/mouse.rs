@@ -1,6 +1,6 @@
 use iced::{Point, Rectangle, advanced::mouse::Click, mouse};
 
-use crate::ui::widgets::table::widget::{
+use crate::ui::widgets::table::{
     bounds::{
         get_effective_scroll_area_bounds, get_table_body_bounds, get_table_grid_bounds,
         get_table_header_bounds, get_table_scroll_bounds,

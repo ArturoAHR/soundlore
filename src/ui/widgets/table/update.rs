@@ -11,12 +11,10 @@ use iced::{
 
 use crate::ui::widgets::table::{
     Catalog, Table,
+    bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
+    mouse::{TableArea, TableClick},
+    select::{SelectOperation, select_values},
     state::{Identifiable, TableIdentifier},
-    widget::{
-        bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
-        mouse::{TableArea, TableClick},
-        select::{SelectOperation, select_values},
-    },
 };
 
 use crate::ui::widgets::table::state::State;

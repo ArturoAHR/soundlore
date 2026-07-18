@@ -9,7 +9,7 @@ use crate::{
     test::snapshot::assert_snapshot,
     ui::{
         theme::Theme,
-        widgets::table::widget::{
+        widgets::table::{
             bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
             scroll::get_scroll_thumb_bounds,
         },

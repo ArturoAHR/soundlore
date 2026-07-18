@@ -1,20 +1,37 @@
 use std::{collections::HashSet, ops::Range, sync::LazyLock};
 
 use iced::{
-    Element, Length, Padding,
+    Element, Event, Length, Padding, Rectangle, Size,
     advanced::renderer::{self},
+    advanced::{
+        Clipboard, Layout, Shell,
+        layout::{Limits, Node},
+        mouse::Cursor,
+        widget::{Tree, Widget, tree},
+    },
     alignment,
     widget::Space,
 };
 
 use crate::ui::{
     utils::table::column::ColumnWidth,
-    widgets::table::state::{Identifiable, TableIdentifier},
+    widgets::table::state::{Identifiable, State, TableIdentifier},
 };
+
+pub mod bounds;
+mod draw;
+mod layout;
+pub mod mouse;
+pub mod scroll;
+mod select;
+pub mod update;
+
+use draw::draw;
+use layout::layout;
+use update::update;
 
 pub mod state;
 pub mod style;
-pub mod widget;
 
 #[cfg(test)]
 pub mod tests;
@@ -361,6 +378,63 @@ impl<T, Message, Theme, Renderer> Column<'_, T, Message, Theme, Renderer> {
         self.header_padding = Some(padding.into());
 
         self
+    }
+}
+
+impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Table<'a, T, Message, Theme, Renderer>
+where
+    T: Identifiable,
+    Message: 'a,
+    Theme: Catalog,
+    Renderer: renderer::Renderer,
+{
+    fn size(&self) -> Size<Length> {
+        Size {
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<State>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(State::default())
+    }
+
+    fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
+        layout(self, tree, renderer, limits)
+    }
+
+    fn draw(
+        &self,
+        tree: &Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: Cursor,
+        viewport: &Rectangle,
+    ) {
+        draw(self, tree, renderer, theme, style, layout, cursor, viewport);
+    }
+
+    fn update(
+        &mut self,
+        tree: &mut Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
+    ) {
+        update(
+            self, tree, event, layout, cursor, renderer, clipboard, shell, viewport,
+        );
     }
 }
 
