@@ -3,10 +3,12 @@ use iced::{
     advanced::{Shell, mouse::click, renderer},
 };
 
-use crate::ui::widgets::table::{
-    Catalog, Table,
-    select::{SelectOperation, select_values},
-    state::{Identifiable, State},
+use crate::ui::{
+    utils::select::{SelectOperation, select_values},
+    widgets::table::{
+        Catalog, Table,
+        state::{Identifiable, State},
+    },
 };
 
 impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>

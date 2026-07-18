@@ -24,7 +24,6 @@ mod event;
 mod layout;
 mod mouse;
 mod scroll;
-mod select;
 pub mod state;
 pub mod style;
 mod update;
