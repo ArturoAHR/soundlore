@@ -14,7 +14,7 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    pub(in super::super) fn handle_window_redraw_request(
+    pub fn handle_window_redraw_request(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,

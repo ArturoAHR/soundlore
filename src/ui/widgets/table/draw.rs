@@ -127,7 +127,10 @@ where
 
                 let row_status = if self.selected_rows.contains(row_id) {
                     BodyRowStatus::Selected
-                } else if cursor.is_over(row_bounds) {
+                } else if row_bounds
+                    .intersection(&body_bounds)
+                    .is_some_and(|row_bounds| cursor.is_over(row_bounds))
+                {
                     BodyRowStatus::Hovered
                 } else {
                     BodyRowStatus::Default
@@ -170,7 +173,10 @@ where
 
                     let cell_status = if self.selected_rows.contains(row_id) {
                         CellStatus::Selected
-                    } else if cursor.is_over(row_bounds) {
+                    } else if row_bounds
+                        .intersection(&body_bounds)
+                        .is_some_and(|row_bounds| cursor.is_over(row_bounds))
+                    {
                         CellStatus::Hovered
                     } else {
                         CellStatus::Default
