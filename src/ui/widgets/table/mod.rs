@@ -18,16 +18,16 @@ use crate::ui::{
     widgets::table::state::{Identifiable, State, TableIdentifier},
 };
 
-pub mod bounds;
+mod bounds;
 mod draw;
+mod event;
 mod layout;
-pub mod mouse;
-pub mod scroll;
+mod mouse;
+mod scroll;
 mod select;
-pub mod update;
-
 pub mod state;
 pub mod style;
+mod update;
 
 #[cfg(test)]
 pub mod tests;

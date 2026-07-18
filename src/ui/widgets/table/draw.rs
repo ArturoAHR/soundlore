@@ -163,7 +163,7 @@ where
         if self.has_header {
             let header_bounds = get_table_header_bounds(grid_bounds, self.header_height);
 
-            // Clipping body cells to table header bounds
+            // Clipping header cells to table header bounds
             renderer.with_layer(header_bounds, |renderer| {
                 // render header background
                 renderer.fill_quad(
