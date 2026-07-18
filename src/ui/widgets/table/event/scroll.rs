@@ -18,7 +18,7 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    pub(in super::super) fn handle_mouse_wheel_scroll(
+    pub fn handle_mouse_wheel_scroll(
         &self,
         state: &mut State,
         bounds: Rectangle,
@@ -48,7 +48,7 @@ where
         shell.capture_event();
     }
 
-    pub(in super::super) fn handle_mouse_scroll_click(
+    pub fn handle_mouse_scroll_click(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
@@ -67,7 +67,7 @@ where
         shell.capture_event();
     }
 
-    pub(in super::super) fn handle_mouse_scroll_drag(
+    pub fn handle_mouse_scroll_drag(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
@@ -86,7 +86,7 @@ where
         shell.capture_event();
     }
 
-    pub(in super::super) fn handle_mouse_scroll_thumb_drag(
+    pub fn handle_mouse_scroll_thumb_drag(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
@@ -106,19 +106,13 @@ where
         shell.capture_event();
     }
 
-    pub(in super::super) fn get_scroll_offset(
+    pub fn get_scroll_offset(
         &self,
         bounds: Rectangle,
         position: f32,
         scroll_area_start_offset: f32,
         scroll_area_end_offset: f32,
-    ) -> f32
-    where
-        T: Identifiable,
-        Message: 'a,
-        Theme: Catalog,
-        Renderer: renderer::Renderer,
-    {
+    ) -> f32 {
         let scroll_bounds = get_table_scroll_bounds(bounds, self.scroll_width);
         let effective_scroll_area_bounds =
             get_effective_scroll_area_bounds(scroll_bounds, self.header_height);

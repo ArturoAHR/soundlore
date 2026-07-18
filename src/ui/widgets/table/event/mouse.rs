@@ -17,7 +17,7 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    pub(in super::super) fn handle_mouse_event(
+    pub fn handle_mouse_event(
         &self,
         state: &mut State,
         layout: Layout<'_>,
@@ -47,7 +47,7 @@ where
         }
     }
 
-    pub(in super::super) fn handle_mouse_button_press(
+    pub fn handle_mouse_button_press(
         &self,
         state: &mut State,
         bounds: Rectangle,
@@ -113,11 +113,7 @@ where
         }
     }
 
-    pub(in super::super) fn handle_mouse_button_release(
-        &self,
-        state: &mut State,
-        shell: &mut Shell<'_, Message>,
-    ) {
+    pub fn handle_mouse_button_release(&self, state: &mut State, shell: &mut Shell<'_, Message>) {
         state.previous_click = state.current_click.take();
 
         if state
@@ -130,7 +126,7 @@ where
         }
     }
 
-    pub(in super::super) fn handle_mouse_cursor_moved(
+    pub fn handle_mouse_cursor_moved(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
@@ -176,7 +172,7 @@ where
         }
     }
 
-    pub(in super::super) fn get_table_click(
+    pub fn get_table_click(
         &self,
         bounds: Rectangle,
         scroll_offset: f32,

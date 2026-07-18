@@ -1,6 +1,6 @@
-pub mod hover;
-pub mod keyboard;
-pub mod mouse;
-pub mod redraw;
-pub mod scroll;
-pub mod select;
+pub(super) mod hover;
+pub(super) mod keyboard;
+pub(super) mod mouse;
+pub(super) mod redraw;
+pub(super) mod scroll;
+pub(super) mod select;

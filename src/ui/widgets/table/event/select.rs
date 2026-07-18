@@ -16,7 +16,7 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    pub(in super::super) fn handle_mouse_header_click(
+    pub fn handle_mouse_header_click(
         &self,
         shell: &mut Shell<'_, Message>,
         bounds: Rectangle,
@@ -34,7 +34,7 @@ where
         }
     }
 
-    pub(in super::super) fn handle_mouse_row_click(
+    pub fn handle_mouse_row_click(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
@@ -74,7 +74,7 @@ where
         }
     }
 
-    pub(in super::super) fn handle_mouse_row_drag(
+    pub fn handle_mouse_row_drag(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
@@ -115,7 +115,7 @@ where
         }
     }
 
-    pub(in super::super) fn handle_keyboard_select_all_command(
+    pub fn handle_keyboard_select_all_command(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,

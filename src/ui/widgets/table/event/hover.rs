@@ -12,7 +12,7 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    pub(in super::super) fn get_row_id_at_position(
+    pub fn get_row_id_at_position(
         &self,
         bounds: Rectangle,
         position: Point<f32>,
@@ -33,7 +33,7 @@ where
             })
     }
 
-    pub(in super::super) fn get_header_column_id_at_position(
+    pub fn get_header_column_id_at_position(
         &self,
         bounds: Rectangle,
         position: Point<f32>,
