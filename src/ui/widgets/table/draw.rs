@@ -10,7 +10,7 @@ use iced::{
 use itertools::izip;
 
 use crate::ui::widgets::table::{
-    BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table,
+    BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table, TableStyle,
     bounds::{
         get_effective_scroll_area_bounds, get_table_body_bounds, get_table_body_row_bounds,
         get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
@@ -34,7 +34,7 @@ where
         tree: &Tree,
         renderer: &mut Renderer,
         theme: &Theme,
-        _style: &renderer::Style,
+        style: &renderer::Style,
         layout: Layout<'_>,
         cursor: Cursor,
         viewport: &Rectangle,
@@ -46,7 +46,41 @@ where
 
         let table_style = theme.table_style(&self.class);
 
-        // Render background
+        self.draw_table_background(renderer, style, &table_style, layout);
+
+        self.draw_table_body(
+            state,
+            renderer,
+            theme,
+            style,
+            layout,
+            cursor,
+            viewport,
+            grid_bounds,
+        );
+
+        self.draw_table_header(
+            state,
+            renderer,
+            theme,
+            style,
+            &table_style,
+            layout,
+            cursor,
+            viewport,
+            grid_bounds,
+        );
+
+        self.draw_table_scroll(state, renderer, theme, style, cursor, bounds);
+    }
+
+    fn draw_table_background(
+        &self,
+        renderer: &mut Renderer,
+        _style: &renderer::Style,
+        table_style: &TableStyle,
+        layout: Layout<'_>,
+    ) {
         renderer.fill_quad(
             Quad {
                 bounds: layout.bounds(),
@@ -55,9 +89,19 @@ where
             },
             table_style.background,
         );
+    }
 
-        // Body
-
+    fn draw_table_body(
+        &self,
+        state: &State,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: Cursor,
+        viewport: &Rectangle,
+        grid_bounds: Rectangle,
+    ) {
         let mut body_cell_layouts = layout.children().skip(self.columns.len());
 
         let body_bounds = get_table_body_bounds(grid_bounds, self.header_height);
@@ -155,9 +199,20 @@ where
                 }
             }
         });
+    }
 
-        // Header
-
+    fn draw_table_header(
+        &self,
+        state: &State,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        table_style: &TableStyle,
+        layout: Layout<'_>,
+        cursor: Cursor,
+        viewport: &Rectangle,
+        grid_bounds: Rectangle,
+    ) {
         let header_cell_layouts = layout.children().take(self.columns.len());
 
         if self.has_header {
@@ -253,9 +308,17 @@ where
                 );
             });
         }
+    }
 
-        // Scrollbar
-
+    fn draw_table_scroll(
+        &self,
+        state: &State,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        _style: &renderer::Style,
+        cursor: Cursor,
+        bounds: Rectangle,
+    ) {
         let scroll_bounds = get_table_scroll_bounds(bounds, self.scroll_width);
 
         renderer.with_layer(scroll_bounds, |renderer| {
