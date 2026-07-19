@@ -76,7 +76,7 @@ where
 
         let click = state
             .mouse_interaction
-            .press_mouse_button(button, state.previous_click);
+            .press_mouse_button(button, state.previous_click.clone());
 
         #[allow(clippy::single_match)]
         match button {
@@ -131,8 +131,11 @@ where
         bounds: Rectangle,
         cursor_position: Point,
     ) {
-        if let Some(table_area) = state.mouse_interaction.area.as_ref()
-            && state.mouse_interaction.click.is_some()
+        if let Some(table_area) = state
+            .mouse_interaction
+            .click
+            .as_ref()
+            .and_then(|click| click.area.as_ref())
         {
             match table_area {
                 TableArea::Body { row_id: Some(_) } => {
