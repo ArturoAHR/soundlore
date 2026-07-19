@@ -24,6 +24,7 @@ use super::*;
 const APP_SIZE: Size = Size::new(1000.0, 1000.0);
 const BOUNDS: Rectangle = Rectangle::new(Point { x: 0.0, y: 0.0 }, APP_SIZE);
 const ROW_HEIGHT: f32 = 30.0;
+const COLUMN_WIDTHS: [f32; 5] = [48.0, 238.0, 238.0, 238.0, 238.0];
 const HEADER_HEIGHT: f32 = 35.0;
 const SCROLL_WIDTH: f32 = 12.0;
 const TEST_ROW_COUNT: f32 = 10000.0;
@@ -85,30 +86,34 @@ impl TestApp {
                 None,
                 |_test_data: &TestData| Space::new(),
             )
-            .width(50.0),
+            .width(COLUMN_WIDTHS[0]),
             column(
                 "test-name".to_owned(),
                 Some(text("Test Name").into()),
                 |test_data: &TestData| ellipsized_text(test_data.name.clone()),
             )
+            .width(COLUMN_WIDTHS[1])
             .resizable(true),
             column(
                 "test-description".to_owned(),
                 Some(text("Test Description").into()),
                 |test_data: &TestData| ellipsized_text(test_data.description.clone()),
             )
+            .width(COLUMN_WIDTHS[2])
             .resizable(true),
             column(
                 "test-data-1".to_owned(),
                 Some(text("Test Data 1").into()),
                 |test_data: &TestData| ellipsized_text(test_data.data.clone()),
             )
+            .width(COLUMN_WIDTHS[3])
             .resizable(true),
             column(
                 "test-data-2".to_owned(),
                 Some(text("Test Data 2").into()),
                 |test_data: &TestData| ellipsized_text(test_data.data.clone()),
             )
+            .width(COLUMN_WIDTHS[4])
             .resizable(true),
         ];
 
@@ -128,7 +133,29 @@ fn simulator(app: &TestApp) -> Simulator<'_, TestMessage, Theme, iced::Renderer>
     Simulator::with_size(Settings::default(), APP_SIZE, app.view())
 }
 
-fn get_middle_of_table_grid_y() -> f32 {
+fn point_and_click(
+    ui: &mut Simulator<'_, TestMessage, Theme, iced::Renderer>,
+    click_position: Point,
+) {
+    ui.point_at(click_position);
+
+    ui.simulate(click());
+}
+
+fn get_middle_of_headers_row_y() -> f32 {
+    HEADER_HEIGHT / 2.0
+}
+
+fn get_middle_of_header_cell_x(column_number: usize) -> f32 {
+    COLUMN_WIDTHS
+        .iter()
+        .copied()
+        .take(column_number)
+        .sum::<f32>()
+        - (COLUMN_WIDTHS[column_number - 1] / 2.0)
+}
+
+fn get_middle_of_table_grid_x() -> f32 {
     (APP_SIZE.width - SCROLL_WIDTH) / 2.0
 }
 
@@ -145,13 +172,23 @@ fn click_row_position(
     scroll_offset: f32,
 ) {
     let click_position = Point::new(
-        get_middle_of_table_grid_y(),
+        get_middle_of_table_grid_x(),
         get_clickable_row_height(visible_row_number, scroll_offset),
     );
 
-    ui.point_at(click_position);
+    point_and_click(ui, click_position);
+}
 
-    ui.simulate(click());
+fn click_header_position(
+    ui: &mut Simulator<'_, TestMessage, Theme, iced::Renderer>,
+    column_number: usize,
+) {
+    let click_position = Point::new(
+        get_middle_of_header_cell_x(column_number),
+        get_middle_of_headers_row_y(),
+    );
+
+    point_and_click(ui, click_position);
 }
 
 fn scroll_to_row_number(
@@ -235,6 +272,17 @@ fn assert_row_double_clicking_message(
     }
 }
 
+fn assert_header_clicking_message(message: &TestMessage, expected_column_id: &TableIdentifier) {
+    match message {
+        TestMessage::ColumnHeaderCellClicked(column_id) => {
+            assert_eq!(expected_column_id, column_id);
+        }
+        _ => {
+            unreachable!("Received unexpected events: {message:?}")
+        }
+    }
+}
+
 fn get_snapshot(ui: &mut Simulator<'_, TestMessage, Theme, iced::Renderer>) -> Snapshot {
     ui.snapshot(&Theme::default()).unwrap()
 }
@@ -279,6 +327,27 @@ fn should_double_click_first_row() {
 
     for message in ui.into_messages() {
         assert_row_double_clicking_message(&message, &expected_selected_rows, &first_row_id);
+
+        app.update(message);
+    }
+}
+
+#[test]
+fn should_click_second_header() {
+    let mut app = TestApp::new();
+
+    let mut ui = simulator(&app);
+
+    let column_number = 2;
+    let expected_column_id = "test-name".to_owned();
+    click_header_position(&mut ui, column_number);
+
+    let snapshot = get_snapshot(&mut ui);
+
+    assert_snapshot(&snapshot);
+
+    for message in ui.into_messages() {
+        assert_header_clicking_message(&message, &expected_column_id);
 
         app.update(message);
     }
