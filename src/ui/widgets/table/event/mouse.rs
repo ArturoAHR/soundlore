@@ -91,6 +91,7 @@ where
         let bounds = layout.bounds();
 
         if let Some(position) = cursor.position() {
+            state.mouse_interaction.position = position;
             state.mouse_interaction.area = self.get_position_table_area(state, bounds, position);
         }
 
