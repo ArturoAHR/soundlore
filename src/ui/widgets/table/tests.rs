@@ -2,7 +2,10 @@ use std::time::Instant;
 
 use iced::{Event, Point, Rectangle, Settings, Size, advanced::mouse, widget::text, window};
 use iced_palace::widget::ellipsized_text;
-use iced_test::{Simulator, simulator::click};
+use iced_test::{
+    Simulator,
+    simulator::{Snapshot, click},
+};
 use pretty_assertions::assert_eq;
 
 use crate::{
@@ -57,9 +60,9 @@ impl TestApp {
             rows: (0..TEST_ROW_COUNT as usize)
                 .map(|index| TestData {
                     id: (index + 1).to_string(),
-                    name: format!("Test Name {index}"),
-                    description: format!("Test Description {index}"),
-                    data: format!("Test Data {index}"),
+                    name: format!("Test Name {}", index + 1),
+                    description: format!("Test Description {}", index + 1),
+                    data: format!("Test Data {}", index + 1),
                 })
                 .collect(),
             selected_rows: HashSet::new(),
@@ -232,6 +235,10 @@ fn assert_row_double_clicking_message(
     }
 }
 
+fn get_snapshot(ui: &mut Simulator<'_, TestMessage, Theme, iced::Renderer>) -> Snapshot {
+    ui.snapshot(&Theme::default()).unwrap()
+}
+
 #[test]
 fn should_select_first_row() {
     let mut app = TestApp::new();
@@ -243,7 +250,7 @@ fn should_select_first_row() {
     let first_row_id = app.rows[0].id().clone();
     let expected_selected_rows = vec![first_row_id];
 
-    let snapshot = ui.snapshot(&Theme::default()).unwrap();
+    let snapshot = get_snapshot(&mut ui);
 
     assert_snapshot(&snapshot);
 
@@ -266,7 +273,7 @@ fn should_double_click_first_row() {
     let first_row_id = app.rows[0].id().clone();
     let expected_selected_rows = vec![first_row_id.clone()];
 
-    let snapshot = ui.snapshot(&Theme::default()).unwrap();
+    let snapshot = get_snapshot(&mut ui);
 
     assert_snapshot(&snapshot);
 
@@ -294,7 +301,7 @@ fn should_scroll_to_and_select_table_row_at_the_half_of_the_table() {
     let selected_row_id = app.rows[row_number - 1].id().clone();
     let expected_selected_rows = vec![selected_row_id.clone()];
 
-    let snapshot = ui.snapshot(&Theme::default()).unwrap();
+    let snapshot = get_snapshot(&mut ui);
 
     assert_snapshot(&snapshot);
 
@@ -303,4 +310,18 @@ fn should_scroll_to_and_select_table_row_at_the_half_of_the_table() {
 
         app.update(message);
     }
+}
+
+#[test]
+fn should_scroll_to_the_end_of_the_table() {
+    let app = TestApp::new();
+
+    let mut ui = simulator(&app);
+
+    let _scroll_offset = scroll_to_row_number(&mut ui, TEST_ROW_COUNT as usize, 0.0)
+        .unwrap_or_else(|| panic!("Could not scroll to the end of the table"));
+
+    let snapshot = get_snapshot(&mut ui);
+
+    assert_snapshot(&snapshot);
 }
