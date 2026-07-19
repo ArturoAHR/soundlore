@@ -22,7 +22,6 @@ mod bounds;
 mod draw;
 mod event;
 mod layout;
-mod mouse;
 mod scroll;
 pub mod state;
 pub mod style;

@@ -4,7 +4,7 @@ use crate::ui::{
     utils::select::{SelectOperation, select_values},
     widgets::table::{
         Catalog, Table,
-        mouse::TableArea,
+        event::mouse::TableArea,
         state::{Identifiable, State, TableIdentifier},
     },
 };

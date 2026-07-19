@@ -6,7 +6,7 @@ use crate::ui::widgets::table::{
         get_effective_scroll_area_bounds, get_table_body_bounds, get_table_grid_bounds,
         get_table_header_bounds, get_table_scroll_bounds,
     },
-    mouse::TableArea,
+    event::mouse::TableArea,
     scroll::get_scroll_thumb_bounds,
     state::{Identifiable, State, TableIdentifier},
 };
