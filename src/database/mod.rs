@@ -7,6 +7,7 @@ use crate::{
     config::DATABASE_FILE_NAME,
     database::migrations::{check_schema_version, run_pending_migrations},
     error::AppError,
+    file::utils::get_application_directory_name,
 };
 
 pub mod migrations;
@@ -26,23 +27,22 @@ pub async fn initialize_database() -> Result<SqlitePool, AppError> {
 }
 
 pub fn get_database_path() -> String {
-    let app_directory = if cfg!(debug_assertions) {
-        "soundlore-dev"
-    } else {
-        "soundlore"
-    };
+    let application_directory_name = get_application_directory_name();
 
-    let data_dir = dirs::data_dir()
+    let data_directory = dirs::data_dir()
         .unwrap_or_else(|| {
             error!("Failed to get user data directory.");
 
             panic!("Failed to get data directory");
         })
-        .join(app_directory);
+        .join(application_directory_name);
 
-    std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
+    std::fs::create_dir_all(&data_directory).expect("Failed to create data directory");
 
-    format!("sqlite:{}", data_dir.join(DATABASE_FILE_NAME).display())
+    format!(
+        "sqlite:{}",
+        data_directory.join(DATABASE_FILE_NAME).display()
+    )
 }
 
 #[instrument]

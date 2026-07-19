@@ -6,8 +6,13 @@ use std::io::stderr;
 use tracing::error;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
+use crate::file::utils::get_application_directory_name;
+
 pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuard> {
-    let log_directory = dirs::data_local_dir()?.join("soundlore").join("logs");
+    let application_directory_name = get_application_directory_name();
+    let log_directory = dirs::data_local_dir()?
+        .join(application_directory_name)
+        .join("logs");
     fs::create_dir_all(&log_directory).ok()?;
 
     let file_appender = tracing_appender::rolling::daily(&log_directory, "app.log");

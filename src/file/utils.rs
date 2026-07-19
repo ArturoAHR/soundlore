@@ -26,3 +26,11 @@ pub fn is_supported_track_file(path: &Path) -> bool {
         Some("mp3" | "flac" | "ogg" | "m4a" | "aac" | "wav" | "aiff")
     )
 }
+
+pub fn get_application_directory_name() -> String {
+    if cfg!(debug_assertions) {
+        "soundlore-dev".to_owned()
+    } else {
+        "soundlore".to_owned()
+    }
+}
