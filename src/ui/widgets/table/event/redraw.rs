@@ -20,7 +20,7 @@ where
         shell: &mut Shell<'_, Message>,
         _current_time: &Instant,
     ) {
-        if state.is_pending_layout_invalidation() {
+        if state.take_pending_layout_invalidation() {
             shell.invalidate_layout();
         }
     }

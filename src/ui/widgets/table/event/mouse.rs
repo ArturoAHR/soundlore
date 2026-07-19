@@ -114,7 +114,7 @@ where
             _ => {}
         }
 
-        if state.is_pending_redraw_request() {
+        if state.take_pending_redraw_request() {
             shell.request_redraw_at(window::RedrawRequest::NextFrame);
         }
     }
