@@ -15,7 +15,7 @@ where
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
-    pub(in super::super) fn handle_keyboard_event(
+    pub fn handle_keyboard_event(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,

@@ -6,7 +6,7 @@ use iced::{
     keyboard,
 };
 
-use crate::ui::widgets::table::mouse::MouseInteraction;
+use crate::ui::widgets::table::mouse::{MouseInteraction, TableArea};
 
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
 
@@ -40,7 +40,46 @@ pub struct State {
     /// Table and Window focus status.
     pub focus_state: FocusState,
 
-    pub last_layout_offset_y: f32,
+    pub last_layout_invalidation_state: LayoutState,
+
+    pub last_redraw_request_state: DrawState,
+}
+
+impl State {
+    /// Determines if we should request a redraw, it will automatically update the necessary
+    /// internal state on its own.
+    pub fn is_pending_redraw_request(&mut self) -> bool {
+        if self.last_redraw_request_state.mouse_interaction_area != self.mouse_interaction.area {
+            self.last_redraw_request_state.mouse_interaction_area =
+                self.mouse_interaction.area.clone();
+
+            return true;
+        }
+
+        false
+    }
+
+    /// Determines if we should invalidate the current layout, it will automatically update the necessary
+    /// internal state on its own.
+    pub fn is_pending_layout_invalidation(&mut self) -> bool {
+        if (self.last_layout_invalidation_state.offset_y - self.offset_y).abs() > 0.1 {
+            self.last_layout_invalidation_state.offset_y = self.offset_y;
+
+            return true;
+        }
+
+        false
+    }
+}
+
+#[derive(Default)]
+pub struct LayoutState {
+    offset_y: f32,
+}
+
+#[derive(Default)]
+pub struct DrawState {
+    mouse_interaction_area: Option<TableArea>,
 }
 
 pub struct FocusState {

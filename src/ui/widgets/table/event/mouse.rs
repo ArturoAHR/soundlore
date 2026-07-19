@@ -2,6 +2,7 @@ use iced::{
     Point, Rectangle,
     advanced::{Layout, Shell, renderer},
     mouse::{self, Cursor},
+    window,
 };
 
 use crate::ui::widgets::table::{
@@ -48,6 +49,10 @@ where
                 self.handle_mouse_cursor_moved(state, shell, bounds, position);
             }
             _ => {}
+        }
+
+        if state.is_pending_redraw_request() {
+            shell.request_redraw_at(window::RedrawRequest::NextFrame);
         }
     }
 

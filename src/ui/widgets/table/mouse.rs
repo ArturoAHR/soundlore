@@ -31,7 +31,7 @@ impl MouseInteraction {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TableArea {
     Header {
         column_id: Option<TableIdentifier>,

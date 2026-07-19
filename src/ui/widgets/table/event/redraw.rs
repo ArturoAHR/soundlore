@@ -20,10 +20,8 @@ where
         shell: &mut Shell<'_, Message>,
         _current_time: &Instant,
     ) {
-        if (state.last_layout_offset_y - state.offset_y).abs() > 0.1 {
+        if state.is_pending_layout_invalidation() {
             shell.invalidate_layout();
-
-            state.last_layout_offset_y = state.offset_y;
         }
     }
 }

@@ -72,6 +72,14 @@ where
                 return;
             };
 
+            if state
+                .selection_anchor_row_id
+                .as_ref()
+                .is_some_and(|selection_anchor_row_id| selection_anchor_row_id == row_id)
+            {
+                return;
+            }
+
             let row_ids = self.records.iter().map(Identifiable::id);
 
             let mut select_operation = SelectOperation::from_keyboard_modifiers(
@@ -80,10 +88,11 @@ where
                 state.selection_anchor_row_id.as_ref(),
             );
 
-            if matches!(
-                select_operation,
-                SelectOperation::Single { .. } | SelectOperation::Toggle { .. }
-            ) {
+            if matches!(select_operation, SelectOperation::Toggle { .. }) {
+                return;
+            }
+
+            if matches!(select_operation, SelectOperation::Single { .. }) {
                 select_operation = SelectOperation::Range {
                     target_value: row_id,
                     anchor_value: state.selection_anchor_row_id.as_ref(),
