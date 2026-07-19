@@ -15,7 +15,7 @@ use crate::{app, playback::Message};
 #[instrument]
 pub fn watch_default_device() -> impl Stream<Item = app::Message> {
     stream::channel(10, async |mut output| {
-        let mut current_device_id = (async || {
+        let mut current_device_id = (async {
             loop {
                 let Some(device_id) = get_default_output_device_id().await else {
                     tokio::time::sleep(Duration::from_secs(1)).await;
@@ -24,7 +24,7 @@ pub fn watch_default_device() -> impl Stream<Item = app::Message> {
 
                 return device_id;
             }
-        })()
+        })
         .await;
 
         loop {

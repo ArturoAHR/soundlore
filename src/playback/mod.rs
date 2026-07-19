@@ -76,7 +76,7 @@ pub struct GenerationCounter {
 }
 
 pub enum PlaybackControllerCommand {
-    Play(Track),
+    Play(Box<Track>),
     Stop,
     Pause,
     Resume,

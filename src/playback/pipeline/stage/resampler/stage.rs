@@ -38,7 +38,7 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration> for AudioPipelineRe
 
     fn is_enabled(&self, configuration: &AudioTrackPipelineConfiguration) -> bool {
         let input_sample_rate = configuration.track.sample_rate;
-        let output_sample_rate = configuration.output.sample_rate as i64;
+        let output_sample_rate = i64::from(configuration.output.sample_rate);
 
         input_sample_rate != output_sample_rate
     }

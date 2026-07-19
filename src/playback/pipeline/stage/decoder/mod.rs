@@ -10,7 +10,7 @@ use symphonia::{
         formats::{
             FormatOptions, FormatReader, SeekMode, SeekTo, SeekedTo, TrackType, probe::Hint,
         },
-        io::MediaSourceStream,
+        io::{MediaSourceStream, MediaSourceStreamOptions},
         meta::MetadataOptions,
         units::Timestamp,
     },
@@ -77,7 +77,8 @@ impl AudioDecoder {
     pub fn build(track: &Track) -> Result<Self, AudioDecoderError> {
         let track_file = File::open(&track.file_path)?;
 
-        let media_source_stream = MediaSourceStream::new(Box::new(track_file), Default::default());
+        let media_source_stream =
+            MediaSourceStream::new(Box::new(track_file), MediaSourceStreamOptions::default());
 
         let mut hint = Hint::new();
         hint.with_extension(&track.file_format);

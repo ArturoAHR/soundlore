@@ -27,7 +27,6 @@ pub struct AudioTrackPipeline {
     frames_delivered: u64,
 }
 
-#[derive(PartialEq)]
 pub enum AudioTrackPipelineStatus {
     Ready,
     ProducingSamples,
@@ -155,17 +154,18 @@ impl AudioTrackPipeline {
 
                         self.frames_decoded +=
                             samples.len() as u64 / self.configuration.track.channels as u64;
-                    };
+                    }
                 }
                 AudioTrackPipelineStage::Process(stage) => {
                     if stage.is_enabled(&self.configuration) {
                         samples = stage.process_stage(&self.configuration, samples)?;
                     }
                 }
-            };
+            }
         }
 
-        self.frames_delivered += samples.len() as u64 / self.configuration.output.channels as u64;
+        self.frames_delivered +=
+            samples.len() as u64 / u64::from(self.configuration.output.channels);
 
         trace!(
             frames_delivered = samples.len() / self.configuration.output.channels as usize,

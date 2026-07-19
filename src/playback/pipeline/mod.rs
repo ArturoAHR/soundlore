@@ -74,7 +74,7 @@ pub struct AudioPipeline {
     generation_counter: Arc<GenerationCounter>,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum AudioPipelineStatus {
     Idle,
     Active,
@@ -160,7 +160,7 @@ impl AudioPipeline {
             AudioTrackPipelineStatus::Finished => {
                 if self.audio_sink.is_empty()
                     && self.audio_sink.is_engine_buffer_empty()
-                    && self.status == AudioPipelineStatus::Idle
+                    && matches!(self.status, AudioPipelineStatus::Idle)
                 {
                     let track = audio_track_pipeline.configuration.track.clone();
 
@@ -264,17 +264,18 @@ impl AudioPipeline {
     fn increase_generation_counter(&mut self, decoder_timestamp: u64) {
         self.audio_sink.clear();
 
-        let timestamp_offset =
-            if let Some(audio_track_pipeline) = self.audio_track_pipelines.first() {
-                let resample_ratio = self.configuration.output.sample_rate as f64
-                    / audio_track_pipeline.configuration.track.sample_rate as f64;
+        let timestamp_offset = if let Some(audio_track_pipeline) =
+            self.audio_track_pipelines.first()
+        {
+            let resample_ratio = f64::from(self.configuration.output.sample_rate)
+                / audio_track_pipeline.configuration.track.sample_rate as f64;
 
-                let output_channels = self.configuration.output.channels;
+            let output_channels = self.configuration.output.channels;
 
-                (decoder_timestamp as f64 * resample_ratio).round() as u64 * output_channels as u64
-            } else {
-                0
-            };
+            (decoder_timestamp as f64 * resample_ratio).round() as u64 * u64::from(output_channels)
+        } else {
+            0
+        };
 
         self.samples_played_timestamp_offset
             .store(timestamp_offset, Ordering::Relaxed);
@@ -311,7 +312,7 @@ impl AudioPipeline {
                 let output_format = &self.configuration.output;
 
                 let sleep_duration_milliseconds =
-                    ((SAMPLE_BUFFER_CAPACITY as f32 / output_format.channels as f32) * 1000.0
+                    ((SAMPLE_BUFFER_CAPACITY as f32 / f32::from(output_format.channels)) * 1000.0
                         / output_format.sample_rate as f32)
                         * 0.5;
 
@@ -333,7 +334,10 @@ impl AudioPipeline {
             return Ok(AudioPipelineProcessDirective::Continue);
         };
 
-        if audio_track_pipeline.status == AudioTrackPipelineStatus::Finished {
+        if matches!(
+            audio_track_pipeline.status,
+            AudioTrackPipelineStatus::Finished
+        ) {
             if self.audio_sink.is_empty() && self.audio_sink.is_engine_buffer_empty() {
                 self.configuration
                     .event_emitter

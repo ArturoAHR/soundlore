@@ -55,8 +55,8 @@ impl App {
 
                 let current_position = self.playback_controller.get_current_track_samples_played()
                     as f64
-                    * (track.sample_rate as f64 / output_format.sample_rate as f64)
-                    / output_format.channels as f64;
+                    * (track.sample_rate as f64 / f64::from(output_format.sample_rate))
+                    / f64::from(output_format.channels);
 
                 Task::done(app::Message::PlaybackBar(
                     playback_bar::Message::PlaybackProgressed(current_position),

@@ -41,7 +41,7 @@ impl PlaybackController {
         match audio_pipeline_event {
             AudioPipelineThreadEvent::StartedAudioPipeline => {
                 #[allow(clippy::collapsible_if)]
-                if *self.playback_engine.status() == PlaybackEngineStatus::Paused {
+                if matches!(*self.playback_engine.status(), PlaybackEngineStatus::Paused) {
                     if let Err(error) = self.playback_engine.play() {
                         error!(
                             "Could not start playback engine after decode thread started producing samples: {error}"
@@ -55,7 +55,10 @@ impl PlaybackController {
             }
             AudioPipelineThreadEvent::StoppedAudioPipeline => {
                 #[allow(clippy::collapsible_if)]
-                if *self.playback_engine.status() == PlaybackEngineStatus::Playing {
+                if matches!(
+                    *self.playback_engine.status(),
+                    PlaybackEngineStatus::Playing
+                ) {
                     if let Err(error) = self.playback_engine.pause() {
                         error!(
                             "Could not pause playback engine after decode thread stopped producing samples: {error}"

@@ -95,7 +95,7 @@ pub trait PlaybackEngine {
     fn status(&self) -> &PlaybackEngineStatus;
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlaybackEngineStatus {
     Playing,
     Paused,
@@ -127,7 +127,7 @@ impl AudioEngine {
         self.status = status;
 
         self.paused.store(
-            self.status == PlaybackEngineStatus::Paused,
+            matches!(self.status, PlaybackEngineStatus::Paused),
             Ordering::Relaxed,
         );
     }
@@ -180,7 +180,7 @@ impl PlaybackEngine for AudioEngine {
     fn pause(&mut self) -> Result<(), PlaybackEngineError> {
         if self.stream.is_none() {
             return Err(PlaybackEngineError::MissingStream);
-        };
+        }
 
         self.set_status(PlaybackEngineStatus::Paused);
 
@@ -191,7 +191,7 @@ impl PlaybackEngine for AudioEngine {
     fn play(&mut self) -> Result<(), PlaybackEngineError> {
         if self.stream.is_none() {
             return Err(PlaybackEngineError::MissingStream);
-        };
+        }
 
         self.set_status(PlaybackEngineStatus::Playing);
 
@@ -200,5 +200,11 @@ impl PlaybackEngine for AudioEngine {
 
     fn status(&self) -> &PlaybackEngineStatus {
         &self.status
+    }
+}
+
+impl Default for AudioEngine {
+    fn default() -> Self {
+        Self::new()
     }
 }

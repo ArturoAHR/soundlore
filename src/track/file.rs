@@ -97,7 +97,7 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
     let duration_secs = track
         .num_frames
         .zip(codec_params.sample_rate)
-        .map(|(frames, rate)| frames as f64 / rate as f64)
+        .map(|(frames, rate)| frames as f64 / f64::from(rate))
         .ok_or(TrackPropertiesReadError::MissingDuration)?;
 
     // TODO: Get frame count from decoding if num_frames isn't populated.
@@ -112,7 +112,7 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
 
     let sample_rate = codec_params
         .sample_rate
-        .map(|s| s as i64)
+        .map(i64::from)
         .ok_or(TrackPropertiesReadError::MissingSampleRate)?;
     let channels = codec_params
         .channels
@@ -120,7 +120,7 @@ pub fn read_track_properties(path: &Path) -> Result<TrackProperties, TrackProper
         .map(|c| c.count() as i64)
         .ok_or(TrackPropertiesReadError::MissingChannels)?;
 
-    let bit_depth = codec_params.bits_per_sample.map(|b| b as i64);
+    let bit_depth = codec_params.bits_per_sample.map(i64::from);
     let bitrate_kbps = if duration_secs > 0.0 {
         Some(((file_size_bytes as f64 * 8.0) / duration_secs / 1000.0).round() as i64)
     } else {
@@ -216,7 +216,7 @@ fn extract_revision_tags(tags: &Vec<Tag>, track_properties: &mut TrackProperties
                     track_properties.disc_total = Some(*value as i64);
                 }
                 StandardTag::RecordingYear(value) if track_properties.year.is_none() => {
-                    track_properties.year = Some(*value as i64);
+                    track_properties.year = Some(i64::from(*value));
                 }
                 StandardTag::RecordingDate(value) | StandardTag::ReleaseDate(value)
                     if track_properties.year.is_none() =>

@@ -27,7 +27,7 @@ impl AudioPipelineBaseStage<AudioTrackPipelineConfiguration>
 {
     fn is_enabled(&self, configuration: &AudioTrackPipelineConfiguration) -> bool {
         let input_channels = configuration.track.channels;
-        let output_channels = configuration.output.channels as i64;
+        let output_channels = i64::from(configuration.output.channels);
 
         if input_channels == output_channels {
             return false;

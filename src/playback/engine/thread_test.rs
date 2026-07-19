@@ -1,3 +1,6 @@
+#![allow(clippy::float_cmp)]
+// TODO: Implement a robust epsilon based assert comparison for tests with floats.
+
 use cpal::{OutputStreamTimestamp, StreamInstant};
 use pretty_assertions::assert_eq;
 use rtrb::{Producer, RingBuffer};

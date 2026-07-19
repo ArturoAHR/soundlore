@@ -294,3 +294,9 @@ impl PlaybackBar {
         .into()
     }
 }
+
+impl Default for PlaybackBar {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -127,3 +127,9 @@ impl MainPane {
         .into()
     }
 }
+
+impl Default for MainPane {
+    fn default() -> Self {
+        Self::new()
+    }
+}

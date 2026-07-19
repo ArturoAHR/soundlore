@@ -46,7 +46,7 @@ where
 
         let table_style = theme.table_style(&self.class);
 
-        self.draw_table_background(renderer, style, &table_style, layout);
+        Self::draw_table_background(renderer, style, &table_style, layout);
 
         self.draw_table_body(
             state,
@@ -75,7 +75,6 @@ where
     }
 
     fn draw_table_background(
-        &self,
         renderer: &mut Renderer,
         _style: &renderer::Style,
         table_style: &TableStyle,
@@ -91,6 +90,7 @@ where
         );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_table_body(
         &self,
         state: &State,
@@ -207,6 +207,7 @@ where
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_table_header(
         &self,
         state: &State,
