@@ -1,13 +1,11 @@
-use iced::{
-    Point, Rectangle,
-    advanced::{Shell, mouse::click, renderer},
-};
+use iced::advanced::{Shell, mouse::click, renderer};
 
 use crate::ui::{
     utils::select::{SelectOperation, select_values},
     widgets::table::{
         Catalog, Table,
-        state::{Identifiable, State},
+        mouse::TableArea,
+        state::{Identifiable, State, TableIdentifier},
     },
 };
 
@@ -21,17 +19,10 @@ where
     pub fn handle_mouse_header_click(
         &self,
         shell: &mut Shell<'_, Message>,
-        bounds: Rectangle,
-        cursor_position: Point,
+        column_id: TableIdentifier,
     ) {
-        let Some(clicked_column_id) =
-            self.get_header_column_id_at_position(bounds, cursor_position)
-        else {
-            return;
-        };
-
         if let Some(on_header_cell_click) = self.on_header_cell_click.as_ref() {
-            shell.publish(on_header_cell_click(clicked_column_id));
+            shell.publish(on_header_cell_click(column_id));
             shell.capture_event();
         }
     }
@@ -40,14 +31,9 @@ where
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
-        bounds: Rectangle,
-        cursor_position: Point,
+        row_id: TableIdentifier,
         click_kind: click::Kind,
     ) {
-        let Some(clicked_row_id) = self.get_row_id_at_position(bounds, cursor_position) else {
-            return;
-        };
-
         if let Some(on_row_select) = self.on_row_select.as_ref() {
             shell.capture_event();
 
@@ -58,7 +44,7 @@ where
                 self.selected_rows.iter(),
                 SelectOperation::from_keyboard_modifiers(
                     state.keyboard_modifiers,
-                    clicked_row_id,
+                    &row_id,
                     state.selection_anchor_row_id.as_ref(),
                 ),
             );
@@ -71,21 +57,17 @@ where
         if let Some(on_row_double_click) = self.on_row_double_click.as_ref()
             && matches!(click_kind, click::Kind::Double)
         {
-            shell.publish(on_row_double_click(clicked_row_id.to_owned()));
+            shell.publish(on_row_double_click(row_id));
             shell.capture_event();
         }
     }
 
-    pub fn handle_mouse_row_drag(
-        &self,
-        state: &mut State,
-        shell: &mut Shell<'_, Message>,
-        bounds: Rectangle,
-        cursor_position: Point,
-    ) {
+    pub fn handle_mouse_row_drag(&self, state: &mut State, shell: &mut Shell<'_, Message>) {
+        // TODO (v2): Add scroll on moving the mouse up or down the table body past a certain threshold
         if let Some(on_row_select) = self.on_row_select.as_ref() {
-            let Some(current_position_row_id) =
-                self.get_row_id_at_position(bounds, cursor_position)
+            let Some(TableArea::Body {
+                row_id: Some(row_id),
+            }) = state.mouse_interaction.area.as_ref()
             else {
                 return;
             };
@@ -94,7 +76,7 @@ where
 
             let mut select_operation = SelectOperation::from_keyboard_modifiers(
                 state.keyboard_modifiers,
-                current_position_row_id,
+                row_id,
                 state.selection_anchor_row_id.as_ref(),
             );
 
@@ -103,7 +85,7 @@ where
                 SelectOperation::Single { .. } | SelectOperation::Toggle { .. }
             ) {
                 select_operation = SelectOperation::Range {
-                    target_value: current_position_row_id,
+                    target_value: row_id,
                     anchor_value: state.selection_anchor_row_id.as_ref(),
                 }
             }

@@ -2,11 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use iced::{
     Element,
-    advanced::{renderer, widget::Tree},
+    advanced::{mouse::Click, renderer, widget::Tree},
     keyboard,
 };
 
-use crate::ui::widgets::table::mouse::TableClick;
+use crate::ui::widgets::table::mouse::MouseInteraction;
 
 pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
 
@@ -29,10 +29,10 @@ pub struct State {
     pub selection_anchor_row_id: Option<TableIdentifier>,
 
     /// Last mouse click (used to determine double clicks).
-    pub previous_click: Option<TableClick>,
+    pub previous_click: Option<Click>,
 
     /// Tracks the start point of a dragging action.
-    pub current_click: Option<TableClick>,
+    pub mouse_interaction: MouseInteraction,
 
     /// Currently pressed keyboard modifiers.
     pub keyboard_modifiers: keyboard::Modifiers,

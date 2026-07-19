@@ -6,7 +6,7 @@ use iced::{
 
 use crate::ui::widgets::table::{
     Catalog, Table,
-    mouse::{TableArea, TableClick},
+    mouse::TableArea,
     state::{Identifiable, State},
 };
 
@@ -26,6 +26,10 @@ where
         event: mouse::Event,
     ) {
         let bounds = layout.bounds();
+
+        if let Some(position) = cursor.position() {
+            state.mouse_interaction.area = self.get_position_table_area(state, bounds, position);
+        }
 
         match event {
             mouse::Event::WheelScrolled { delta } => {
@@ -65,34 +69,27 @@ where
         state.focus_state.widget = true;
         state.focus_state.window = true;
 
+        let click = state
+            .mouse_interaction
+            .press_mouse_button(button, state.previous_click);
+
+        #[allow(clippy::single_match)]
         match button {
             mouse::Button::Left => {
-                let table_click = self.get_table_click(
-                    bounds,
-                    state.offset_y,
-                    state.previous_click,
-                    cursor_position,
-                    mouse::Button::Left,
-                );
-
-                state.current_click = Some(table_click);
-
-                let Some(clicked_area) = table_click.table_area else {
+                let Some(clicked_area) = state.mouse_interaction.area.as_ref() else {
                     return;
                 };
 
                 match clicked_area {
-                    TableArea::Header => {
-                        self.handle_mouse_header_click(shell, bounds, cursor_position);
+                    TableArea::Header {
+                        column_id: Some(column_id),
+                    } => {
+                        self.handle_mouse_header_click(shell, column_id.clone());
                     }
-                    TableArea::Body => {
-                        self.handle_mouse_row_click(
-                            state,
-                            shell,
-                            bounds,
-                            cursor_position,
-                            table_click.click.kind(),
-                        );
+                    TableArea::Body {
+                        row_id: Some(row_id),
+                    } => {
+                        self.handle_mouse_row_click(state, shell, row_id.clone(), click.kind());
                     }
                     TableArea::Scroll {
                         scroll_area_offset: Some(scroll_area_offset),
@@ -102,7 +99,7 @@ where
                             shell,
                             bounds,
                             cursor_position,
-                            scroll_area_offset,
+                            *scroll_area_offset,
                         );
                     }
                     _ => {}
@@ -114,13 +111,9 @@ where
     }
 
     pub fn handle_mouse_button_release(&self, state: &mut State, shell: &mut Shell<'_, Message>) {
-        state.previous_click = state.current_click.take();
+        state.previous_click = state.mouse_interaction.release_mouse_button();
 
-        if state
-            .previous_click
-            .iter()
-            .any(|click| click.table_area.is_some())
-        {
+        if state.mouse_interaction.area.is_some() {
             shell.request_redraw();
             shell.capture_event();
         }
@@ -133,16 +126,12 @@ where
         bounds: Rectangle,
         cursor_position: Point,
     ) {
-        if let Some(mut current_table_click) = state.current_click
-            && let Some(table_area) = current_table_click.table_area
+        if let Some(table_area) = state.mouse_interaction.area.as_ref()
+            && state.mouse_interaction.click.is_some()
         {
-            current_table_click.current_position = cursor_position;
-            state.current_click = Some(current_table_click);
-
             match table_area {
-                TableArea::Body => {
-                    // TODO (v2): Add scroll on moving the mouse up or down the table body past a certain threshold
-                    self.handle_mouse_row_drag(state, shell, bounds, cursor_position);
+                TableArea::Body { row_id: Some(_) } => {
+                    self.handle_mouse_row_drag(state, shell);
                 }
                 TableArea::Scroll {
                     scroll_area_offset: Some(scroll_area_offset),
@@ -152,7 +141,7 @@ where
                         shell,
                         bounds,
                         cursor_position,
-                        scroll_area_offset,
+                        *scroll_area_offset,
                     );
                 }
                 TableArea::ScrollThumb {
@@ -164,32 +153,12 @@ where
                         shell,
                         bounds,
                         cursor_position,
-                        scroll_area_start_offset,
-                        scroll_area_end_offset,
+                        *scroll_area_start_offset,
+                        *scroll_area_end_offset,
                     );
                 }
                 _ => {}
             }
         }
-    }
-
-    pub fn get_table_click(
-        &self,
-        bounds: Rectangle,
-        scroll_offset: f32,
-        previous_table_click: Option<TableClick>,
-        cursor_position: Point,
-        button: mouse::Button,
-    ) -> TableClick {
-        let table_area = TableArea::get_position_table_area(
-            cursor_position,
-            bounds,
-            self.header_height,
-            self.scroll_width,
-            self.row_height * self.records.len() as f32,
-            scroll_offset,
-        );
-
-        TableClick::new(cursor_position, button, table_area, previous_table_click)
     }
 }

@@ -1,61 +1,44 @@
-use iced::{Point, Rectangle, advanced::mouse::Click, mouse};
-
-use crate::ui::widgets::table::{
-    bounds::{
-        get_effective_scroll_area_bounds, get_table_body_bounds, get_table_grid_bounds,
-        get_table_header_bounds, get_table_scroll_bounds,
-    },
-    scroll::get_scroll_thumb_bounds,
+use iced::{
+    Point,
+    advanced::mouse::Click,
+    mouse::{self},
 };
 
-#[derive(Debug, Clone, Copy)]
-pub struct TableClick {
-    pub table_area: Option<TableArea>,
-    pub current_position: Point,
-    pub click: Click,
+use crate::ui::widgets::table::state::TableIdentifier;
+
+#[derive(Debug, Clone, Default)]
+pub struct MouseInteraction {
+    pub area: Option<TableArea>,
+    pub position: Point,
+    pub click: Option<Click>,
 }
 
-impl TableClick {
-    pub fn new(
-        position: Point,
-        button: mouse::Button,
-        table_area: Option<TableArea>,
-        previous_table_click: Option<Self>,
-    ) -> Self {
-        let click = Click::new(
-            position,
-            button,
-            previous_table_click.map(|table_click| table_click.click),
-        );
+impl MouseInteraction {
+    pub fn press_mouse_button(
+        &mut self,
+        mouse_button: mouse::Button,
+        previous_click: Option<Click>,
+    ) -> Click {
+        let click = Click::new(self.position, mouse_button, previous_click);
 
-        Self {
-            click,
-            current_position: position,
-            table_area,
-        }
+        self.click = Some(click);
+
+        click
     }
 
-    pub fn get_current_position_delta(&self, position: Point) -> Point {
-        Point {
-            x: self.current_position.x - position.x,
-            y: self.current_position.y - position.y,
-        }
-    }
-
-    pub fn get_initial_position_delta(&self, position: Point) -> Point {
-        let initial_position = self.click.position();
-
-        Point {
-            x: initial_position.x - position.x,
-            y: initial_position.y - position.y,
-        }
+    pub fn release_mouse_button(&mut self) -> Option<Click> {
+        self.click.take()
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum TableArea {
-    Header,
-    Body,
+    Header {
+        column_id: Option<TableIdentifier>,
+    },
+    Body {
+        row_id: Option<TableIdentifier>,
+    },
     Scroll {
         scroll_area_offset: Option<f32>,
     },
@@ -63,58 +46,4 @@ pub enum TableArea {
         scroll_area_start_offset: f32,
         scroll_area_end_offset: f32,
     },
-}
-
-impl TableArea {
-    pub fn get_position_table_area(
-        position: Point,
-        bounds: Rectangle,
-        header_height: f32,
-        scroll_width: f32,
-        total_scrollable_content_height: f32,
-        scroll_offset: f32,
-    ) -> Option<Self> {
-        let grid_bounds = get_table_grid_bounds(bounds, scroll_width);
-        let header_bounds = get_table_header_bounds(grid_bounds, header_height);
-        let body_bounds = get_table_body_bounds(grid_bounds, header_height);
-        let scroll_bounds = get_table_scroll_bounds(bounds, scroll_width);
-        let effective_scroll_area_bounds =
-            get_effective_scroll_area_bounds(scroll_bounds, header_height);
-        let scroll_thumb_bounds = get_scroll_thumb_bounds(
-            effective_scroll_area_bounds,
-            total_scrollable_content_height,
-            scroll_offset,
-        );
-
-        if header_bounds.contains(position) {
-            return Some(Self::Header);
-        }
-
-        if body_bounds.contains(position) {
-            return Some(Self::Body);
-        }
-
-        if let Some(scroll_thumb_bounds) = scroll_thumb_bounds
-            && scroll_thumb_bounds.contains(position)
-        {
-            let scroll_area_start_offset = position.y - scroll_thumb_bounds.y;
-            let scroll_area_end_offset = scroll_thumb_bounds.height - scroll_area_start_offset;
-
-            return Some(Self::ScrollThumb {
-                scroll_area_start_offset,
-                scroll_area_end_offset,
-            });
-        }
-
-        if scroll_bounds.contains(position) {
-            return Some(Self::Scroll {
-                scroll_area_offset: scroll_thumb_bounds.map_or_else(
-                    || None,
-                    |scroll_thumb_bounds| Some(scroll_thumb_bounds.height / 2.0),
-                ),
-            });
-        }
-
-        None
-    }
 }
