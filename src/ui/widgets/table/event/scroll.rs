@@ -56,14 +56,15 @@ where
         cursor_position: Point,
         scroll_area_offset: f32,
     ) {
-        self.derive_apply_scroll_offset_from_cursor_position(
-            state,
-            shell,
+        state.offset_y = self.get_scroll_offset(
             bounds,
-            cursor_position,
+            cursor_position.y,
             scroll_area_offset,
             scroll_area_offset,
         );
+
+        shell.request_redraw_at(window::RedrawRequest::NextFrame);
+        shell.capture_event();
     }
 
     pub fn handle_mouse_scroll_drag(
@@ -74,36 +75,18 @@ where
         cursor_position: Point,
         scroll_area_offset: f32,
     ) {
-        self.derive_apply_scroll_offset_from_cursor_position(
-            state,
-            shell,
+        state.offset_y = self.get_scroll_offset(
             bounds,
-            cursor_position,
+            cursor_position.y,
             scroll_area_offset,
             scroll_area_offset,
         );
+
+        shell.request_redraw_at(window::RedrawRequest::NextFrame);
+        shell.capture_event();
     }
 
     pub fn handle_mouse_scroll_thumb_drag(
-        &self,
-        state: &mut State,
-        shell: &mut Shell<'_, Message>,
-        bounds: Rectangle,
-        cursor_position: Point,
-        scroll_area_start_offset: f32,
-        scroll_area_end_offset: f32,
-    ) {
-        self.derive_apply_scroll_offset_from_cursor_position(
-            state,
-            shell,
-            bounds,
-            cursor_position,
-            scroll_area_start_offset,
-            scroll_area_end_offset,
-        );
-    }
-
-    fn derive_apply_scroll_offset_from_cursor_position(
         &self,
         state: &mut State,
         shell: &mut Shell<'_, Message>,
