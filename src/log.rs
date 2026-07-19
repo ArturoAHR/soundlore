@@ -1,4 +1,7 @@
-use std::{error::Error, fs, io::stderr};
+use std::{error::Error, fs};
+
+#[cfg(debug_assertions)]
+use std::io::stderr;
 
 use tracing::error;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
@@ -18,6 +21,7 @@ pub fn initialize_logging() -> Option<tracing_appender::non_blocking::WorkerGuar
         .with_line_number(true)
         .with_filter(get_filter());
 
+    #[cfg(debug_assertions)]
     let console_layer = tracing_subscriber::fmt::layer()
         .with_writer(stderr)
         .with_ansi(true)
