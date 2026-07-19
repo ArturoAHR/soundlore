@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
+use sqlx::{SqlitePool, sqlite::SqliteConnectOptions};
 use tracing::{debug, error, info, instrument};
 
 use crate::{
@@ -26,13 +26,19 @@ pub async fn initialize_database() -> Result<SqlitePool, AppError> {
 }
 
 pub fn get_database_path() -> String {
+    let app_directory = if cfg!(debug_assertions) {
+        "soundlore-dev"
+    } else {
+        "soundlore"
+    };
+
     let data_dir = dirs::data_dir()
         .unwrap_or_else(|| {
             error!("Failed to get user data directory.");
 
             panic!("Failed to get data directory");
         })
-        .join("soundlore");
+        .join(app_directory);
 
     std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
 
