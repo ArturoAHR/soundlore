@@ -1,0 +1,7 @@
+[env]
+_.file = ".env"
+
+[tools]
+just = "latest"
+cocogitto = "latest"
+typos = "latest"

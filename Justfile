@@ -4,6 +4,10 @@ set dotenv-load
 run:
   cargo run --features development
 
+# Setup development environment
+setup:
+    cog install-hook --all
+
 # Hot Reload
 watch:
   cargo watch -i "target/*" -i "*.log" -x check -x "run --features development"
