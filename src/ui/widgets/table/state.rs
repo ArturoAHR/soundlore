@@ -82,6 +82,7 @@ pub struct DrawState {
     mouse_interaction_area: Option<TableArea>,
 }
 
+#[derive(Debug)]
 pub struct FocusState {
     pub widget: bool,
     pub window: bool,
