@@ -37,12 +37,12 @@ const TEST_ROW_COUNT: f32 = 10000.0;
 
 struct TestApp {
     rows: Vec<TestData>,
-    selected_rows: HashSet<<TestData as Identifiable>::Identifier>,
+    selected_rows: FxHashSet<<TestData as Identifiable>::Identifier>,
 }
 
 #[derive(Debug, Clone)]
 enum TestMessage {
-    RowSelected(HashSet<<TestData as Identifiable>::Identifier>),
+    RowSelected(FxHashSet<<TestData as Identifiable>::Identifier>),
     RowDoubleClicked(<TestData as Identifiable>::Identifier),
     ColumnHeaderCellClicked(i64),
 }
@@ -80,7 +80,7 @@ impl TestApp {
                     data: format!("Test Data {}", index + 1),
                 })
                 .collect(),
-            selected_rows: HashSet::new(),
+            selected_rows: FxHashSet::default(),
         }
     }
 

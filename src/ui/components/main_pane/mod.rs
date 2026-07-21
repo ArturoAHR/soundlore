@@ -1,10 +1,9 @@
-use std::collections::HashSet;
-
 use iced::{
     Element, Length, Renderer, Task, alignment,
     widget::{container, text},
 };
 use iced_palace::widget::ellipsized_text;
+use rustc_hash::FxHashSet;
 use tracing::instrument;
 
 use crate::{
@@ -22,13 +21,13 @@ pub mod handler;
 
 #[derive(Debug)]
 pub struct MainPane {
-    pub selected_track_ids: HashSet<i64>,
+    pub selected_track_ids: FxHashSet<i64>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     TrackRowDoubleClicked(i64),
-    TrackRowSelected(HashSet<i64>),
+    TrackRowSelected(FxHashSet<i64>),
     ColumnHeaderCellClicked(TrackTableColumn),
 }
 
@@ -51,7 +50,7 @@ pub struct MainPaneUpdateContext {}
 impl MainPane {
     pub fn new() -> Self {
         Self {
-            selected_track_ids: HashSet::new(),
+            selected_track_ids: FxHashSet::default(),
         }
     }
 

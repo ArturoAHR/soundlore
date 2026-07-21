@@ -1,11 +1,11 @@
 use std::{
     cmp::{max, min},
-    collections::HashSet,
     hash::Hash,
     iter,
 };
 
 use iced::keyboard;
+use rustc_hash::FxHashSet;
 
 #[derive(Debug)]
 pub enum SelectOperation<'a, T> {
@@ -130,7 +130,7 @@ where
 
             let (anchor_value, anchor_value_index) = get_anchor(values.clone(), anchor_value);
 
-            let mut new_selected_row_ids: HashSet<T> = current_selected_values.cloned().collect();
+            let mut new_selected_row_ids: FxHashSet<T> = current_selected_values.cloned().collect();
 
             let start_index = min(target_value_index, anchor_value_index);
             let end_index = max(target_value_index, anchor_value_index);
@@ -209,7 +209,7 @@ mod tests {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn assert_selected_values(selected_values: HashSet<String>, expected_selected_values: &str) {
+    fn assert_selected_values(selected_values: FxHashSet<String>, expected_selected_values: &str) {
         assert_eq!(
             selected_values.len(),
             expected_selected_values.len(),
@@ -295,7 +295,7 @@ mod tests {
     fn should_get_selected_rows_without_modifiers() {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "a".to_owned();
 
@@ -355,7 +355,7 @@ mod tests {
     fn should_get_selected_rows_with_control_modifier_to_select() {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "a".to_owned();
 
@@ -437,7 +437,7 @@ mod tests {
     fn should_get_selected_rows_with_shift_modifier_to_select() {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "a".to_owned();
         let anchor_value = Some("c".to_owned());
@@ -503,7 +503,7 @@ mod tests {
     fn should_get_selected_rows_with_shift_modifier_when_anchor_row_id_is_not_in_row_ids() {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "c".to_owned();
         let anchor_value = Some("!".to_owned());
@@ -525,7 +525,7 @@ mod tests {
     fn should_get_selected_rows_with_control_and_shift_modifier() {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "a".to_owned();
         let anchor_value = Some("c".to_owned());
@@ -614,7 +614,7 @@ mod tests {
     fn should_get_selected_rows_with_control_and_shift_modifier_selecting_the_whole_table() {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "a".to_owned();
         let anchor_value = Some("z".to_owned());
@@ -660,7 +660,7 @@ mod tests {
      {
         let values = get_values();
 
-        let selected_values: HashSet<String> = HashSet::new();
+        let selected_values: FxHashSet<String> = FxHashSet::default();
 
         let target_value = "c".to_owned();
         let anchor_value = Some("!".to_owned());

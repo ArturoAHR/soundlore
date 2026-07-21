@@ -1,6 +1,7 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
 
 use iced::advanced::{Shell, mouse::click, renderer};
+use rustc_hash::FxHashSet;
 
 use crate::{
     traits::Identifiable,
@@ -34,7 +35,7 @@ where
         click_kind: click::Kind,
     ) {
         if let Some(on_row_select) = self.on_row_select.as_ref() {
-            let empty_selection = HashSet::new();
+            let empty_selection = FxHashSet::default();
             let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
             let row_ids = self.records.iter().map(Identifiable::id);
@@ -70,7 +71,7 @@ where
     ) {
         // TODO (v2): Add scroll on moving the mouse up or down the table body past a certain threshold
         if let Some(on_row_select) = self.on_row_select.as_ref() {
-            let empty_selection = HashSet::new();
+            let empty_selection = FxHashSet::default();
             let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
             let Some(TableArea::Body {
@@ -124,7 +125,7 @@ where
         if let Some(on_row_select) = self.on_row_select.as_ref()
             && state.focus_state.is_focused()
         {
-            let empty_selection = HashSet::new();
+            let empty_selection = FxHashSet::default();
             let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
             let row_ids = self.records.iter().map(Identifiable::id);

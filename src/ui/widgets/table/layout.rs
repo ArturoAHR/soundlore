@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
 
 use iced::{
     Point, Size,
@@ -9,6 +9,7 @@ use iced::{
     },
 };
 use itertools::izip;
+use rustc_hash::FxHashSet;
 
 use crate::{
     traits::Identifiable,
@@ -134,7 +135,7 @@ where
             }
         }
 
-        let mut row_ids: HashSet<&T::Identifier> = HashSet::new();
+        let mut row_ids: FxHashSet<&T::Identifier> = FxHashSet::default();
 
         let header_row_id = T::header_row_id();
         if self.has_header {

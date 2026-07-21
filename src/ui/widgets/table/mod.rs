@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash, ops::Range};
+use std::{hash::Hash, ops::Range};
 
 use iced::{
     Element, Event, Length, Padding, Rectangle, Size,
@@ -12,6 +12,7 @@ use iced::{
     alignment,
     widget::Space,
 };
+use rustc_hash::FxHashSet;
 
 use crate::{
     traits::Identifiable,
@@ -32,7 +33,7 @@ pub mod tests;
 
 pub use style::*;
 
-pub type OnRowSelectHandler<'a, RowId, Message> = Box<dyn Fn(HashSet<RowId>) -> Message + 'a>;
+pub type OnRowSelectHandler<'a, RowId, Message> = Box<dyn Fn(FxHashSet<RowId>) -> Message + 'a>;
 
 pub struct Table<'a, T, ColumnId, Message, Theme, Renderer = iced::Renderer>
 where
@@ -47,7 +48,7 @@ where
     row_height: f32,
     scroll_width: f32,
 
-    selected_rows: Option<&'a HashSet<T::Identifier>>,
+    selected_rows: Option<&'a FxHashSet<T::Identifier>>,
     /// Returns the set of table body row identifiers that are currently selected every time the set changes.
     on_row_select: Option<OnRowSelectHandler<'a, T::Identifier, Message>>,
     on_header_cell_click: Option<Box<dyn Fn(ColumnId) -> Message + 'a>>,
@@ -188,7 +189,7 @@ where
     }
 
     #[must_use]
-    pub fn selected_rows(mut self, selected_rows: &'a HashSet<T::Identifier>) -> Self {
+    pub fn selected_rows(mut self, selected_rows: &'a FxHashSet<T::Identifier>) -> Self {
         self.selected_rows = Some(selected_rows);
 
         self
@@ -197,7 +198,7 @@ where
     #[must_use]
     pub fn on_row_select(
         mut self,
-        on_row_select: impl Fn(HashSet<T::Identifier>) -> Message + 'a,
+        on_row_select: impl Fn(FxHashSet<T::Identifier>) -> Message + 'a,
     ) -> Self {
         self.on_row_select = Some(Box::new(on_row_select));
 

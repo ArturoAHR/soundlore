@@ -1,13 +1,11 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hash,
-};
+use std::hash::Hash;
 
 use iced::{
     Element,
     advanced::{renderer, widget::Tree},
     keyboard,
 };
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::ui::widgets::table::event::mouse::{MouseInteraction, TableArea, TableClick};
 
@@ -137,7 +135,7 @@ where
     RowId: Hash + Eq + Clone,
     ColumnId: Hash + Eq + Clone,
 {
-    rows: HashMap<RowId, HashMap<ColumnId, Tree>>,
+    rows: FxHashMap<RowId, FxHashMap<ColumnId, Tree>>,
 }
 
 impl<RowId, ColumnId> CellState<RowId, ColumnId>
@@ -190,7 +188,7 @@ where
     }
 
     /// Removes row ids that are not within the provided set
-    pub fn prune(&mut self, row_ids: &HashSet<&RowId>) {
+    pub fn prune(&mut self, row_ids: &FxHashSet<&RowId>) {
         self.rows.retain(|row_id, _| row_ids.contains(row_id));
     }
 }
@@ -202,7 +200,7 @@ where
 {
     fn default() -> Self {
         Self {
-            rows: HashMap::new(),
+            rows: FxHashMap::default(),
         }
     }
 }

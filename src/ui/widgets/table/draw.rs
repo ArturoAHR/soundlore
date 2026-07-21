@@ -1,4 +1,4 @@
-use std::{collections::HashSet, hash::Hash};
+use std::hash::Hash;
 
 use iced::{
     Rectangle,
@@ -10,6 +10,7 @@ use iced::{
     },
 };
 use itertools::izip;
+use rustc_hash::FxHashSet;
 
 use crate::{
     traits::Identifiable,
@@ -113,7 +114,7 @@ where
 
         let body_bounds = get_table_body_bounds(grid_bounds, self.header_height);
 
-        let empty_selection = HashSet::new();
+        let empty_selection = FxHashSet::default();
         let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
         // Clipping body cells to table body bounds
