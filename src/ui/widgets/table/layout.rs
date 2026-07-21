@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, hash::Hash};
 
 use iced::{
     Point, Size,
@@ -10,19 +10,21 @@ use iced::{
 };
 use itertools::izip;
 
-use crate::ui::{
-    utils::table::{column::get_column_widths, virtualization::get_visible_range},
-    widgets::table::{
-        Catalog, Column, Table,
-        state::{HEADERS_ROW_IDENTIFIER, Identifiable},
+use crate::{
+    traits::Identifiable,
+    ui::{
+        utils::table::{column::get_column_widths, virtualization::get_visible_range},
+        widgets::table::{Catalog, Column, Table, TableRow},
     },
 };
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone + 'static,
+    ColumnId: Hash + Eq + Clone + 'static,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -36,7 +38,7 @@ where
         limits: &Limits,
     ) -> Node {
         let grid_limits = limits.width(limits.max().width - self.scroll_width);
-        let state = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State<T::Identifier, ColumnId>>();
 
         // Children Cell Generation
 
@@ -108,7 +110,7 @@ where
 
                 let limits = Limits::new(Size::ZERO, Size::new(column.width, self.header_height));
                 let tree = state.cell_state.get_mut_or_insert(
-                    HEADERS_ROW_IDENTIFIER,
+                    &T::header_row_id(),
                     &column.id,
                     header_cell,
                 );
@@ -132,9 +134,9 @@ where
             }
         }
 
-        let mut row_ids: HashSet<&String> = HashSet::new();
+        let mut row_ids: HashSet<&T::Identifier> = HashSet::new();
 
-        let header_row_id = HEADERS_ROW_IDENTIFIER.to_owned();
+        let header_row_id = T::header_row_id();
         if self.has_header {
             row_ids.insert(&header_row_id);
         }

@@ -10,6 +10,7 @@ pub mod log;
 pub mod outcome;
 pub mod playback;
 pub mod track;
+pub mod traits;
 pub mod ui;
 
 #[cfg(any(test, feature = "testing"))]

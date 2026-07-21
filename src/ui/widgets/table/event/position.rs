@@ -1,19 +1,26 @@
+use std::hash::Hash;
+
 use iced::{Point, Rectangle, advanced::renderer};
 
-use crate::ui::widgets::table::{
-    Catalog, Table,
-    bounds::{
-        get_effective_scroll_area_bounds, get_table_body_bounds, get_table_grid_bounds,
-        get_table_header_bounds, get_table_scroll_bounds,
+use crate::{
+    traits::Identifiable,
+    ui::widgets::table::{
+        Catalog, Table, TableRow,
+        bounds::{
+            get_effective_scroll_area_bounds, get_table_body_bounds, get_table_grid_bounds,
+            get_table_header_bounds, get_table_scroll_bounds,
+        },
+        event::mouse::TableArea,
+        scroll::get_scroll_thumb_bounds,
+        state::State,
     },
-    event::mouse::TableArea,
-    scroll::get_scroll_thumb_bounds,
-    state::{Identifiable, State, TableIdentifier},
 };
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -22,7 +29,7 @@ where
         &self,
         bounds: Rectangle,
         position: Point,
-    ) -> Option<TableIdentifier> {
+    ) -> Option<T::Identifier> {
         let visible_records = &self.records[self.visible_row_range.clone()];
         let visible_row_offsets = self
             .row_offsets
@@ -43,7 +50,7 @@ where
         &self,
         bounds: Rectangle,
         position: Point,
-    ) -> Option<TableIdentifier> {
+    ) -> Option<ColumnId> {
         let column_offsets = self
             .column_offsets
             .iter()
@@ -61,10 +68,10 @@ where
 
     pub fn get_position_table_area(
         &self,
-        state: &State,
+        state: &State<T::Identifier, ColumnId>,
         bounds: Rectangle,
         position: Point,
-    ) -> Option<TableArea> {
+    ) -> Option<TableArea<T::Identifier, ColumnId>> {
         if !bounds.contains(position) {
             return None;
         }

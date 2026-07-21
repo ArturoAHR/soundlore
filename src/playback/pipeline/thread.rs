@@ -80,7 +80,7 @@ pub enum AudioPipelineThreadEvent {
     TrackFinished,
     StartedAudioPipeline,
     StoppedAudioPipeline,
-    ActiveTrackChanged { track_id: String },
+    ActiveTrackChanged { track_id: i64 },
     UnexpectedError(AudioPipelineError),
 }
 

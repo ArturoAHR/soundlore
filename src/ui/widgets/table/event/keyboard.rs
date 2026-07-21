@@ -1,23 +1,27 @@
+use std::hash::Hash;
+
 use iced::{
     advanced::{Shell, renderer},
     keyboard::{self},
 };
 
-use crate::ui::widgets::table::{
-    Catalog, Table,
-    state::{Identifiable, State},
+use crate::{
+    traits::Identifiable,
+    ui::widgets::table::{Catalog, Table, TableRow, state::State},
 };
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
     pub fn handle_keyboard_event(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         shell: &mut Shell<'_, Message>,
         event: &keyboard::Event,
     ) {

@@ -3,12 +3,11 @@ use sea_query_sqlx::SqlxBinder;
 
 use sqlx::SqlitePool;
 use tracing::instrument;
-use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::track::models::{TrackIden, TrackProperties};
 
-#[instrument(skip(pool, tracks), fields(track_count = tracks.len()))]
+#[instrument(skip(pool, tracks), err, fields(track_count = tracks.len()))]
 pub async fn upsert_tracks_batch(
     pool: SqlitePool,
     tracks: &[TrackProperties],
@@ -16,12 +15,9 @@ pub async fn upsert_tracks_batch(
     let mut transaction = pool.begin().await?;
 
     for track in tracks {
-        let id = Uuid::new_v4();
-
         let (sql, values) = Query::insert()
             .into_table(TrackIden::Table)
             .columns([
-                TrackIden::Id,
                 // File Metadata
                 TrackIden::FilePath,
                 TrackIden::FileSizeBytes,
@@ -51,7 +47,6 @@ pub async fn upsert_tracks_batch(
                 TrackIden::ReplaygainAlbumPeak,
             ])
             .values([
-                id.to_string().into(),
                 // File Metadata
                 track.file_path.clone().into(),
                 track.file_size_bytes.into(),

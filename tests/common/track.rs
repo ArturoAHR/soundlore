@@ -6,7 +6,7 @@ pub fn create_mock_track(track_path: PathBuf) -> Track {
     let track_properties = read_track_properties(&track_path).unwrap();
 
     Track {
-        id: "36a7839f-15d5-44dd-9971-0696236370e9".to_owned(),
+        id: 1,
         file_path: track_properties.file_path,
         file_size_bytes: track_properties.file_size_bytes,
         file_format: track_properties.file_format,

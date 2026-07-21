@@ -128,7 +128,7 @@ impl AudioPipeline {
 
     #[instrument(skip_all)]
     pub fn play_track(&mut self, track: Track) -> Result<(), AudioPipelineError> {
-        let track_id = track.id.clone();
+        let track_id = track.id;
 
         let audio_track_pipeline = AudioTrackPipeline::build(track, self.configuration.clone())?;
 

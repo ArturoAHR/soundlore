@@ -37,27 +37,35 @@ const TEST_ROW_COUNT: f32 = 10000.0;
 
 struct TestApp {
     rows: Vec<TestData>,
-    selected_rows: HashSet<TableIdentifier>,
+    selected_rows: HashSet<<TestData as Identifiable>::Identifier>,
 }
 
 #[derive(Debug, Clone)]
 enum TestMessage {
-    RowSelected(HashSet<TableIdentifier>),
-    RowDoubleClicked(TableIdentifier),
-    ColumnHeaderCellClicked(TableIdentifier),
+    RowSelected(HashSet<<TestData as Identifiable>::Identifier>),
+    RowDoubleClicked(<TestData as Identifiable>::Identifier),
+    ColumnHeaderCellClicked(i64),
 }
 
 #[derive(Debug, Clone)]
 struct TestData {
-    pub id: String,
+    pub id: usize,
     pub name: String,
     pub description: String,
     pub data: String,
 }
 
 impl Identifiable for TestData {
-    fn id(&self) -> &TableIdentifier {
+    type Identifier = usize;
+
+    fn id(&self) -> &Self::Identifier {
         &self.id
+    }
+}
+
+impl TableRow for TestData {
+    fn header_row_id() -> Self::Identifier {
+        usize::MAX
     }
 }
 
@@ -66,7 +74,7 @@ impl TestApp {
         Self {
             rows: (0..TEST_ROW_COUNT as usize)
                 .map(|index| TestData {
-                    id: (index + 1).to_string(),
+                    id: index + 1,
                     name: format!("Test Name {}", index + 1),
                     description: format!("Test Description {}", index + 1),
                     data: format!("Test Data {}", index + 1),
@@ -87,35 +95,28 @@ impl TestApp {
 
     pub fn view(&self) -> Element<'_, TestMessage, Theme> {
         let columns = vec![
-            column(
-                "playing-indicator".to_owned(),
-                None,
-                |_test_data: &TestData| Space::new(),
-            )
-            .width(COLUMN_WIDTHS[0]),
-            column(
-                "test-name".to_owned(),
-                Some(text("Test Name").into()),
-                |test_data: &TestData| ellipsized_text(test_data.name.clone()),
-            )
+            column(1, None, |_test_data: &TestData| Space::new()).width(COLUMN_WIDTHS[0]),
+            column(2, Some(text("Test Name").into()), |test_data: &TestData| {
+                ellipsized_text(test_data.name.clone())
+            })
             .width(COLUMN_WIDTHS[1])
             .resizable(true),
             column(
-                "test-description".to_owned(),
+                3,
                 Some(text("Test Description").into()),
                 |test_data: &TestData| ellipsized_text(test_data.description.clone()),
             )
             .width(COLUMN_WIDTHS[2])
             .resizable(true),
             column(
-                "test-data-1".to_owned(),
+                4,
                 Some(text("Test Data 1").into()),
                 |test_data: &TestData| ellipsized_text(test_data.data.clone()),
             )
             .width(COLUMN_WIDTHS[3])
             .resizable(true),
             column(
-                "test-data-2".to_owned(),
+                5,
                 Some(text("Test Data 2").into()),
                 |test_data: &TestData| ellipsized_text(test_data.data.clone()),
             )
@@ -343,7 +344,10 @@ fn blur(ui: &mut Simulator<'_, TestMessage, Theme, iced::Renderer>) {
     ui.simulate(click());
 }
 
-fn assert_row_selection_message(message: &TestMessage, expected_selected_rows: &[TableIdentifier]) {
+fn assert_row_selection_message(
+    message: &TestMessage,
+    expected_selected_rows: &[<TestData as Identifiable>::Identifier],
+) {
     match message {
         TestMessage::RowSelected(selected_rows) => {
             assert_eq!(
@@ -365,20 +369,20 @@ fn assert_row_selection_message(message: &TestMessage, expected_selected_rows: &
 
 fn assert_row_double_clicking_message(
     message: &TestMessage,
-    double_clicked_row_id: &TableIdentifier,
+    double_clicked_row_id: <TestData as Identifiable>::Identifier,
 ) {
     match message {
         TestMessage::RowDoubleClicked(row_id) => {
-            assert_eq!(double_clicked_row_id, row_id);
+            assert_eq!(double_clicked_row_id, *row_id);
         }
         _ => unreachable!("Received unexpected events: {message:?}"),
     }
 }
 
-fn assert_header_clicking_message(message: &TestMessage, expected_column_id: &TableIdentifier) {
+fn assert_header_clicking_message(message: &TestMessage, expected_column_id: i64) {
     match message {
         TestMessage::ColumnHeaderCellClicked(column_id) => {
-            assert_eq!(expected_column_id, column_id);
+            assert_eq!(expected_column_id, *column_id);
         }
         _ => {
             unreachable!("Received unexpected events: {message:?}")
@@ -406,10 +410,10 @@ fn should_select_first_row() {
 
     click_row_position(&mut ui, 1, 0.0);
 
-    let first_row_id = app.rows[0].id().clone();
+    let first_row_id = app.rows[0].id();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
-    assert_row_selection_message(&messages[0], &[first_row_id]);
+    assert_row_selection_message(&messages[0], &[*first_row_id]);
     app.update(messages[0].clone());
     assert_eq!(messages.len(), 1);
 
@@ -425,8 +429,8 @@ fn should_select_second_row_after_selecting_first_one() {
     click_row_position(&mut ui, 1, 0.0);
     click_row_position(&mut ui, 2, 0.0);
 
-    let first_row_id = app.rows[0].id().clone();
-    let second_row_id = app.rows[1].id().clone();
+    let first_row_id = *app.rows[0].id();
+    let second_row_id = *app.rows[1].id();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
     assert_row_selection_message(&messages[0], &[first_row_id]);
@@ -445,14 +449,14 @@ fn should_double_click_first_row() {
     click_row_position(&mut ui, 1, 0.0);
     click_row_position(&mut ui, 1, 0.0);
 
-    let first_row_id = app.rows[0].id().clone();
+    let first_row_id = *app.rows[0].id();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
     assert_row_selection_message(&messages[0], slice::from_ref(&first_row_id));
     app.update(messages[0].clone());
     assert_row_selection_message(&messages[1], slice::from_ref(&first_row_id));
     app.update(messages[1].clone());
-    assert_row_double_clicking_message(&messages[2], &first_row_id);
+    assert_row_double_clicking_message(&messages[2], first_row_id);
     app.update(messages[2].clone());
     assert_eq!(messages.len(), 3);
 
@@ -466,11 +470,11 @@ fn should_click_second_header() {
     let mut ui = simulator(&app);
 
     let column_number = 2;
-    let expected_column_id = "test-name".to_owned();
+    let expected_column_id = 2;
     click_header_position(&mut ui, column_number);
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
-    assert_header_clicking_message(&messages[0], &expected_column_id);
+    assert_header_clicking_message(&messages[0], expected_column_id);
     app.update(messages[0].clone());
 
     snapshot_and_assert(&app);
@@ -479,8 +483,8 @@ fn should_click_second_header() {
 #[test]
 fn should_toggle_select_rows() {
     let mut app = TestApp::new();
-    let second_row_id = app.rows[1].id().clone();
-    app.selected_rows = slice::from_ref(&second_row_id).iter().cloned().collect();
+    let second_row_id = *app.rows[1].id();
+    app.selected_rows = iter::once(second_row_id).collect();
 
     let mut ui = simulator(&app);
 
@@ -491,7 +495,7 @@ fn should_toggle_select_rows() {
 
     click_row_position(&mut ui, 1, 0.0);
 
-    let first_row_id = app.rows[0].id().clone();
+    let first_row_id = *app.rows[0].id();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
     assert_row_selection_message(&messages[0], &[first_row_id, second_row_id]);
@@ -504,8 +508,8 @@ fn should_toggle_select_rows() {
 #[test]
 fn should_toggle_already_selected_rows() {
     let mut app = TestApp::new();
-    let second_row_id = app.rows[1].id().clone();
-    app.selected_rows = slice::from_ref(&second_row_id).iter().cloned().collect();
+    let second_row_id = *app.rows[1].id();
+    app.selected_rows = iter::once(second_row_id).collect();
 
     let mut ui = simulator(&app);
 
@@ -527,8 +531,8 @@ fn should_toggle_already_selected_rows() {
 #[test]
 fn should_range_select_already_selected_rows() {
     let mut app = TestApp::new();
-    let seventh_row_id = app.rows[6].id().clone();
-    app.selected_rows = slice::from_ref(&seventh_row_id).iter().cloned().collect();
+    let seventh_row_id = *app.rows[6].id();
+    app.selected_rows = iter::once(seventh_row_id).collect();
 
     let mut ui = simulator(&app);
 
@@ -539,12 +543,12 @@ fn should_range_select_already_selected_rows() {
 
     click_row_position(&mut ui, 5, 0.0);
 
-    let expected_selected_row_ids: Vec<TableIdentifier> = app
+    let expected_selected_row_ids: Vec<<TestData as Identifiable>::Identifier> = app
         .rows
         .iter()
         .take(5)
         .map(Identifiable::id)
-        .cloned()
+        .copied()
         .collect();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
@@ -558,8 +562,8 @@ fn should_range_select_already_selected_rows() {
 #[test]
 fn should_union_select_already_selected_rows() {
     let mut app = TestApp::new();
-    let seventh_row_id = app.rows[6].id().clone();
-    app.selected_rows = slice::from_ref(&seventh_row_id).iter().cloned().collect();
+    let seventh_row_id = *app.rows[6].id();
+    app.selected_rows = iter::once(seventh_row_id).collect();
 
     let mut ui = simulator(&app);
 
@@ -571,13 +575,13 @@ fn should_union_select_already_selected_rows() {
 
     click_row_position(&mut ui, 5, 0.0);
 
-    let expected_selected_row_ids: Vec<TableIdentifier> = app
+    let expected_selected_row_ids: Vec<<TestData as Identifiable>::Identifier> = app
         .rows
         .iter()
         .take(5)
         .map(Identifiable::id)
-        .cloned()
-        .chain(iter::once(seventh_row_id))
+        .copied()
+        .chain([seventh_row_id])
         .collect();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
@@ -602,7 +606,7 @@ fn should_scroll_to_and_select_table_row_at_the_half_of_the_table() {
     click_row_position(&mut ui, 0, scroll_offset);
     click_row_position(&mut ui, 0, scroll_offset);
 
-    let selected_row_id = app.rows[row_number - 1].id().clone();
+    let selected_row_id = *app.rows[row_number - 1].id();
 
     let snapshot = get_snapshot(&mut ui);
 
@@ -613,7 +617,7 @@ fn should_scroll_to_and_select_table_row_at_the_half_of_the_table() {
     app.update(messages[0].clone());
     assert_row_selection_message(&messages[1], slice::from_ref(&selected_row_id));
     app.update(messages[1].clone());
-    assert_row_double_clicking_message(&messages[2], &selected_row_id);
+    assert_row_double_clicking_message(&messages[2], selected_row_id);
     app.update(messages[2].clone());
     assert_eq!(messages.len(), 3);
 }
@@ -662,16 +666,16 @@ fn should_drag_and_select_rows() {
 
     click_row_and_drag(&mut ui, starting_row_number, ending_row_number, 0.0);
 
-    let expected_selected_rows: Vec<TableIdentifier> = app.rows
+    let expected_selected_rows: Vec<<TestData as Identifiable>::Identifier> = app.rows
         [starting_row_number - 1..ending_row_number]
         .iter()
         .map(Identifiable::id)
-        .cloned()
+        .copied()
         .collect();
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
 
-    assert_row_selection_message(&messages[0], &[expected_selected_rows[0].clone()]);
+    assert_row_selection_message(&messages[0], &[expected_selected_rows[0]]);
     app.update(messages[0].clone());
     assert_row_selection_message(&messages[1], &expected_selected_rows);
     app.update(messages[1].clone());
@@ -690,8 +694,8 @@ fn should_select_all() {
 
     let messages: Vec<TestMessage> = ui.into_messages().collect();
 
-    let expected_selected_rows: Vec<TableIdentifier> =
-        app.rows.iter().map(Identifiable::id).cloned().collect();
+    let expected_selected_rows: Vec<<TestData as Identifiable>::Identifier> =
+        app.rows.iter().map(Identifiable::id).copied().collect();
 
     assert_row_selection_message(&messages[0], &expected_selected_rows);
     app.update(messages[0].clone());

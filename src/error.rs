@@ -28,7 +28,7 @@ pub enum AppError {
 
     #[error("track not found id={:?} path={:?}", id, path)]
     TrackNotFound {
-        id: Option<String>,
+        id: Option<i64>,
         path: Option<PathBuf>,
     },
 

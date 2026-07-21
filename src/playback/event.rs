@@ -13,7 +13,7 @@ pub enum PlaybackControllerEvent {
     StartedPlayback,
     StoppedPlayback,
     EndOfTrack,
-    PlayingTrack { track_id: String },
+    PlayingTrack { track_id: i64 },
     UnexpectedError { message: String },
 }
 

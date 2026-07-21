@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use iced::{
     Point, Rectangle,
     advanced::{Shell, renderer},
@@ -5,22 +7,27 @@ use iced::{
     window,
 };
 
-use crate::ui::widgets::table::{
-    Catalog, Table,
-    bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
-    state::{Identifiable, State},
+use crate::{
+    traits::Identifiable,
+    ui::widgets::table::{
+        Catalog, Table, TableRow,
+        bounds::{get_effective_scroll_area_bounds, get_table_scroll_bounds},
+        state::State,
+    },
 };
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
     pub fn handle_mouse_wheel_scroll(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         bounds: Rectangle,
         cursor: Cursor,
         shell: &mut Shell<'_, Message>,
@@ -50,7 +57,7 @@ where
 
     pub fn handle_mouse_scroll_click(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         shell: &mut Shell<'_, Message>,
         bounds: Rectangle,
         cursor_position: Point,
@@ -69,7 +76,7 @@ where
 
     pub fn handle_mouse_scroll_drag(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         shell: &mut Shell<'_, Message>,
         bounds: Rectangle,
         cursor_position: Point,
@@ -88,7 +95,7 @@ where
 
     pub fn handle_mouse_scroll_thumb_drag(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         shell: &mut Shell<'_, Message>,
         bounds: Rectangle,
         cursor_position: Point,

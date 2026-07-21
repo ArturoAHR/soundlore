@@ -197,15 +197,14 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     use crate::assert_matches;
-    use crate::ui::widgets::table::state::TableIdentifier;
 
     use super::*;
 
-    fn get_iterator(input: &str) -> impl Iterator<Item = TableIdentifier> {
+    fn get_iterator(input: &str) -> impl Iterator<Item = String> {
         input.chars().map(Into::<String>::into)
     }
 
-    fn get_values() -> Vec<TableIdentifier> {
+    fn get_values() -> Vec<String> {
         get_iterator("abcdefghijklmnopqrstuvwxyz").collect()
     }
 
@@ -232,7 +231,7 @@ mod tests {
     }
 
     #[allow(clippy::needless_pass_by_value)]
-    fn assert_anchor_value(anchor_value: Option<TableIdentifier>, expected_anchor_value: &str) {
+    fn assert_anchor_value(anchor_value: Option<String>, expected_anchor_value: &str) {
         assert_eq!(anchor_value.unwrap(), expected_anchor_value.to_owned());
     }
 

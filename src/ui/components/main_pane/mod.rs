@@ -14,7 +14,7 @@ use crate::{
     ui::{
         theme::Theme,
         utils::label::format_duration,
-        widgets::table::{column, state::TableIdentifier, table},
+        widgets::table::{column, table},
     },
 };
 
@@ -22,14 +22,22 @@ pub mod handler;
 
 #[derive(Debug)]
 pub struct MainPane {
-    pub selected_track_ids: HashSet<TableIdentifier>,
+    pub selected_track_ids: HashSet<i64>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    TrackRowDoubleClicked(TableIdentifier),
-    TrackRowSelected(HashSet<TableIdentifier>),
-    ColumnHeaderCellClicked(TableIdentifier),
+    TrackRowDoubleClicked(i64),
+    TrackRowSelected(HashSet<i64>),
+    ColumnHeaderCellClicked(TrackTableColumn),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TrackTableColumn {
+    NowPlaying,
+    Title,
+    Artist,
+    Duration,
 }
 
 #[derive(Debug, Clone)]
@@ -77,7 +85,7 @@ impl MainPane {
     ) -> Element<'a, Message, Theme, Renderer> {
         let columns = vec![
             column(
-                "artist".to_owned(),
+                TrackTableColumn::Artist,
                 Some(text("Artist").into()),
                 |track: &Track| {
                     ellipsized_text(track.artist.clone().unwrap_or_else(|| "Unknown".to_owned()))
@@ -87,7 +95,7 @@ impl MainPane {
             .width(200.0)
             .resizable(true),
             column(
-                "title".to_owned(),
+                TrackTableColumn::Title,
                 Some(text("Title").into()),
                 |track: &Track| {
                     ellipsized_text(track.title.clone().unwrap_or_else(|| "Untitled".to_owned()))
@@ -97,7 +105,7 @@ impl MainPane {
             .width(200.0)
             .resizable(true),
             column(
-                "duration".to_owned(),
+                TrackTableColumn::Duration,
                 Some(text("Duration").into()),
                 |track: &Track| {
                     ellipsized_text(format_duration(

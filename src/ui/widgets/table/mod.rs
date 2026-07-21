@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Range, sync::LazyLock};
+use std::{collections::HashSet, hash::Hash, ops::Range};
 
 use iced::{
     Element, Event, Length, Padding, Rectangle, Size,
@@ -13,9 +13,9 @@ use iced::{
     widget::Space,
 };
 
-use crate::ui::{
-    utils::table::column::ColumnWidth,
-    widgets::table::state::{Identifiable, State, TableIdentifier},
+use crate::{
+    traits::Identifiable,
+    ui::{utils::table::column::ColumnWidth, widgets::table::state::State},
 };
 
 mod bounds;
@@ -32,12 +32,13 @@ pub mod tests;
 
 pub use style::*;
 
-/// Static `HashSet` to be able to populate the field at initialization time.
-static EMPTY_SELECTION: LazyLock<HashSet<TableIdentifier>> = LazyLock::new(HashSet::new);
+pub type OnRowSelectHandler<'a, RowId, Message> = Box<dyn Fn(HashSet<RowId>) -> Message + 'a>;
 
-pub struct Table<'a, T, Message, Theme, Renderer = iced::Renderer>
+pub struct Table<'a, T, ColumnId, Message, Theme, Renderer = iced::Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Theme: Catalog,
 {
     width: Length,
@@ -46,14 +47,14 @@ where
     row_height: f32,
     scroll_width: f32,
 
-    selected_rows: &'a HashSet<TableIdentifier>,
+    selected_rows: Option<&'a HashSet<T::Identifier>>,
     /// Returns the set of table body row identifiers that are currently selected every time the set changes.
-    on_row_select: Option<Box<dyn Fn(HashSet<TableIdentifier>) -> Message + 'a>>,
-    on_header_cell_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
-    on_row_double_click: Option<Box<dyn Fn(TableIdentifier) -> Message + 'a>>,
+    on_row_select: Option<OnRowSelectHandler<'a, T::Identifier, Message>>,
+    on_header_cell_click: Option<Box<dyn Fn(ColumnId) -> Message + 'a>>,
+    on_row_double_click: Option<Box<dyn Fn(T::Identifier) -> Message + 'a>>,
 
     has_header: bool,
-    columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
+    columns: Vec<Column<'a, T, ColumnId, Message, Theme, Renderer>>,
     records: &'a [T],
 
     visible_row_range: Range<usize>,
@@ -72,15 +73,21 @@ where
     cell_class: Theme::CellClass<'a>,
 }
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+pub trait TableRow: Identifiable {
+    fn header_row_id() -> Self::Identifier;
+}
+
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
     pub fn new(
-        mut columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
+        mut columns: Vec<Column<'a, T, ColumnId, Message, Theme, Renderer>>,
         records: &'a [T],
     ) -> Self {
         let has_header = columns.iter().any(|column| column.header.is_some());
@@ -104,7 +111,7 @@ where
             row_height: 30.0,
             scroll_width: 12.0,
 
-            selected_rows: &EMPTY_SELECTION,
+            selected_rows: None,
             on_row_select: None,
             on_header_cell_click: None,
             on_row_double_click: None,
@@ -181,8 +188,8 @@ where
     }
 
     #[must_use]
-    pub fn selected_rows(mut self, selected_rows: &'a HashSet<TableIdentifier>) -> Self {
-        self.selected_rows = selected_rows;
+    pub fn selected_rows(mut self, selected_rows: &'a HashSet<T::Identifier>) -> Self {
+        self.selected_rows = Some(selected_rows);
 
         self
     }
@@ -190,7 +197,7 @@ where
     #[must_use]
     pub fn on_row_select(
         mut self,
-        on_row_select: impl Fn(HashSet<TableIdentifier>) -> Message + 'a,
+        on_row_select: impl Fn(HashSet<T::Identifier>) -> Message + 'a,
     ) -> Self {
         self.on_row_select = Some(Box::new(on_row_select));
 
@@ -200,7 +207,7 @@ where
     #[must_use]
     pub fn on_row_double_click(
         mut self,
-        on_row_double_click: impl Fn(TableIdentifier) -> Message + 'a,
+        on_row_double_click: impl Fn(T::Identifier) -> Message + 'a,
     ) -> Self {
         self.on_row_double_click = Some(Box::new(on_row_double_click));
 
@@ -210,7 +217,7 @@ where
     #[must_use]
     pub fn on_header_cell_click(
         mut self,
-        on_header_cell_click: impl Fn(TableIdentifier) -> Message + 'a,
+        on_header_cell_click: impl Fn(ColumnId) -> Message + 'a,
     ) -> Self {
         self.on_header_cell_click = Some(Box::new(on_header_cell_click));
 
@@ -267,15 +274,17 @@ where
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> From<Table<'a, T, Message, Theme, Renderer>>
-    for Element<'a, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer>
+    From<Table<'a, T, ColumnId, Message, Theme, Renderer>> for Element<'a, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow + 'static,
+    T::Identifier: Hash + Eq + Clone + 'static,
+    ColumnId: Hash + Eq + Clone + 'static,
     Message: 'a,
     Theme: Catalog + 'a,
     Renderer: renderer::Renderer + 'a,
 {
-    fn from(table: Table<'a, T, Message, Theme, Renderer>) -> Self {
+    fn from(table: Table<'a, T, ColumnId, Message, Theme, Renderer>) -> Self {
         Self::new(table)
     }
 }
@@ -283,8 +292,8 @@ where
 pub type ColumnCellView<'a, T, Message, Theme, Renderer> =
     dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a;
 
-pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
-    id: TableIdentifier,
+pub struct Column<'a, T, ColumnId, Message, Theme, Renderer = iced::Renderer> {
+    id: ColumnId,
     header: Option<Element<'a, Message, Theme, Renderer>>,
     view: Box<ColumnCellView<'a, T, Message, Theme, Renderer>>,
     width: f32,
@@ -297,7 +306,7 @@ pub struct Column<'a, T, Message, Theme, Renderer = iced::Renderer> {
     cell_padding: Option<Padding>,
 }
 
-impl<T, Message, Theme, Renderer> Column<'_, T, Message, Theme, Renderer> {
+impl<T, ColumnId, Message, Theme, Renderer> Column<'_, T, ColumnId, Message, Theme, Renderer> {
     pub fn get_column_width(&self) -> ColumnWidth {
         if self.resizable {
             ColumnWidth::Resizable {
@@ -312,7 +321,7 @@ impl<T, Message, Theme, Renderer> Column<'_, T, Message, Theme, Renderer> {
     }
 
     #[must_use]
-    pub fn id(mut self, id: impl Into<String>) -> Self {
+    pub fn id(mut self, id: impl Into<ColumnId>) -> Self {
         self.id = id.into();
 
         self
@@ -375,10 +384,12 @@ impl<T, Message, Theme, Renderer> Column<'_, T, Message, Theme, Renderer> {
     }
 }
 
-impl<'a, T, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow + 'static,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone + 'static,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -391,11 +402,11 @@ where
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
+        tree::Tag::of::<State<T::Identifier, ColumnId>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::default())
+        tree::State::new(State::<T::Identifier, ColumnId>::default())
     }
 
     fn layout(&mut self, tree: &mut Tree, renderer: &Renderer, limits: &Limits) -> Node {
@@ -433,12 +444,14 @@ where
 }
 
 /// Creates an new Table with the given columns and one row for each record.
-pub fn table<'a, T, Message, Theme, Renderer>(
-    columns: Vec<Column<'a, T, Message, Theme, Renderer>>,
+pub fn table<'a, T, ColumnId, Message, Theme, Renderer>(
+    columns: Vec<Column<'a, T, ColumnId, Message, Theme, Renderer>>,
     records: &'a [T],
-) -> Table<'a, T, Message, Theme, Renderer>
+) -> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -448,13 +461,14 @@ where
 
 /// Creates a column with the given parameters, the view closure is used to determined how
 /// we represent the record in that particular column cell in its row.
-pub fn column<'a, T, E, Message, Theme, Renderer>(
-    id: TableIdentifier,
+pub fn column<'a, T, E, ColumnId, Message, Theme, Renderer>(
+    id: ColumnId,
     header: Option<Element<'a, Message, Theme, Renderer>>,
     view: impl Fn(&T) -> E + 'a,
-) -> Column<'a, T, Message, Theme, Renderer>
+) -> Column<'a, T, ColumnId, Message, Theme, Renderer>
 where
     T: 'a,
+    ColumnId: Hash + Eq,
     E: Into<Element<'a, Message, Theme, Renderer>>,
 {
     Column {

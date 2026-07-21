@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use iced::{
     Event, Rectangle,
     advanced::{
@@ -9,13 +11,18 @@ use iced::{
     window,
 };
 
-use crate::ui::widgets::table::{Catalog, Table, state::Identifiable};
+use crate::{
+    traits::Identifiable,
+    ui::widgets::table::{Catalog, Table, TableRow},
+};
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow + 'static,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone + 'static,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -33,7 +40,7 @@ where
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State<T::Identifier, ColumnId>>();
 
         match event {
             iced::Event::Mouse(event) => {

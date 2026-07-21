@@ -19,7 +19,7 @@ pub enum PlaybackOutcome {
     Resume,
     Pause,
     Stop,
-    Play(String),
+    Play(i64),
     Seek {
         timestamp: u64,
         post_seek_status: PlaybackControllerStatus,

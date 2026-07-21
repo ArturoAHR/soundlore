@@ -1,11 +1,11 @@
 use sea_query::enum_def;
 
-use crate::ui::widgets::table::state::Identifiable;
+use crate::{traits::Identifiable, ui::widgets::table::TableRow};
 
 #[enum_def(table_name = "track")]
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Track {
-    pub id: String,
+    pub id: i64,
 
     // File Metadata
     pub file_path: String,
@@ -51,8 +51,16 @@ pub struct Track {
 }
 
 impl Identifiable for Track {
-    fn id(&self) -> &String {
+    type Identifier = i64;
+
+    fn id(&self) -> &Self::Identifier {
         &self.id
+    }
+}
+
+impl TableRow for Track {
+    fn header_row_id() -> Self::Identifier {
+        -1
     }
 }
 

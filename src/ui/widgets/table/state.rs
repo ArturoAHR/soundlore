@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 use iced::{
     Element,
@@ -8,31 +11,26 @@ use iced::{
 
 use crate::ui::widgets::table::event::mouse::{MouseInteraction, TableArea, TableClick};
 
-pub const HEADERS_ROW_IDENTIFIER: &str = "headers-row";
-
-pub type TableIdentifier = String;
-
-pub trait Identifiable {
-    fn id(&self) -> &TableIdentifier;
-}
-
-#[derive(Default)]
-pub struct State {
+pub struct State<RowId, ColumnId>
+where
+    RowId: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
+{
     /// Table cells state, handled on our side since virtualization plays poorly with
     /// normal children state management.
-    pub cell_state: CellState,
+    pub cell_state: CellState<RowId, ColumnId>,
 
     /// Table vertical scroll offset.
     pub offset_y: f32,
 
     /// The id of the row used as an anchor for multi-selection operations.
-    pub selection_anchor_row_id: Option<TableIdentifier>,
+    pub selection_anchor_row_id: Option<RowId>,
 
     /// Last mouse click (used to determine double clicks).
-    pub previous_click: Option<TableClick>,
+    pub previous_click: Option<TableClick<RowId, ColumnId>>,
 
     /// Tracks the start point of a dragging action.
-    pub mouse_interaction: MouseInteraction,
+    pub mouse_interaction: MouseInteraction<RowId, ColumnId>,
 
     /// Currently pressed keyboard modifiers.
     pub keyboard_modifiers: keyboard::Modifiers,
@@ -42,10 +40,14 @@ pub struct State {
 
     pub last_layout_invalidation_state: LayoutState,
 
-    pub last_redraw_request_state: DrawState,
+    pub last_redraw_request_state: DrawState<RowId, ColumnId>,
 }
 
-impl State {
+impl<RowId, ColumnId> State<RowId, ColumnId>
+where
+    RowId: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
+{
     /// Determines if we should request a redraw, it will automatically update the necessary
     /// internal state on its own.
     pub fn take_pending_redraw_request(&mut self) -> bool {
@@ -72,14 +74,41 @@ impl State {
     }
 }
 
+impl<RowId, ColumnId> Default for State<RowId, ColumnId>
+where
+    RowId: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
+{
+    fn default() -> Self {
+        Self {
+            cell_state: CellState::default(),
+            focus_state: FocusState::default(),
+            keyboard_modifiers: keyboard::Modifiers::default(),
+            last_layout_invalidation_state: LayoutState::default(),
+            last_redraw_request_state: DrawState::default(),
+            mouse_interaction: MouseInteraction::default(),
+            offset_y: 0.0,
+            previous_click: None,
+            selection_anchor_row_id: None,
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct LayoutState {
     offset_y: f32,
 }
 
-#[derive(Default)]
-pub struct DrawState {
-    mouse_interaction_area: Option<TableArea>,
+pub struct DrawState<RowId, ColumnId> {
+    mouse_interaction_area: Option<TableArea<RowId, ColumnId>>,
+}
+
+impl<RowId, ColumnId> Default for DrawState<RowId, ColumnId> {
+    fn default() -> Self {
+        Self {
+            mouse_interaction_area: None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -103,27 +132,34 @@ impl Default for FocusState {
     }
 }
 
-#[derive(Default)]
-pub struct CellState {
-    rows: HashMap<String, HashMap<String, Tree>>,
+pub struct CellState<RowId, ColumnId>
+where
+    RowId: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
+{
+    rows: HashMap<RowId, HashMap<ColumnId, Tree>>,
 }
 
-impl CellState {
+impl<RowId, ColumnId> CellState<RowId, ColumnId>
+where
+    RowId: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
+{
     /// Gets a reference to the cell state
-    pub fn get(&self, row_id: &str, column_id: &str) -> Option<&Tree> {
+    pub fn get(&self, row_id: &RowId, column_id: &ColumnId) -> Option<&Tree> {
         self.rows.get(row_id)?.get(column_id)
     }
 
     /// Gets a mutable reference to cell state
-    pub fn get_mut(&mut self, row_id: &str, column_id: &str) -> Option<&mut Tree> {
+    pub fn get_mut(&mut self, row_id: &RowId, column_id: &ColumnId) -> Option<&mut Tree> {
         self.rows.get_mut(row_id)?.get_mut(column_id)
     }
 
     /// Gets the cell state or inserts a newly created one and returns it
     pub fn get_mut_or_insert<Message, Theme, Renderer>(
         &mut self,
-        row_id: &str,
-        column_id: &str,
+        row_id: &RowId,
+        column_id: &ColumnId,
         cell: &Element<'_, Message, Theme, Renderer>,
     ) -> &mut Tree
     where
@@ -147,14 +183,26 @@ impl CellState {
     }
 
     /// Inserts the cell state for a row id and column id
-    pub fn insert(&mut self, row_id: &str, column_id: &str, state: Tree) {
-        let row_cell_states = self.rows.entry(row_id.to_owned()).or_default();
+    pub fn insert(&mut self, row_id: &RowId, column_id: &ColumnId, state: Tree) {
+        let row_cell_states = self.rows.entry(row_id.clone()).or_default();
 
-        row_cell_states.insert(column_id.to_owned(), state);
+        row_cell_states.insert(column_id.clone(), state);
     }
 
     /// Removes row ids that are not within the provided set
-    pub fn prune(&mut self, row_ids: &HashSet<&String>) {
+    pub fn prune(&mut self, row_ids: &HashSet<&RowId>) {
         self.rows.retain(|row_id, _| row_ids.contains(row_id));
+    }
+}
+
+impl<RowId, ColumnId> Default for CellState<RowId, ColumnId>
+where
+    RowId: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
+{
+    fn default() -> Self {
+        Self {
+            rows: HashMap::new(),
+        }
     }
 }

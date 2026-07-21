@@ -1,3 +1,5 @@
+use std::{collections::HashSet, hash::Hash};
+
 use iced::{
     Rectangle,
     advanced::{
@@ -9,21 +11,26 @@ use iced::{
 };
 use itertools::izip;
 
-use crate::ui::widgets::table::{
-    BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table, TableStyle,
-    bounds::{
-        get_effective_scroll_area_bounds, get_table_body_bounds, get_table_body_row_bounds,
-        get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
+use crate::{
+    traits::Identifiable,
+    ui::widgets::table::{
+        BodyRowStatus, Catalog, CellStatus, CellType, ScrollState, ScrollStatus, Table, TableRow,
+        TableStyle,
+        bounds::{
+            get_effective_scroll_area_bounds, get_table_body_bounds, get_table_body_row_bounds,
+            get_table_grid_bounds, get_table_header_bounds, get_table_scroll_bounds,
+        },
+        scroll::get_scroll_thumb_bounds,
     },
-    scroll::get_scroll_thumb_bounds,
-    state::{HEADERS_ROW_IDENTIFIER, Identifiable},
 };
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone + 'static,
+    ColumnId: Hash + Eq + Clone + 'static,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
@@ -39,7 +46,7 @@ where
         cursor: Cursor,
         viewport: &Rectangle,
     ) {
-        let state = tree.state.downcast_ref::<State>();
+        let state = tree.state.downcast_ref::<State<T::Identifier, ColumnId>>();
         let bounds = layout.bounds();
 
         let grid_bounds = get_table_grid_bounds(bounds, self.scroll_width);
@@ -93,7 +100,7 @@ where
     #[allow(clippy::too_many_arguments)]
     fn draw_table_body(
         &self,
-        state: &State,
+        state: &State<T::Identifier, ColumnId>,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &renderer::Style,
@@ -105,6 +112,9 @@ where
         let mut body_cell_layouts = layout.children().skip(self.columns.len());
 
         let body_bounds = get_table_body_bounds(grid_bounds, self.header_height);
+
+        let empty_selection = HashSet::new();
+        let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
         // Clipping body cells to table body bounds
         renderer.with_layer(body_bounds, |renderer| {
@@ -125,7 +135,7 @@ where
                     *row_offset,
                 );
 
-                let row_status = if self.selected_rows.contains(row_id) {
+                let row_status = if selected_rows.contains(row_id) {
                     BodyRowStatus::Selected
                 } else if row_bounds
                     .intersection(&body_bounds)
@@ -171,7 +181,7 @@ where
                         continue;
                     };
 
-                    let cell_status = if self.selected_rows.contains(row_id) {
+                    let cell_status = if selected_rows.contains(row_id) {
                         CellStatus::Selected
                     } else if row_bounds
                         .intersection(&body_bounds)
@@ -210,7 +220,7 @@ where
     #[allow(clippy::too_many_arguments)]
     fn draw_table_header(
         &self,
-        state: &State,
+        state: &State<T::Identifier, ColumnId>,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &renderer::Style,
@@ -263,7 +273,7 @@ where
                     // Clipping cell contents to cell bounds
                     renderer.with_layer(cell_bounds, |renderer| {
                         if let Some(cell_state) =
-                            state.cell_state.get(HEADERS_ROW_IDENTIFIER, column_id)
+                            state.cell_state.get(&T::header_row_id(), column_id)
                         {
                             cell.as_widget().draw(
                                 cell_state,
@@ -319,7 +329,7 @@ where
 
     fn draw_table_scroll(
         &self,
-        state: &State,
+        state: &State<T::Identifier, ColumnId>,
         renderer: &mut Renderer,
         theme: &Theme,
         _style: &renderer::Style,

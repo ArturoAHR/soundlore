@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use iced::{
     Point, Rectangle,
     advanced::{Layout, Shell, mouse::Click, renderer},
@@ -5,25 +7,27 @@ use iced::{
     window,
 };
 
-use crate::ui::widgets::table::{
-    Catalog, Table,
-    state::{Identifiable, State},
+use crate::{
+    traits::Identifiable,
+    ui::widgets::table::{Catalog, Table, TableRow, state::State},
 };
 
-use crate::ui::widgets::table::state::TableIdentifier;
-
-#[derive(Debug, Clone, Default)]
-pub struct MouseInteraction {
-    pub area: Option<TableArea>,
+#[derive(Debug, Clone)]
+pub struct MouseInteraction<RowId, ColumnId> {
+    pub area: Option<TableArea<RowId, ColumnId>>,
     pub position: Point,
-    pub click: Option<TableClick>,
+    pub click: Option<TableClick<RowId, ColumnId>>,
 }
 
-impl MouseInteraction {
+impl<RowId, ColumnId> MouseInteraction<RowId, ColumnId>
+where
+    RowId: Clone,
+    ColumnId: Clone,
+{
     pub fn press_mouse_button(
         &mut self,
         mouse_button: mouse::Button,
-        previous_click: Option<TableClick>,
+        previous_click: Option<TableClick<RowId, ColumnId>>,
     ) -> Click {
         let click = Click::new(
             self.position,
@@ -39,30 +43,40 @@ impl MouseInteraction {
         click
     }
 
-    pub fn release_mouse_button(&mut self) -> Option<TableClick> {
+    pub fn release_mouse_button(&mut self) -> Option<TableClick<RowId, ColumnId>> {
         self.click.take()
     }
 }
 
+impl<RowId, ColumnId> Default for MouseInteraction<RowId, ColumnId> {
+    fn default() -> Self {
+        Self {
+            area: None,
+            click: None,
+            position: Point::default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct TableClick {
-    pub area: Option<TableArea>,
+pub struct TableClick<RowId, ColumnId> {
+    pub area: Option<TableArea<RowId, ColumnId>>,
     pub click: Click,
 }
 
-impl TableClick {
-    pub fn new(area: Option<TableArea>, click: Click) -> Self {
+impl<RowId, ColumnId> TableClick<RowId, ColumnId> {
+    pub fn new(area: Option<TableArea<RowId, ColumnId>>, click: Click) -> Self {
         Self { area, click }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum TableArea {
+pub enum TableArea<RowId, ColumnId> {
     Header {
-        column_id: Option<TableIdentifier>,
+        column_id: Option<ColumnId>,
     },
     Body {
-        row_id: Option<TableIdentifier>,
+        row_id: Option<RowId>,
     },
     Scroll {
         scroll_area_offset: Option<f32>,
@@ -73,16 +87,18 @@ pub enum TableArea {
     },
 }
 
-impl<'a, T, Message, Theme, Renderer> Table<'a, T, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
 where
-    T: Identifiable,
+    T: Identifiable + TableRow,
+    T::Identifier: Hash + Eq + Clone,
+    ColumnId: Hash + Eq + Clone,
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
 {
     pub fn handle_mouse_event(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         layout: Layout<'_>,
         cursor: Cursor,
         shell: &mut Shell<'_, Message>,
@@ -121,7 +137,7 @@ where
 
     pub fn handle_mouse_button_press(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         bounds: Rectangle,
         cursor: Cursor,
         shell: &mut Shell<'_, Message>,
@@ -178,7 +194,11 @@ where
         }
     }
 
-    pub fn handle_mouse_button_release(&self, state: &mut State, shell: &mut Shell<'_, Message>) {
+    pub fn handle_mouse_button_release(
+        &self,
+        state: &mut State<T::Identifier, ColumnId>,
+        shell: &mut Shell<'_, Message>,
+    ) {
         state.previous_click = state.mouse_interaction.release_mouse_button();
 
         if state.mouse_interaction.area.is_some() {
@@ -189,7 +209,7 @@ where
 
     pub fn handle_mouse_cursor_moved(
         &self,
-        state: &mut State,
+        state: &mut State<T::Identifier, ColumnId>,
         shell: &mut Shell<'_, Message>,
         bounds: Rectangle,
         cursor_position: Point,
