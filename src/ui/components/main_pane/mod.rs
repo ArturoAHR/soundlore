@@ -1,6 +1,6 @@
 use iced::{
     Element, Length, Renderer, Task, alignment,
-    widget::{container, text},
+    widget::{Space, container, text},
 };
 use iced_palace::widget::ellipsized_text;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -13,7 +13,10 @@ use crate::{
     ui::{
         theme::Theme,
         utils::label::format_duration,
-        widgets::table::{column, table},
+        widgets::{
+            icons::{self, icon},
+            table::{column, table},
+        },
     },
 };
 
@@ -88,8 +91,19 @@ impl MainPane {
         _theme: &'a Theme,
         tracks: &'a FxHashMap<TrackId, Track>,
         displayed_track_ids: &Vec<TrackId>,
+        current_playing_track_id: Option<&TrackId>,
     ) -> Element<'a, Message, Theme, Renderer> {
+        let current_playing_track_id = current_playing_track_id.copied().unwrap_or(-1);
+
         let columns = vec![
+            column(TrackTableColumn::NowPlaying, None, move |track: &Track| {
+                if track.id == current_playing_track_id {
+                    icon(icons::PLAY)
+                } else {
+                    Space::new().into()
+                }
+            })
+            .width(30.0),
             column(
                 TrackTableColumn::Artist,
                 Some(text("Artist").into()),

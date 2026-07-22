@@ -12,7 +12,12 @@ use crate::{
 impl App {
     pub fn view_main_pane(&self) -> Element<'_, app::Message, Theme, Renderer> {
         self.main_pane
-            .view(&self.theme, &self.tracks, &self.displayed_track_ids)
+            .view(
+                &self.theme,
+                &self.tracks,
+                &self.displayed_track_ids,
+                self.current_playing_track_id.as_ref(),
+            )
             .map(app::Message::MainPane)
     }
 
