@@ -3,10 +3,13 @@ use tracing::{error, instrument};
 
 use crate::{
     app::{self, App},
+    error::AppError,
+    event::Event::AttemptedPlayingTrack,
     playback::{
         PlaybackControllerError, PlaybackControllerStatus,
         pipeline::thread::AudioPipelineThreadEvent,
     },
+    track::models::TrackId,
     ui::components::playback_bar,
 };
 
@@ -26,6 +29,32 @@ impl App {
             Message::AudioPipelineEvent(event) => {
                 if let Err(error) = self.playback_controller.handle_audio_pipeline_event(&event) {
                     error!("Playback controller failed to handle audio pipeline event: {error}");
+                }
+
+                #[allow(clippy::single_match)]
+                match event {
+                    AudioPipelineThreadEvent::TrackFinished => {
+                        let Some(next_track_id) =
+                            self.current_playing_track_id.and_then(|track_id| {
+                                self.displayed_track_ids
+                                    .iter()
+                                    .position(|&displayed_track_id| displayed_track_id == track_id)
+                                    .and_then(|displayed_track_index| {
+                                        self.displayed_track_ids.get(displayed_track_index + 1)
+                                    })
+                            })
+                        else {
+                            return Task::none();
+                        };
+
+                        match self.play_track(*next_track_id) {
+                            Ok(event_tasks) => return event_tasks,
+                            Err(error) => {
+                                error!("Could not play next track: {error}");
+                            }
+                        }
+                    }
+                    _ => {}
                 }
 
                 Task::none()
@@ -85,5 +114,24 @@ impl App {
             }
             Message::OutputDeviceChanged => Task::none(),
         }
+    }
+
+    pub fn play_track(&mut self, track_id: TrackId) -> Result<Task<app::Message>, AppError> {
+        let track = self
+            .tracks
+            .get(&track_id)
+            .ok_or_else(|| AppError::TrackNotFound {
+                id: Some(track_id),
+                path: None,
+            })?
+            .clone();
+
+        let event_tasks = self.broadcast(AttemptedPlayingTrack);
+
+        self.playback_controller.play(track)?;
+
+        self.current_playing_track_id = Some(track_id);
+
+        Ok(event_tasks)
     }
 }
