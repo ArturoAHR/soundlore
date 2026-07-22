@@ -14,7 +14,10 @@ use tracing::{error, info, instrument};
 
 use crate::{
     app::Message::LoadTracks,
-    constants::{MIN_HORIZONTAL_SPLIT_PANE_HEIGHT, MIN_VERTICAL_SPLIT_PANE_WIDTH},
+    constants::{
+        CURRENT_PLAYBACK_POSITION_POLL_INTERVAL_MS, MIN_HORIZONTAL_SPLIT_PANE_HEIGHT,
+        MIN_VERTICAL_SPLIT_PANE_WIDTH,
+    },
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{
@@ -369,9 +372,11 @@ impl App {
             self.playback_controller.status,
             PlaybackControllerStatus::Playing
         ) {
-            subscriptions.push(every(milliseconds(16)).map(|_| {
-                Message::Playback(playback::Message::PollPlaybackCurrentPlaybackPosition)
-            }));
+            subscriptions.push(
+                every(milliseconds(CURRENT_PLAYBACK_POSITION_POLL_INTERVAL_MS)).map(|_| {
+                    Message::Playback(playback::Message::PollPlaybackCurrentPlaybackPosition)
+                }),
+            );
         }
 
         subscriptions.push(
