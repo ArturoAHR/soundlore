@@ -2,6 +2,7 @@ use iced::{
     Alignment, Element, Font, Length, Padding, Renderer, Task,
     widget::{Space, button, column, container, row, slider, text},
 };
+use iced_palace::widget::ellipsized_text;
 use rustc_hash::FxHashMap;
 use tracing::instrument;
 
@@ -266,7 +267,7 @@ impl PlaybackBar {
                 row![play_previous, play_button, play_next].spacing(10.0),
                 column![
                     row![
-                        text(track_name_label),
+                        ellipsized_text(track_name_label),
                         Space::new().width(Length::Fill),
                         text(current_time_label).font(Font::MONOSPACE)
                     ],
