@@ -1,6 +1,9 @@
 use std::hash::Hash;
 
-use iced::advanced::{Shell, mouse::click, renderer};
+use iced::{
+    advanced::{Shell, mouse::click, renderer},
+    mouse,
+};
 use rustc_hash::FxHashSet;
 
 use crate::{
@@ -70,7 +73,13 @@ where
         shell: &mut Shell<'_, Message>,
     ) {
         // TODO (v2): Add scroll on moving the mouse up or down the table body past a certain threshold
-        if let Some(on_row_select) = self.on_row_select.as_ref() {
+        if let Some(on_row_select) = self.on_row_select.as_ref()
+            && state
+                .mouse_interaction
+                .click
+                .as_ref()
+                .is_some_and(|table_click| matches!(table_click.button, mouse::Button::Left))
+        {
             let empty_selection = FxHashSet::default();
             let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 

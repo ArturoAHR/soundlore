@@ -37,6 +37,7 @@ where
 
         self.click = Some(TableClick {
             area: self.area.clone(),
+            button: mouse_button,
             click,
         });
 
@@ -61,12 +62,21 @@ impl<RowId, ColumnId> Default for MouseInteraction<RowId, ColumnId> {
 #[derive(Debug, Clone)]
 pub struct TableClick<RowId, ColumnId> {
     pub area: Option<TableArea<RowId, ColumnId>>,
+    pub button: mouse::Button,
     pub click: Click,
 }
 
 impl<RowId, ColumnId> TableClick<RowId, ColumnId> {
-    pub fn new(area: Option<TableArea<RowId, ColumnId>>, click: Click) -> Self {
-        Self { area, click }
+    pub fn new(
+        area: Option<TableArea<RowId, ColumnId>>,
+        button: mouse::Button,
+        click: Click,
+    ) -> Self {
+        Self {
+            area,
+            button,
+            click,
+        }
     }
 }
 
