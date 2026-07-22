@@ -21,7 +21,6 @@ use crate::playback::{
 };
 
 pub mod constants;
-pub mod device;
 pub mod thread;
 
 #[derive(Debug, Error, Clone)]

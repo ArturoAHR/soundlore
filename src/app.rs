@@ -17,7 +17,8 @@ use crate::{
     constants::{MIN_HORIZONTAL_SPLIT_PANE_HEIGHT, MIN_VERTICAL_SPLIT_PANE_WIDTH},
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback::{self, PlaybackController, engine::device::watch_default_device},
+    playback::{self, PlaybackController},
+    subscriptions::audio_device::watch_default_device,
     track::{
         models::{Track, TrackId},
         repository::get_tracks,
