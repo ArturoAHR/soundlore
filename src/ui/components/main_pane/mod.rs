@@ -87,6 +87,7 @@ impl MainPane {
         &'a self,
         _theme: &'a Theme,
         tracks: &'a FxHashMap<TrackId, Track>,
+        displayed_track_ids: &Vec<TrackId>,
     ) -> Element<'a, Message, Theme, Renderer> {
         let columns = vec![
             column(
@@ -127,7 +128,7 @@ impl MainPane {
         container(
             table(
                 columns,
-                self.displayed_track_ids
+                displayed_track_ids
                     .iter()
                     .filter_map(|track_id| tracks.get(track_id))
                     .collect(),

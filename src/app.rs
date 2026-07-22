@@ -44,9 +44,10 @@ pub struct App {
     pub ui_scale: f32,
     pub theme: Theme,
     pub status: AppStatus,
-    pub current_playing_track_id: Option<TrackId>,
     /// Tracks master list contains all the tracks, derived projections take
     pub tracks: FxHashMap<TrackId, Track>,
+    pub displayed_track_ids: Vec<TrackId>,
+    pub current_playing_track_id: Option<TrackId>,
 
     pub window_size: Size,
     pub main_window_id: Option<window::Id>,
@@ -127,6 +128,7 @@ impl App {
                 ui_scale,
                 status: AppStatus::Idle,
                 tracks: FxHashMap::default(),
+                displayed_track_ids: Vec::new(),
                 current_playing_track_id: None,
 
                 window_size: Size::default(),
@@ -241,9 +243,7 @@ impl App {
                     self.tracks = tracks.into_iter().map(|track| (track.id, track)).collect();
 
                     // TODO: Add loading state to main pane before setting the displayed tracks
-                    task = Task::done(Message::MainPane(main_pane::Message::SetDisplayedTracks(
-                        self.tracks.keys().copied().collect(),
-                    )));
+                    self.displayed_track_ids = self.tracks.keys().copied().collect();
                 }
                 Err(error) => error!("Failed to load tracks: {error}"),
             },
