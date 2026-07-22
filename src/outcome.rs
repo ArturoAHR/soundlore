@@ -6,7 +6,7 @@ use crate::{
     error::AppError,
     event::Event::AttemptedPlayingTrack,
     playback::PlaybackControllerStatus,
-    track::models::Track,
+    track::models::TrackId,
 };
 
 #[derive(Debug, Clone)]
@@ -19,7 +19,7 @@ pub enum PlaybackOutcome {
     Resume,
     Pause,
     Stop,
-    Play(i64),
+    Play(TrackId),
     Seek {
         timestamp: u64,
         post_seek_status: PlaybackControllerStatus,
@@ -74,21 +74,20 @@ impl App {
             }
 
             PlaybackOutcome::Play(track_id) => {
-                let track: Track = self
+                let track = self
                     .tracks
-                    .iter()
-                    .find(|track| track.id == track_id)
-                    .cloned()
+                    .get(&track_id)
                     .ok_or_else(|| AppError::TrackNotFound {
                         id: Some(track_id),
                         path: None,
-                    })?;
+                    })?
+                    .clone();
 
                 let event_tasks = self.broadcast(AttemptedPlayingTrack);
 
-                self.playback_controller.play(track.clone())?;
+                self.playback_controller.play(track)?;
 
-                self.current_playing_track = Some(track);
+                self.current_playing_track_id = Some(track_id);
 
                 Ok(event_tasks)
             }

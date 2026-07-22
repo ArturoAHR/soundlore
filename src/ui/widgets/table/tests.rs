@@ -124,7 +124,7 @@ impl TestApp {
             .resizable(true),
         ];
 
-        table(columns, &self.rows)
+        table(columns, self.rows.iter().collect())
             .selected_rows(&self.selected_rows)
             .row_height(ROW_HEIGHT)
             .header_height(HEADER_HEIGHT)

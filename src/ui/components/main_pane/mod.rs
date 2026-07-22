@@ -3,13 +3,13 @@ use iced::{
     widget::{container, text},
 };
 use iced_palace::widget::ellipsized_text;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 use tracing::instrument;
 
 use crate::{
     event::Event,
     outcome::PlaybackOutcome,
-    track::models::Track,
+    track::models::{Track, TrackId},
     ui::{
         theme::Theme,
         utils::label::format_duration,
@@ -22,12 +22,14 @@ pub mod handler;
 #[derive(Debug)]
 pub struct MainPane {
     pub selected_track_ids: FxHashSet<i64>,
+    pub displayed_track_ids: Vec<TrackId>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    TrackRowDoubleClicked(i64),
-    TrackRowSelected(FxHashSet<i64>),
+    SetDisplayedTracks(Vec<TrackId>),
+    TrackRowDoubleClicked(TrackId),
+    TrackRowSelected(FxHashSet<TrackId>),
     ColumnHeaderCellClicked(TrackTableColumn),
 }
 
@@ -51,6 +53,7 @@ impl MainPane {
     pub fn new() -> Self {
         Self {
             selected_track_ids: FxHashSet::default(),
+            displayed_track_ids: Vec::new(),
         }
     }
 
@@ -60,6 +63,9 @@ impl MainPane {
         let mut outcomes = Vec::new();
 
         match event {
+            Message::SetDisplayedTracks(displayed_track_ids) => {
+                self.displayed_track_ids = displayed_track_ids;
+            }
             Message::TrackRowDoubleClicked(track_id) => {
                 outcomes.push(Outcome::Playback(PlaybackOutcome::Play(track_id)));
             }
@@ -80,7 +86,7 @@ impl MainPane {
     pub fn view<'a>(
         &'a self,
         _theme: &'a Theme,
-        tracks: &'a [Track],
+        tracks: &'a FxHashMap<TrackId, Track>,
     ) -> Element<'a, Message, Theme, Renderer> {
         let columns = vec![
             column(
@@ -119,11 +125,17 @@ impl MainPane {
         ];
 
         container(
-            table(columns, tracks)
-                .selected_rows(&self.selected_track_ids)
-                .on_row_select(Message::TrackRowSelected)
-                .on_row_double_click(Message::TrackRowDoubleClicked)
-                .on_header_cell_click(Message::ColumnHeaderCellClicked),
+            table(
+                columns,
+                self.displayed_track_ids
+                    .iter()
+                    .filter_map(|track_id| tracks.get(track_id))
+                    .collect(),
+            )
+            .selected_rows(&self.selected_track_ids)
+            .on_row_select(Message::TrackRowSelected)
+            .on_row_double_click(Message::TrackRowDoubleClicked)
+            .on_header_cell_click(Message::ColumnHeaderCellClicked),
         )
         .height(Length::Fill)
         .width(Length::Fill)

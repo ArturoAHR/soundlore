@@ -2,6 +2,7 @@ use iced::{
     Alignment, Element, Font, Length, Padding, Renderer, Task,
     widget::{Space, button, column, container, row, slider, text},
 };
+use rustc_hash::FxHashMap;
 use tracing::instrument;
 
 use crate::{
@@ -9,7 +10,7 @@ use crate::{
     outcome::PlaybackOutcome,
     playback::PlaybackControllerStatus,
     track::{
-        models::Track,
+        models::{Track, TrackId},
         utils::{get_track_duration_label, get_track_label},
     },
     ui::{
@@ -94,12 +95,6 @@ pub enum Message {
 #[derive(Debug, Clone)]
 pub enum Outcome {
     Playback(PlaybackOutcome),
-}
-
-#[derive(Debug)]
-pub struct PlaybackBarViewContext<'a> {
-    pub theme: &'a Theme,
-    pub current_playing_track: &'a Option<Track>,
 }
 
 #[derive(Debug)]
@@ -219,14 +214,17 @@ impl PlaybackBar {
 
     pub fn view<'a>(
         &'a self,
-        ctx: PlaybackBarViewContext,
+        _theme: &Theme,
+        tracks: &FxHashMap<TrackId, Track>,
+        current_playing_track_id: Option<&TrackId>,
     ) -> Element<'a, Message, Theme, Renderer> {
         let mut total_frames = 1.0;
         let mut current_position = 0.0;
 
         let mut track_name_label = String::new();
-        let (track_duration_timestamp, current_position_timestamp) =
-            ctx.current_playing_track.as_ref().map_or_else(
+        let (track_duration_timestamp, current_position_timestamp) = current_playing_track_id
+            .and_then(|track_id| tracks.get(track_id))
+            .map_or_else(
                 || ("0:00".to_owned(), "0:00".to_owned()),
                 |track| {
                     total_frames = track.frames as f64;

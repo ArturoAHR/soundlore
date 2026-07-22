@@ -87,7 +87,7 @@ pub enum TableArea<RowId, ColumnId> {
     },
 }
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone,

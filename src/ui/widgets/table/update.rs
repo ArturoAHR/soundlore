@@ -18,7 +18,7 @@ use crate::{
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow + 'static,
     T::Identifier: Hash + Eq + Clone,

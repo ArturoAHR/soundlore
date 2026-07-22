@@ -10,7 +10,7 @@ use crate::{
     ui::widgets::table::{Catalog, Table, TableRow, state::State},
 };
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone,

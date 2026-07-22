@@ -58,6 +58,8 @@ impl Identifiable for Track {
     }
 }
 
+pub type TrackId = <Track as Identifiable>::Identifier;
+
 impl TableRow for Track {
     fn header_row_id() -> Self::Identifier {
         -1

@@ -27,7 +27,7 @@ use crate::{
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone + 'static,
@@ -121,6 +121,7 @@ where
         renderer.with_layer(body_bounds, |renderer| {
             let visible_row_ids = self.records[self.visible_row_range.clone()]
                 .iter()
+                .copied()
                 .map(Identifiable::id);
 
             // Render table body rows background

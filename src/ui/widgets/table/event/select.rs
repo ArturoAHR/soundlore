@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone,
@@ -38,7 +38,7 @@ where
             let empty_selection = FxHashSet::default();
             let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
-            let row_ids = self.records.iter().map(Identifiable::id);
+            let row_ids = self.records.iter().copied().map(Identifiable::id);
 
             let (selected_row_ids, anchor_row_id) = select_values(
                 row_ids,
@@ -89,7 +89,7 @@ where
                 return;
             }
 
-            let row_ids = self.records.iter().map(Identifiable::id);
+            let row_ids = self.records.iter().copied().map(Identifiable::id);
 
             let mut select_operation = SelectOperation::from_keyboard_modifiers(
                 state.keyboard_modifiers,
@@ -128,7 +128,7 @@ where
             let empty_selection = FxHashSet::default();
             let selected_rows = self.selected_rows.unwrap_or(&empty_selection);
 
-            let row_ids = self.records.iter().map(Identifiable::id);
+            let row_ids = self.records.iter().copied().map(Identifiable::id);
 
             let (selected_row_ids, anchor_row_id) = select_values(
                 row_ids,

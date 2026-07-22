@@ -21,7 +21,7 @@ use crate::{
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone + 'static,
@@ -114,6 +114,7 @@ where
 
         let visible_row_record_ids = self.records[self.visible_row_range.clone()]
             .iter()
+            .copied()
             .map(Identifiable::id);
         let row_body_cell_groups = self.body_cells.chunks_mut(self.columns.len());
 

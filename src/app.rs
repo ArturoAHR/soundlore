@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use iced_split::{horizontal_split, vertical_split};
+use rustc_hash::FxHashMap;
 use sqlx::SqlitePool;
 
 use iced::{
@@ -17,7 +18,10 @@ use crate::{
     error::AppError,
     library::scanner::scan_files_in_directory,
     playback::{self, PlaybackController, engine::device::watch_default_device},
-    track::{models::Track, repository::get_tracks},
+    track::{
+        models::{Track, TrackId},
+        repository::get_tracks,
+    },
     ui::{
         components::{
             explorer_pane::{self, ExplorerPane},
@@ -40,8 +44,9 @@ pub struct App {
     pub ui_scale: f32,
     pub theme: Theme,
     pub status: AppStatus,
-    pub current_playing_track: Option<Track>,
-    pub tracks: Vec<Track>,
+    pub current_playing_track_id: Option<TrackId>,
+    /// Tracks master list contains all the tracks, derived projections take
+    pub tracks: FxHashMap<TrackId, Track>,
 
     pub window_size: Size,
     pub main_window_id: Option<window::Id>,
@@ -121,8 +126,8 @@ impl App {
                 theme,
                 ui_scale,
                 status: AppStatus::Idle,
-                tracks: Vec::new(),
-                current_playing_track: None,
+                tracks: FxHashMap::default(),
+                current_playing_track_id: None,
 
                 window_size: Size::default(),
                 main_window_id: None,
@@ -161,12 +166,16 @@ impl App {
 
     #[instrument(skip(self), level = "debug",
         fields(
-            current_track = self.current_playing_track.as_ref().map(|track| {
-                Path::new(&track.file_path)
-                    .file_name()
-                    .unwrap_or_else(|| track.file_path.as_ref())
-                    .to_str()
-            })
+            current_track = self
+                .current_playing_track_id
+                .as_ref()
+                .and_then(|track_id| self.tracks.get(track_id))
+                .map(|track| {
+                    Path::new(&track.file_path)
+                        .file_name()
+                        .unwrap_or_else(|| track.file_path.as_ref())
+                        .to_str()
+                })
         )
     )]
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -229,7 +238,12 @@ impl App {
             }
             Message::LoadedTracks(tracks) => match tracks {
                 Ok(tracks) => {
-                    self.tracks = tracks;
+                    self.tracks = tracks.into_iter().map(|track| (track.id, track)).collect();
+
+                    // TODO: Add loading state to main pane before setting the displayed tracks
+                    task = Task::done(Message::MainPane(main_pane::Message::SetDisplayedTracks(
+                        self.tracks.keys().copied().collect(),
+                    )));
                 }
                 Err(error) => error!("Failed to load tracks: {error}"),
             },

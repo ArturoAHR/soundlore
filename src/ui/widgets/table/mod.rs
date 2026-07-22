@@ -35,7 +35,7 @@ pub use style::*;
 
 pub type OnRowSelectHandler<'a, RowId, Message> = Box<dyn Fn(FxHashSet<RowId>) -> Message + 'a>;
 
-pub struct Table<'a, T, ColumnId, Message, Theme, Renderer = iced::Renderer>
+pub struct Table<'a, 'b, T, ColumnId, Message, Theme, Renderer = iced::Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone,
@@ -56,7 +56,7 @@ where
 
     has_header: bool,
     columns: Vec<Column<'a, T, ColumnId, Message, Theme, Renderer>>,
-    records: &'a [T],
+    records: Vec<&'b T>,
 
     visible_row_range: Range<usize>,
     header_cells: Vec<Element<'a, Message, Theme, Renderer>>,
@@ -78,7 +78,8 @@ pub trait TableRow: Identifiable {
     fn header_row_id() -> Self::Identifier;
 }
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, T, ColumnId, Message, Theme, Renderer>
+impl<'a, 'b, T, ColumnId, Message, Theme, Renderer>
+    Table<'a, 'b, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone,
@@ -86,10 +87,11 @@ where
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
+    'b: 'a,
 {
     pub fn new(
         mut columns: Vec<Column<'a, T, ColumnId, Message, Theme, Renderer>>,
-        records: &'a [T],
+        records: Vec<&'b T>,
     ) -> Self {
         let has_header = columns.iter().any(|column| column.header.is_some());
         let header_height = if has_header { 35.0 } else { 0.0 };
@@ -275,8 +277,9 @@ where
     }
 }
 
-impl<'a, T, ColumnId, Message, Theme, Renderer>
-    From<Table<'a, T, ColumnId, Message, Theme, Renderer>> for Element<'a, Message, Theme, Renderer>
+impl<'a, 'b, T, ColumnId, Message, Theme, Renderer>
+    From<Table<'a, 'b, T, ColumnId, Message, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow + 'static,
     T::Identifier: Hash + Eq + Clone + 'static,
@@ -284,8 +287,9 @@ where
     Message: 'a,
     Theme: Catalog + 'a,
     Renderer: renderer::Renderer + 'a,
+    'b: 'a,
 {
-    fn from(table: Table<'a, T, ColumnId, Message, Theme, Renderer>) -> Self {
+    fn from(table: Table<'a, 'b, T, ColumnId, Message, Theme, Renderer>) -> Self {
         Self::new(table)
     }
 }
@@ -386,7 +390,7 @@ impl<T, ColumnId, Message, Theme, Renderer> Column<'_, T, ColumnId, Message, The
 }
 
 impl<'a, T, ColumnId, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Table<'a, T, ColumnId, Message, Theme, Renderer>
+    for Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow + 'static,
     T::Identifier: Hash + Eq + Clone,
@@ -445,10 +449,10 @@ where
 }
 
 /// Creates an new Table with the given columns and one row for each record.
-pub fn table<'a, T, ColumnId, Message, Theme, Renderer>(
+pub fn table<'a, 'b, T, ColumnId, Message, Theme, Renderer>(
     columns: Vec<Column<'a, T, ColumnId, Message, Theme, Renderer>>,
-    records: &'a [T],
-) -> Table<'a, T, ColumnId, Message, Theme, Renderer>
+    records: Vec<&'b T>,
+) -> Table<'a, 'b, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone,
@@ -456,6 +460,7 @@ where
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
+    'b: 'a,
 {
     Table::new(columns, records)
 }

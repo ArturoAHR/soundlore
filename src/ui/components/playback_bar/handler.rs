@@ -6,7 +6,6 @@ use crate::{
     ui::{
         components::playback_bar::{
             Message, Outcome, PlaybackBarEventContext, PlaybackBarUpdateContext,
-            PlaybackBarViewContext,
         },
         theme::Theme,
     },
@@ -14,13 +13,12 @@ use crate::{
 
 impl App {
     pub fn view_playback_bar(&self) -> Element<'_, app::Message, Theme, Renderer> {
-        let context = PlaybackBarViewContext {
-            current_playing_track: &self.current_playing_track,
-            theme: &self.theme,
-        };
-
         self.playback_bar
-            .view(context)
+            .view(
+                &self.theme,
+                &self.tracks,
+                self.current_playing_track_id.as_ref(),
+            )
             .map(app::Message::PlaybackBar)
     }
 

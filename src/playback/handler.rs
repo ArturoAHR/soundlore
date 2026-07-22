@@ -36,7 +36,10 @@ impl App {
                     return Task::none();
                 }
 
-                let Some(track) = self.current_playing_track.as_ref() else {
+                let Some(track) = self
+                    .current_playing_track_id
+                    .and_then(|track_id| self.tracks.get(&track_id))
+                else {
                     return Task::none();
                 };
 
