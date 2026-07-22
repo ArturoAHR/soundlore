@@ -62,40 +62,10 @@ where
             }
         }
 
-        // Column Width Resolution
+        self.resolve_column_widths(grid_limits);
 
-        let container_width = From::<f32>::from(grid_limits.max().width);
-        let column_widths = self.columns.iter().map(Column::get_column_width).collect();
-
-        let column_widths = get_column_widths(container_width, column_widths);
-
-        for (column, column_width) in self.columns.iter_mut().zip(column_widths) {
-            column.width = column_width as f32;
-        }
-
-        // Get Cell Offsets
-
-        self.column_offsets = self
-            .columns
-            .iter()
-            .scan(0.0, |offset_accumulator, column| {
-                let current_offset = *offset_accumulator;
-
-                *offset_accumulator += column.width;
-
-                Some(current_offset)
-            })
-            .collect();
-
-        // Determines where the rows start by subtracting from the header height the length
-        // the first row that is below overlapping it.
-        let row_offset_start =
-            self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
-        self.row_offsets = (0..self.visible_row_range.len())
-            .map(|visible_row_number| {
-                row_offset_start + self.row_height * visible_row_number as f32
-            })
-            .collect();
+        self.calculate_column_offsets();
+        self.calculate_row_offsets(state);
 
         // Child Node Generation
 
@@ -188,5 +158,42 @@ where
         state.cell_state.prune(&row_ids);
 
         Node::with_children(limits.max(), nodes)
+    }
+
+    pub fn resolve_column_widths(&mut self, grid_limits: Limits) {
+        let container_width = From::<f32>::from(grid_limits.max().width);
+        let column_widths = self.columns.iter().map(Column::get_column_width).collect();
+
+        let column_widths = get_column_widths(container_width, column_widths);
+
+        for (column, column_width) in self.columns.iter_mut().zip(column_widths) {
+            column.width = column_width as f32;
+        }
+    }
+
+    pub fn calculate_column_offsets(&mut self) {
+        self.column_offsets = self
+            .columns
+            .iter()
+            .scan(0.0, |offset_accumulator, column| {
+                let current_offset = *offset_accumulator;
+
+                *offset_accumulator += column.width;
+
+                Some(current_offset)
+            })
+            .collect();
+    }
+
+    pub fn calculate_row_offsets(&mut self, state: &State<T::Identifier, ColumnId>) {
+        // Determines where the rows start by subtracting from the header height the length
+        // the first row that is below overlapping it.
+        let row_offset_start =
+            self.header_height - self.row_height * (state.offset_y / self.row_height).fract();
+        self.row_offsets = (0..self.visible_row_range.len())
+            .map(|visible_row_number| {
+                row_offset_start + self.row_height * visible_row_number as f32
+            })
+            .collect();
     }
 }

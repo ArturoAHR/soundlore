@@ -1,3 +1,5 @@
+#![allow(clippy::future_not_send)]
+
 use std::{cell::RefCell, rc::Rc};
 
 use soundlore_lib::{

@@ -1,6 +1,8 @@
+#![allow(clippy::future_not_send)]
+
 use futures::StreamExt;
 use iced::Task;
-use iced_test::runtime::{task::into_stream, Action};
+use iced_test::runtime::{Action, task::into_stream};
 use soundlore_lib::app::{App, Message};
 
 pub async fn perform_task(app: &mut App, task: Task<Message>) {

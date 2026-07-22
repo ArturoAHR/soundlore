@@ -1,3 +1,5 @@
+#![allow(clippy::float_cmp)]
+
 use pretty_assertions::assert_eq;
 use soundlore_lib::track::models::Track;
 
