@@ -1,34 +1,36 @@
 use iced::Task;
-use tracing::error;
+use tracing::{error, instrument};
 
 use crate::{
     app::{self, App},
-    playback::{PlaybackControllerError, PlaybackControllerStatus},
+    playback::{
+        PlaybackControllerError, PlaybackControllerStatus,
+        pipeline::thread::AudioPipelineThreadEvent,
+    },
     ui::components::playback_bar,
 };
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    AudioPipelineEvent(AudioPipelineThreadEvent),
     PendingOutputDeviceChange,
     OutputDeviceChanged,
     OutputDeviceChangeFailed(PlaybackControllerError),
-    PollPlaybackEvent,
+    PollPlaybackCurrentPlaybackPosition,
 }
 
 impl App {
-    #[allow(clippy::single_match)]
+    #[instrument(skip(self))]
     pub fn handle_playback(&mut self, message: Message) -> Task<app::Message> {
         match message {
-            Message::PollPlaybackEvent => {
-                while let Ok(Some(_event)) = self.playback_controller.poll_event() {
-                    // match event {
-                    //     PlaybackControllerEvent::EndOfTrack => {
-                    //         // TODO: Implement playing next track.
-                    //     }
-                    //     _ => {}
-                    // }
+            Message::AudioPipelineEvent(event) => {
+                if let Err(error) = self.playback_controller.handle_audio_pipeline_event(&event) {
+                    error!("Playback controller failed to handle audio pipeline event: {error}");
                 }
 
+                Task::none()
+            }
+            Message::PollPlaybackCurrentPlaybackPosition => {
                 if matches!(
                     self.playback_controller.status,
                     PlaybackControllerStatus::Stopped
@@ -66,7 +68,7 @@ impl App {
                 ))
             }
             Message::PendingOutputDeviceChange => {
-                if let Err(error) = self.playback_controller.initialize_output() {
+                if let Err(error) = self.playback_controller.build_output() {
                     return Task::done(app::Message::Playback(Message::OutputDeviceChangeFailed(
                         error,
                     )));

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
 
-use soundlore_lib::playback::PlaybackController;
+use soundlore_lib::playback::{PlaybackController, pipeline::thread::AudioPipelineThreadEvent};
 
 use crate::common::{
     log::initialize_logging,
@@ -12,6 +12,8 @@ pub mod engine;
 pub struct TestPlayback {
     pub playback_controller: PlaybackController,
     pub playback_engine: Rc<RefCell<TestEngine>>,
+    pub audio_pipeline_event_receiver:
+        iced::futures::channel::mpsc::UnboundedReceiver<AudioPipelineThreadEvent>,
 }
 
 impl TestPlayback {
@@ -26,11 +28,17 @@ impl TestPlayback {
         let mut playback_controller =
             PlaybackController::new(Box::new(TestEngineContainer::new(playback_engine.clone())));
 
-        playback_controller.initialize_output().unwrap();
+        let (audio_pipeline_event_sender, audio_pipeline_event_receiver) =
+            iced::futures::channel::mpsc::unbounded();
+
+        playback_controller
+            .initialize_playback(audio_pipeline_event_sender)
+            .unwrap();
 
         Self {
             playback_controller,
             playback_engine,
+            audio_pipeline_event_receiver,
         }
     }
 

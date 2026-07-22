@@ -53,7 +53,7 @@ where
         move |data: &mut [T], info: &OutputCallbackInfo| {
             data_processor.process(data, info);
         },
-        |error| error!("stream error: {error}"),
+        |error| error!("Stream error: {error}"),
         None,
     )?;
 

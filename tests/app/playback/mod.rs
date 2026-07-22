@@ -4,7 +4,7 @@ use std::{
 };
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use soundlore_lib::playback::event::PlaybackControllerEvent;
+use soundlore_lib::playback::pipeline::thread::AudioPipelineThreadEvent;
 
 use crate::{
     common::{
@@ -94,8 +94,8 @@ fn test_playback_controller_play(
 
         #[allow(clippy::collapsible_if)]
         if playback.is_sample_buffer_empty() {
-            if let Ok(event) = playback.playback_controller.poll_event() {
-                if matches!(event, Some(PlaybackControllerEvent::EndOfTrack)) {
+            if let Ok(event) = playback.audio_pipeline_event_receiver.try_recv() {
+                if matches!(event, AudioPipelineThreadEvent::TrackFinished) {
                     break;
                 }
 
@@ -188,8 +188,8 @@ fn test_playback_controller_seek(
 
         #[allow(clippy::collapsible_if)]
         if playback.is_sample_buffer_empty() {
-            if let Ok(event) = playback.playback_controller.poll_event() {
-                if matches!(event, Some(PlaybackControllerEvent::EndOfTrack)) {
+            if let Ok(event) = playback.audio_pipeline_event_receiver.try_recv() {
+                if matches!(event, AudioPipelineThreadEvent::TrackFinished) {
                     break;
                 }
 

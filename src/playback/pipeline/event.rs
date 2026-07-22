@@ -2,7 +2,7 @@ use tracing::{error, instrument};
 
 use crate::playback::pipeline::thread::AudioPipelineThreadEvent;
 
-pub type EventSender = std::sync::mpsc::Sender<AudioPipelineThreadEvent>;
+pub type EventSender = iced::futures::channel::mpsc::UnboundedSender<AudioPipelineThreadEvent>;
 
 #[derive(Clone)]
 pub struct AudioPipelineEventEmitter {
@@ -16,7 +16,7 @@ impl AudioPipelineEventEmitter {
 
     #[instrument(skip(self), ret, level = "debug")]
     pub fn emit(&self, event: AudioPipelineThreadEvent) {
-        match self.event_sender.send(event) {
+        match self.event_sender.unbounded_send(event) {
             Ok(()) => {}
             Err(error) => {
                 error!("Failed to send audio pipeline event: {error}");

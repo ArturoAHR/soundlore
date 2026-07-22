@@ -17,8 +17,14 @@ use crate::{
     constants::{MIN_HORIZONTAL_SPLIT_PANE_HEIGHT, MIN_VERTICAL_SPLIT_PANE_WIDTH},
     error::AppError,
     library::scanner::scan_files_in_directory,
-    playback::{self, PlaybackController},
-    subscriptions::audio_device::watch_default_device,
+    playback::{
+        self, PlaybackController, PlaybackControllerStatus,
+        pipeline::thread::AudioPipelineThreadEvent,
+    },
+    subscriptions::{
+        audio_device::watch_default_device,
+        audio_pipeline_thread_events::audio_pipeline_thread_events,
+    },
     track::{
         models::{Track, TrackId},
         repository::get_tracks,
@@ -84,6 +90,10 @@ pub enum Message {
     SplitDragged(PaneSplit, f64),
     WindowResized(Option<window::Id>, Size),
     GetWindowId(window::Id),
+
+    AudioPipelineEventChannelReady(
+        iced::futures::channel::mpsc::UnboundedSender<AudioPipelineThreadEvent>,
+    ),
 
     NavigationBar(navigation_bar::Message),
     ExplorerPane(explorer_pane::Message),
@@ -234,6 +244,16 @@ impl App {
             }
             Message::GetWindowId(window_id) => self.main_window_id = Some(window_id),
 
+            Message::AudioPipelineEventChannelReady(audio_pipeline_event_sender) => {
+                match self
+                    .playback_controller
+                    .initialize_playback(audio_pipeline_event_sender)
+                {
+                    Ok(()) => {}
+                    Err(error) => error!("Failed to initialize playback: {error}"),
+                }
+            }
+
             Message::LoadTracks => {
                 let pool = self.pool.clone();
 
@@ -340,12 +360,19 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let mut subscriptions = vec![Subscription::run(watch_default_device)];
+        let mut subscriptions = vec![
+            Subscription::run(watch_default_device),
+            Subscription::run(audio_pipeline_thread_events),
+        ];
 
-        subscriptions.push(
-            every(milliseconds(16))
-                .map(|_| Message::Playback(playback::Message::PollPlaybackEvent)),
-        );
+        if matches!(
+            self.playback_controller.status,
+            PlaybackControllerStatus::Playing
+        ) {
+            subscriptions.push(every(milliseconds(16)).map(|_| {
+                Message::Playback(playback::Message::PollPlaybackCurrentPlaybackPosition)
+            }));
+        }
 
         subscriptions.push(
             window::resize_events()

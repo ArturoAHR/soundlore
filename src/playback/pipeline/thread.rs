@@ -6,7 +6,7 @@ use std::{
 };
 
 use rtrb::Producer;
-use tracing::{error, info_span, trace, warn};
+use tracing::{error, info, info_span, trace, warn};
 
 use crate::{
     playback::{
@@ -76,7 +76,6 @@ pub enum AudioPipelineProcessDirective {
 #[derive(Debug, Clone)]
 pub enum AudioPipelineThreadEvent {
     DecodingFinished,
-    Exited,
     TrackFinished,
     StartedAudioPipeline,
     StoppedAudioPipeline,
@@ -87,13 +86,12 @@ pub enum AudioPipelineThreadEvent {
 pub fn spawn_audio_pipeline_thread(
     samples_played_timestamp_offset: Arc<AtomicU64>,
     generation_counter: Arc<GenerationCounter>,
+    event_sender: iced::futures::channel::mpsc::UnboundedSender<AudioPipelineThreadEvent>,
 ) -> (
     std::thread::JoinHandle<()>,
     std::sync::mpsc::Sender<AudioPipelineThreadCommand>,
-    std::sync::mpsc::Receiver<AudioPipelineThreadEvent>,
 ) {
     let (command_sender, command_receiver) = std::sync::mpsc::channel();
-    let (event_sender, event_receiver) = std::sync::mpsc::channel();
 
     let audio_pipeline_thread_handle = std::thread::spawn(move || {
         audio_pipeline_thread_process(
@@ -104,7 +102,7 @@ pub fn spawn_audio_pipeline_thread(
         );
     });
 
-    (audio_pipeline_thread_handle, command_sender, event_receiver)
+    (audio_pipeline_thread_handle, command_sender)
 }
 
 fn audio_pipeline_thread_process(
@@ -132,20 +130,17 @@ fn audio_pipeline_thread_process(
         match audio_pipeline.process() {
             Ok(AudioPipelineProcessDirective::Continue) => {}
             Ok(AudioPipelineProcessDirective::Exit) => {
-                audio_pipeline
-                    .configuration
-                    .event_emitter
-                    .emit(AudioPipelineThreadEvent::Exited);
+                info!("Exited pipeline thread");
 
                 break;
             }
             Ok(AudioPipelineProcessDirective::Sleep(duration)) => {
-                trace!("sleeping {:?}", duration);
+                trace!("Sleeping {:?}", duration);
 
                 std::thread::sleep(duration);
             }
             Err(AudioPipelineError::Decoder(AudioDecoderError::RecoverableDecoderError(error))) => {
-                warn!("recoverable audio pipeline error: {error}");
+                warn!("Recoverable audio pipeline error: {error}");
             }
             Err(error) => {
                 let current_track =
@@ -163,7 +158,7 @@ fn audio_pipeline_thread_process(
 
                 audio_pipeline.set_status(AudioPipelineStatus::Paused);
 
-                error!(current_track = ?current_track, "audio pipeline error: {error}");
+                error!(current_track = ?current_track, "Audio pipeline error: {error}");
 
                 audio_pipeline
                     .configuration

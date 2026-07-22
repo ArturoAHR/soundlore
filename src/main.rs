@@ -39,9 +39,7 @@ fn main() -> iced::Result {
 
     iced::application(
         move || {
-            let mut playback_controller = PlaybackController::new(Box::new(AudioEngine::new()));
-
-            playback_controller.initialize_output().unwrap();
+            let playback_controller = PlaybackController::new(Box::new(AudioEngine::new()));
 
             App::new(pool.clone(), Theme::default(), 1.0, playback_controller)
         },

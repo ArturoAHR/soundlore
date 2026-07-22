@@ -4,7 +4,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use soundlore_lib::{
     app::{App, Message},
-    playback::PlaybackController,
+    playback::{PlaybackController, pipeline::thread::AudioPipelineThreadEvent},
     ui::theme::Theme,
 };
 use sqlx::SqlitePool;
@@ -19,6 +19,9 @@ use crate::common::{
 pub struct TestApp {
     pub app: App,
     pub pool: SqlitePool,
+    #[allow(dead_code)]
+    pub audio_pipeline_event_receiver:
+        iced::futures::channel::mpsc::UnboundedReceiver<AudioPipelineThreadEvent>,
 }
 
 impl TestApp {
@@ -32,13 +35,22 @@ impl TestApp {
         let mut playback_controller =
             PlaybackController::new(Box::new(TestEngineContainer::new(playback_engine.clone())));
 
-        playback_controller.initialize_output().unwrap();
+        let (audio_pipeline_event_sender, audio_pipeline_event_receiver) =
+            iced::futures::channel::mpsc::unbounded();
+
+        playback_controller
+            .initialize_playback(audio_pipeline_event_sender)
+            .unwrap();
 
         let (mut app, initial_task) = App::new(pool.clone(), Theme::DARK, 1.0, playback_controller);
 
         perform_task(&mut app, initial_task).await;
 
-        Self { app, pool }
+        Self {
+            app,
+            pool,
+            audio_pipeline_event_receiver,
+        }
     }
 
     pub async fn dispatch_message(&mut self, message: Message) {
