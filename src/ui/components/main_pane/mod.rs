@@ -108,7 +108,7 @@ impl MainPane {
                 TrackTableColumn::Artist,
                 Some(text("Artist").into()),
                 |track: &Track| {
-                    ellipsized_text(track.artist.clone().unwrap_or_else(|| "Unknown".to_owned()))
+                    ellipsized_text(track.artist.as_deref().unwrap_or("Unknown"))
                         .wrapping(text::Wrapping::None)
                 },
             )
@@ -118,7 +118,7 @@ impl MainPane {
                 TrackTableColumn::Title,
                 Some(text("Title").into()),
                 |track: &Track| {
-                    ellipsized_text(track.title.clone().unwrap_or_else(|| "Untitled".to_owned()))
+                    ellipsized_text(track.title.as_deref().unwrap_or("Untitled"))
                         .wrapping(text::Wrapping::None)
                 },
             )

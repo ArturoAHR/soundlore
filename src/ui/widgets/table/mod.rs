@@ -295,7 +295,7 @@ where
 }
 
 pub type ColumnCellView<'a, T, Message, Theme, Renderer> =
-    dyn Fn(&T) -> Element<'a, Message, Theme, Renderer> + 'a;
+    dyn Fn(&'a T) -> Element<'a, Message, Theme, Renderer> + 'a;
 
 pub struct Column<'a, T, ColumnId, Message, Theme, Renderer = iced::Renderer> {
     id: ColumnId,
@@ -389,8 +389,8 @@ impl<T, ColumnId, Message, Theme, Renderer> Column<'_, T, ColumnId, Message, The
     }
 }
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
-    for Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
+impl<'a, 'b, T, ColumnId, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Table<'a, 'b, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow + 'static,
     T::Identifier: Hash + Eq + Clone,
@@ -398,6 +398,7 @@ where
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
+    'b: 'a,
 {
     fn size(&self) -> Size<Length> {
         Size {
@@ -470,7 +471,7 @@ where
 pub fn column<'a, T, E, ColumnId, Message, Theme, Renderer>(
     id: ColumnId,
     header: Option<Element<'a, Message, Theme, Renderer>>,
-    view: impl Fn(&T) -> E + 'a,
+    view: impl Fn(&'a T) -> E + 'a,
 ) -> Column<'a, T, ColumnId, Message, Theme, Renderer>
 where
     T: 'a,

@@ -21,7 +21,8 @@ use crate::{
 
 use crate::ui::widgets::table::state::State;
 
-impl<'a, T, ColumnId, Message, Theme, Renderer> Table<'a, '_, T, ColumnId, Message, Theme, Renderer>
+impl<'a, 'b, T, ColumnId, Message, Theme, Renderer>
+    Table<'a, 'b, T, ColumnId, Message, Theme, Renderer>
 where
     T: Identifiable + TableRow,
     T::Identifier: Hash + Eq + Clone + 'static,
@@ -29,6 +30,7 @@ where
     Message: 'a,
     Theme: Catalog,
     Renderer: renderer::Renderer,
+    'b: 'a,
 {
     /// Creates the table cells with virtualization and the layout for the table, if the header
     /// is present, first column count child nodes are the header cell nodes.
