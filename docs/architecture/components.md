@@ -1,0 +1,11 @@
+# Components
+
+`iced` introduces the concept of widgets as a way to display UI elements that raise messages or events when interacting with them, and the way we handle the messages in small applications is by having all the relevant state for these widgets within the very same global app state, but this obviously does not scale for medium and large apps, requiring us to find ways to organize related state of sections of the app in related clusters, these are the components.
+
+Components are just a way to group `view` and `update` function implementation in structs that hold the local state that is closely related to the contents that they are meant to display, they receive the immutable slice of the global app state that is necessary to perform their functions, only being able to update directly the state within itself.
+
+Since components only receive immutable references from the global state, when handling component messages that must change the global state we use the outcome system. The `update` function of components return a tuple of an `iced::Task` and a vector of `Outcome` enum values. Outcomes implement specific behaviors that the app needs to handle and are able to initiate their own tasks, each component implements their own enum with specific shared `Outcome` sub-types that constrain what types of outcomes can be emitted by a component, so for example the `PlaybackBar` component can't issue tag related outcomes.
+
+Besides the outcome system we've got the event system that allows a component to react to an event that has taken place in the `App` struct, for example, when we attempt to play a new track, the playback bar is notified so it can set its own status to playing and zero the playback position in the scrubber if it owns the playback when the event happens.
+
+Right now the way to integrate a component into the app consists of creating the glue between the component and the `App` struct in a `impl` block for the `App` struct and the wiring the component struct there with the references to the data it needs from the app state, in the future a more seamless way to integrate these components that requires less boilerplate and is more cohesive using traits will be added.
