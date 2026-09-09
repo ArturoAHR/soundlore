@@ -52,6 +52,13 @@ DATABASE_URL="sqlite:/Users/<USER>/Library/Application Support/soundlore-dev/dat
 DATABASE_URL="sqlite:C:/Users/<USER>/AppData/Roaming/soundlore-dev/data.db"
 ```
 
+## Additional Documentation
+
+- [Architecture](./docs/architecture/README.md)
+- [Known issues](./docs/known-issues.md)
+- [Tech Debt](./docs/tech-debt.md)
+- [Todos](./docs/todo.md)
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
