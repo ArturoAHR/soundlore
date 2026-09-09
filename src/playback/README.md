@@ -26,8 +26,9 @@ Stages get grouped in two sets:
 And stages can be of these types:
 
 - Source: Produces samples, does not receive samples (Decoder).
-- Process: Receives samples and outputs them modifying them (Resampler, Channel Converter)
+- Process: Receives samples and outputs them modifying them (Resampler, Channel Converter).
 - Join: Takes multiple samples and mixes them together in one set of samples (Mixer).
+- Output: Receives samples and sends them through an output channel (Currently unused).
 
 Stages get processed in sequential order and only if they are enabled and receive a reference to the current configuration of the pipeline, first we run all the track stages (if the Audio Track Pipelines should produce samples), and then those samples go through the output stages, mixed if there is more than one Audio Track Pipeline active.
 
