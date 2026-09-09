@@ -26,8 +26,9 @@ Stages get grouped in two sets:
 And stages can be of these types:
 
 - Source: Produces samples, does not receive samples (Decoder).
-- Process: Receives samples and outputs them modifying them (Resampler, Channel Converter)
+- Process: Receives samples and outputs them modifying them (Resampler, Channel Converter).
 - Join: Takes multiple samples and mixes them together in one set of samples (Mixer).
+- Output: Receives samples and sends them through an output channel (Currently unused).
 
 Stages get processed in sequential order and only if they are enabled and receive a reference to the current configuration of the pipeline, first we run all the track stages (if the Audio Track Pipelines should produce samples), and then those samples go through the output stages, mixed if there is more than one Audio Track Pipeline active.
 
@@ -36,9 +37,3 @@ Commands are received through a `mpsc` channel and trickle down from the Audio P
 Events get emitted through a `mpsc` channel as well at the stage layer through the emitter set in the configuration of the Audio Pipeline, internal implementation of the stages must implement their own way of buffering pending events so that the stage can consume and emit them.
 
 Once the we reach the end of all stages, the samples get introduced in the Audio Sink buffer, the next iteration then attempts to insert as many samples to the ring buffer as possible, if the ring buffer is full, it **sleeps half of the time needed for the output stream to clear the ring buffer and tries again until the buffer empties.**
-
-## Generation Counting
-
-When playing a new track or seeking to a certain timestamp we increase an internal counter in the pipeline to signal the engine that it needs to discard whatever is in the buffer, the pipeline will await until the buffer acknowledges the increase by increasing its own counter to match the current generation of the pipeline. Until then no new samples are pushed to the ring buffer.
-
-A side-effect of this operation is that at the moment of acknowledging the bump in the pipeline counter the engine saves the current samples played counter minus an offset set by the pipeline (necessary for seeking) and assigns the value to an atomic that represents the samples played count when the track started, this is how we determine the current position of the playback of a track.

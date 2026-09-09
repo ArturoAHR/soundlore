@@ -28,6 +28,19 @@ Which isn't much for a library of a hundred tracks, but it certainly becomes a h
 
 ## Getting Started with Development
 
+First, if you're on Linux install the build dependencies:
+
+```sh
+# Debian / Ubuntu
+sudo apt-get install build-essential pkg-config libasound2-dev libdbus-1-dev
+
+# Fedora / RHEL
+sudo dnf install gcc pkgconf-pkg-config alsa-lib-devel dbus-devel
+
+# Arch
+sudo pacman -S --needed base-devel pkgconf alsa-lib dbus
+```
+
 To setup the tooling that this project use we use [mise](https://github.com/jdx/mise).
 
 You will need to mark the repository as trusted with `mise trust`, always check `mise.toml` to verify what's going to be installed in your machine, then run:
@@ -51,6 +64,13 @@ DATABASE_URL="sqlite:/Users/<USER>/Library/Application Support/soundlore-dev/dat
 # Windows
 DATABASE_URL="sqlite:C:/Users/<USER>/AppData/Roaming/soundlore-dev/data.db"
 ```
+
+## Additional Documentation
+
+- [Architecture](./docs/architecture/README.md)
+- [Known issues](./docs/known-issues.md)
+- [Tech Debt](./docs/tech-debt.md)
+- [Todos](./docs/todo.md)
 
 ## License
 
