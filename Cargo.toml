@@ -37,6 +37,11 @@ development = ["iced/debug"]
 hot-reload = ["development", "iced/hot"]
 testing = ["dep:iced_test"]
 
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+
 [dependencies]
 iced = { version = "0.14.0", features = ["tokio", "advanced"] }
 iced_aw = { version = "0.14.1", default-features = false, features = ["menu", "context_menu", "quad"] }
