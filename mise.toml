@@ -2,7 +2,8 @@
 _.file = ".env"
 
 [tools]
-just = "latest"
-cocogitto = "latest"
-typos = "latest"
+just = "1.56.0"
+cocogitto = "7.0.0"
+typos = "1.50.2"
 "cargo:sqlx-cli" = "0.8.6"
+"cargo:cargo-edit" = "0.13.13"

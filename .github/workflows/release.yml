@@ -29,11 +29,9 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: extractions/setup-just@v4
-      - uses: cocogitto/cocogitto-action@v3
+      - uses: jdx/mise-action@v4
         with:
-          install-only: true
-      - run: cargo install cargo-edit --locked
+          install_args: cocogitto just cargo:cargo-edit
 
       - name: Get release version
         run: |
