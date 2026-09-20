@@ -1,4 +1,8 @@
 ignore_merge_commits = true
+tag_prefix = "v"
+pre_bump_hooks = [
+  "cargo set-version {{version}}",
+]
 
 [git_hooks.commit-msg]
 path = "hooks/commit-msg.sh"

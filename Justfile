@@ -58,9 +58,12 @@ unit-nextest-watch *args:
 coverage:
   cargo +nightly llvm-cov
 
-# Build release
+# Build
 build *args:
-  cargo build --release {{args}}
+  cargo build {{args}}
+
+build-release *args:
+  cargo build --release --locked {{args}}
 
 # Format + lint
 check *args:

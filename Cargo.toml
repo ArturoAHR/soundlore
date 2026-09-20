@@ -37,6 +37,11 @@ development = ["iced/debug"]
 hot-reload = ["development", "iced/hot"]
 testing = ["dep:iced_test"]
 
+[profile.release]
+strip = true
+lto = "fat"
+codegen-units = 1
+
 [dependencies]
 iced = { version = "0.14.0", features = ["tokio", "advanced"] }
 iced_aw = { version = "0.14.1", default-features = false, features = ["menu", "context_menu", "quad"] }
@@ -61,7 +66,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 tracing-appender = "0.2.5"
 dotenvy = "0.15.7"
 cpal = { version = "0.17.3", features = ["audio_thread_priority"] }
-rtrb = "0.3.4"
+rtrb = "0.4.0"
 rubato = "3.0.0"
 iced_split = "0.1.0"
 iced_palace = "0.14.0"
