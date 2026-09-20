@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      level:
+        description: Version bump
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_SSH_KEY }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: extractions/setup-just@v4
+      - uses: cocogitto/cocogitto-action@v3
+        with:
+          install-only: true
+      - run: cargo install cargo-edit --locked
+
+      - name: Get release version
+        run: |
+          OUTPUT=$(cog bump --${{ inputs.level }} --dry-run)
+
+          if ! printf '%s' "$OUTPUT" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::Nothing to release: $OUTPUT"
+            exit 1
+          fi
+
+          echo "VERSION=$OUTPUT" >> "$GITHUB_ENV"
+
+      - name: Setup GitHub user
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libdbus-1-dev libasound2-dev pkg-config
+
+      - name: Bump version
+        run: |
+          cog bump --${{ inputs.level }} --annotated "Release {{ version }}" --skip-ci
+
+      - name: Build
+        run: just build-release
+
+      - name: Package
+        run: |
+          NAME="soundlore-${VERSION#v}-x86_64-unknown-linux-gnu"
+          mkdir -p "dist/$NAME"
+          cp target/release/soundlore README.md LICENSE "dist/$NAME/"
+          tar -C dist -czf "$NAME.tar.gz" "$NAME"
+          sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256"
+          echo "ARCHIVE=$NAME.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Push version bump changes
+        run: git push --atomic origin main "refs/tags/$VERSION"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cog changelog --at "$VERSION" > changelog.md
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file changelog.md \
+            "$ARCHIVE" \
+            "$ARCHIVE.sha256"
