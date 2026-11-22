@@ -96,10 +96,7 @@ impl QueuePane {
             .map(|(index, &entry)| (entry.id, index))
             .collect();
 
-        let first_queue_entry_id = queue_entries
-            .first()
-            .map(|entry| entry.id)
-            .unwrap_or_default();
+        let first_queue_entry_id = queue_entries.first().map_or_default(|entry| entry.id);
 
         let columns = vec![
             column(
