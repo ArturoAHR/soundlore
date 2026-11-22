@@ -803,6 +803,16 @@ fn should_truncate() {
 }
 
 #[test]
+fn should_truncate_an_empty_queue() {
+    let mut queue = PlaybackQueue::new();
+
+    queue.truncate();
+
+    assert_eq!(queue.current(), None);
+    assert_eq!(queue.entries.len(), 0);
+}
+
+#[test]
 fn should_truncate_without_removing_future_user_queued_entries() {
     let mut queue = generate_queue(
         (0..10).collect(),
@@ -846,6 +856,16 @@ fn should_prune() {
 
     assert_eq!(queue.current(), Some(5));
     assert_eq!(queue.entries.len(), 1);
+}
+
+#[test]
+fn should_prune_an_empty_queue() {
+    let mut queue = PlaybackQueue::new();
+
+    queue.prune();
+
+    assert_eq!(queue.current(), None);
+    assert_eq!(queue.entries.len(), 0);
 }
 
 #[test]

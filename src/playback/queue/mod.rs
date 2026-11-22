@@ -228,7 +228,9 @@ impl PlaybackQueue {
     /// Removes all upcoming system entries from the queue
     pub fn truncate(&mut self) {
         let cursor_position = self.cursor.min(self.entries.len().saturating_add(1));
-        let mut entries_tail = self.entries.split_off(cursor_position + 1);
+        let mut entries_tail = self
+            .entries
+            .split_off((cursor_position + 1).min(self.entries.len()));
 
         entries_tail.retain(|entry| matches!(entry.source, PlaybackQueueEntrySource::User));
 
