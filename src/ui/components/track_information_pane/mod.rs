@@ -24,9 +24,11 @@ pub struct TrackInformationPane {
 }
 
 #[derive(Debug, Clone)]
+#[expect(clippy::empty_enums, reason = "placeholder")]
 pub enum Message {}
 
 #[derive(Debug, Clone)]
+#[expect(clippy::empty_enums, reason = "placeholder")]
 pub enum Outcome {}
 
 impl TrackInformationPane {

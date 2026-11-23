@@ -227,8 +227,10 @@ impl PlaybackQueue {
 
     /// Removes all upcoming system entries from the queue
     pub fn truncate(&mut self) {
-        let cursor_position = self.cursor.min(self.entries.len().saturating_add(1));
-        let mut entries_tail = self.entries.split_off(cursor_position + 1);
+        let cursor_position = self.cursor.min(self.entries.len().saturating_sub(1));
+        let mut entries_tail = self
+            .entries
+            .split_off((cursor_position + 1).min(self.entries.len()));
 
         entries_tail.retain(|entry| matches!(entry.source, PlaybackQueueEntrySource::User));
 
@@ -237,7 +239,7 @@ impl PlaybackQueue {
 
     /// Removes all tracks except the current one and the unplayed entries inserted by the user.
     pub fn prune(&mut self) {
-        let cursor_position = self.cursor.min(self.entries.len());
+        let cursor_position = self.cursor.min(self.entries.len().saturating_sub(1));
         let mut entries_tail = self.entries.split_off(cursor_position);
 
         let entry_id = entries_tail.front().map(|entry| entry.id);

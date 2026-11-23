@@ -18,9 +18,11 @@ pub mod handler;
 pub struct StatusBar {}
 
 #[derive(Debug, Clone)]
+#[expect(clippy::empty_enums, reason = "placeholder")]
 pub enum Message {}
 
 #[derive(Debug, Clone)]
+#[expect(clippy::empty_enums, reason = "placeholder")]
 pub enum Outcome {}
 
 #[derive(Debug)]

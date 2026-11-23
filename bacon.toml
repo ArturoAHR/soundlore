@@ -13,10 +13,12 @@ need_stdout = true
 [jobs.nextest]
 command = ["just", "unit-nextest"]
 need_stdout = true
+analyzer = "nextest"
 
 [jobs.nextest-all]
 command = ["just", "nextest"]
 need_stdout = true
+analyzer = "nextest"
 
 [keybindings]
 shift-t = "job:test-all"

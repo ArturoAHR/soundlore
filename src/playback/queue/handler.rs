@@ -8,6 +8,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+#[expect(clippy::empty_enums, reason = "placeholder")]
 pub enum Message {
     // GenerateTrackPoolShuffleWeights
     // FinishedTrackPoolShuffleWeightGeneration(Result<Vec<?>, PlaybackQueueError>)
